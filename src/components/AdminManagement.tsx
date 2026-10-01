@@ -98,6 +98,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   const [editingProject, setEditingProject] = useState<ProjectItem | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [formValidationNotice, setFormValidationNotice] = useState<string | null>(null);
+  const [projectSaving, setProjectSaving] = useState(false);
 
   // Edit / Add Domain modal state
   const [isDomainModalOpen, setIsDomainModalOpen] = useState<boolean>(false);
@@ -438,10 +439,18 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     setIsAddModalOpen(true);
   };
 
+  const closeProjectModal = () => {
+    if (projectSaving) return;
+    setEditingProject(null);
+    setIsAddModalOpen(false);
+    setFormValidationNotice(null);
+  };
+
   // Submit edit or add project
   const handleSaveModal = withSaveFeedback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.project_title || !formData.leader_id) {
+    if (projectSaving) return;
+    if (!formData.project_title?.trim() || !formData.leader_id?.trim()) {
       setFormValidationNotice('請填寫專題名稱與組長學號！');
       return;
     }
@@ -489,9 +498,15 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       updatedList = [...projects, newProj];
     }
 
-    await onSaveProjects(updatedList);
-    setEditingProject(null);
-    setIsAddModalOpen(false);
+    setProjectSaving(true);
+    try {
+      await onSaveProjects(updatedList);
+      setEditingProject(null);
+      setIsAddModalOpen(false);
+      setFormValidationNotice(null);
+    } finally {
+      setProjectSaving(false);
+    }
   });
 
   const activeModalKey = sharedAction ? 'shared-action' : generatedPassword ? 'shared-password'
@@ -506,7 +521,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     else if (domainToDelete) setDomainToDelete(null);
     else if (pendingImportProjects) setPendingImportProjects(null);
     else if (projectToDelete) setProjectToDelete(null);
-    else { setEditingProject(null); setIsAddModalOpen(false); }
+    else closeProjectModal();
   });
 
   return (
@@ -1616,32 +1631,52 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
       {/* Add or Edit Project Modal */}
       {(isAddModalOpen || editingProject) && (
-        <div role="dialog" aria-modal="true" aria-label={editingProject ? '編輯專題組別資料' : '手動新增專題組別'} className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                {editingProject ? '編輯專題組別資料' : '手動新增專題組別'}
-              </h3>
+        <div role="dialog" aria-modal="true" aria-labelledby="project-modal-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 backdrop-blur-xs sm:p-6">
+          <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-3xl">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4 sm:px-7 sm:py-5">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700" aria-hidden="true">
+                  {editingProject ? <Edit className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+                </span>
+                <div className="min-w-0">
+                  <h3 id="project-modal-title" className="text-lg font-black text-slate-900 sm:text-xl">
+                    {editingProject ? '編輯專題組別資料' : '手動新增專題組別'}
+                  </h3>
+                  <p className="mt-1 break-words text-xs leading-relaxed text-slate-500 sm:text-sm">
+                    {editingProject ? `序號 ${editingProject.seq_no} · ${editingProject.project_title}` : '填寫專題與組長資料，儲存後會加入名冊。'}
+                  </p>
+                </div>
+              </div>
               <button
-                onClick={() => {
-                  setEditingProject(null);
-                  setIsAddModalOpen(false);
-                }}
+                type="button"
+                onClick={closeProjectModal}
+                disabled={projectSaving}
                 aria-label="關閉專題編輯"
-                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 disabled:opacity-50 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {formValidationNotice && (
-              <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <div role="alert" className="mx-5 mt-4 flex shrink-0 items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 sm:mx-7">
                 <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
                 <span>{formValidationNotice}</span>
               </div>
             )}
 
-            <form onSubmit={handleSaveModal} className="space-y-4 text-xs sm:text-sm">
+            <form onSubmit={handleSaveModal} onChange={() => { if (formValidationNotice) setFormValidationNotice(null); }} className="flex min-h-0 flex-1 flex-col text-sm">
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:space-y-6 sm:px-7 sm:py-6">
+              <section aria-labelledby="project-main-fields" className="space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <h4 id="project-main-fields" className="text-sm font-black text-slate-900 sm:text-base">專題與組長</h4>
+                  {editingProject && (
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${editingProject.password_set ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                      {sharedPasswordEnabled ? '使用共用密碼' : editingProject.password_set ? '登入密碼已設定' : '尚未設定登入密碼'}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500">先確認專題名稱與組長登入資訊。</p>
               <div>
                 <label htmlFor="project-title" className="block text-slate-700 mb-1 font-semibold">專題名稱 *</label>
                 <input
@@ -1651,7 +1686,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   value={formData.project_title || ''}
                   onChange={(e) => setFormData({ ...formData, project_title: e.target.value })}
                   placeholder="例如：基於生成式AI之智慧排程平台"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
 
@@ -1665,28 +1700,36 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     value={formData.leader_id || ''}
                     onChange={(e) => setFormData({ ...formData, leader_id: e.target.value })}
                     placeholder="例如：110214101"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
+                    className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
                 <div>
-                  <label htmlFor="project-password" className="block text-slate-700 mb-1 font-semibold flex items-center justify-between">
-                    <span>設定／重設組長密碼</span>
-                    <span className="text-[10px] text-slate-400 font-normal">{sharedPasswordEnabled ? '共用密碼模式中無法個別設定' : '留空保留現有密碼'}</span>
-                  </label>
+                  <label htmlFor="project-password" className="mb-1 block font-semibold text-slate-700">設定／重設組長密碼</label>
                   <input
                     id="project-password"
                     type="password"
                     disabled={sharedPasswordEnabled}
+                    aria-describedby="project-password-help"
                     value={formData.password || ''}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="輸入至少 12 字元的新密碼"
                     autoComplete="new-password"
                     minLength={12}
                     maxLength={128}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
+                    className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                   />
+                  <p id="project-password-help" className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                    {sharedPasswordEnabled ? '目前使用全體共用密碼，無法單獨設定。' : editingProject ? '留空會保留目前密碼；輸入新密碼則會重設。' : '可先留空，之後再設定個別密碼。'}
+                  </p>
                 </div>
               </div>
+
+              </section>
+              <section aria-labelledby="project-roster-fields" className="space-y-4 border-t border-slate-200 pt-5">
+                <div>
+                  <h4 id="project-roster-fields" className="text-sm font-black text-slate-900 sm:text-base">領域與名冊資料</h4>
+                  <p className="mt-1 text-xs text-slate-500">這些欄位會用於名冊管理與抽籤分組。</p>
+                </div>
 
               <div>
                 <label htmlFor="project-field" className="block text-slate-700 mb-1 font-semibold">領域 *</label>
@@ -1694,7 +1737,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   id="project-field"
                   value={formData.field || domainList[0]}
                   onChange={(e) => setFormData({ ...formData, field: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 >
                   {domainList.map((f) => (
                     <option key={f} value={f}>{f}</option>
@@ -1702,7 +1745,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor="project-original-code" className="block text-slate-700 mb-1 font-semibold">專題編號</label>
                   <input
@@ -1711,7 +1754,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     value={formData.original_code || ''}
                     onChange={(e) => setFormData({ ...formData, original_code: e.target.value })}
                     placeholder="例如：AI-01"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-mono"
+                    className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
                 <div>
@@ -1722,12 +1765,12 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     value={formData.advisor || ''}
                     onChange={(e) => setFormData({ ...formData, advisor: e.target.value })}
                     placeholder="例如：王教授"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900"
+                    className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
                   <label htmlFor="project-education-system" className="block text-slate-700 mb-1 font-semibold">學制</label>
                   <input
@@ -1735,7 +1778,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     type="text"
                     value={formData.education_system || ''}
                     onChange={(e) => setFormData({ ...formData, education_system: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900"
+                    className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
                 <div>
@@ -1745,7 +1788,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     type="text"
                     value={formData.department || ''}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900"
+                    className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
                 <div>
@@ -1755,10 +1798,17 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     type="text"
                     value={formData.class_name || ''}
                     onChange={(e) => setFormData({ ...formData, class_name: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900"
+                    className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
               </div>
+
+              </section>
+              <section aria-labelledby="project-draw-fields" className="space-y-3 border-t border-slate-200 pt-5">
+                <div>
+                  <h4 id="project-draw-fields" className="text-sm font-black text-slate-900 sm:text-base">抽籤資料</h4>
+                  <p className="mt-1 text-xs text-slate-500">尚未抽籤的專題可保持空白。</p>
+                </div>
 
               <div>
                 <label htmlFor="project-draw-code" className="block text-slate-700 mb-1 font-semibold">+編號(抽籤後)</label>
@@ -1768,27 +1818,31 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   value={formData.draw_code || ''}
                   onChange={(e) => setFormData({ ...formData, draw_code: e.target.value })}
                   placeholder="留空代表未抽籤，或填寫例如：企業智慧-第1組-序號01"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-mono"
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
+              </section>
+              </div>
 
-              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+              <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+                <span className="hidden text-xs text-slate-500 sm:block">儲存後立即更新專題名冊</span>
+                <div className="flex gap-2 sm:justify-end">
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditingProject(null);
-                    setIsAddModalOpen(false);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium cursor-pointer"
+                  onClick={closeProjectModal}
+                  disabled={projectSaving}
+                  className="min-h-11 flex-1 rounded-xl bg-slate-100 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-50 sm:flex-none cursor-pointer"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm cursor-pointer"
+                  disabled={projectSaving}
+                  className="min-h-11 flex-1 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none cursor-pointer"
                 >
-                  儲存
+                  {projectSaving ? '儲存中…' : editingProject ? '儲存變更' : '新增專題'}
                 </button>
+                </div>
               </div>
             </form>
           </div>
