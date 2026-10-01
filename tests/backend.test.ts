@@ -21,6 +21,14 @@ const project: ProjectItem = {
 };
 const domains = [{ id: 'd1', field: '測試領域', groupCount: 2, evaluatorsPerGroup: { 1: ['李教授'], 2: ['陳教授'] } }];
 
+function assertStageWhitelist(data: any) {
+  assert.deepEqual(Object.keys(data.projects[0]).sort(), ['assigned_group', 'draw_code', 'draw_order', 'field', 'id', 'project_title']);
+  assert.deepEqual(Object.keys(data.domainConfigs[0]).sort(), ['field', 'groupCount', 'id']);
+  assert.equal(data.projects[0].leader_id, undefined);
+  assert.equal(data.projects[0].advisor, undefined);
+  assert.equal(data.domainConfigs[0].evaluatorsPerGroup, undefined);
+}
+
 test('input validation rejects malformed rosters and domain settings', () => {
   validateProjects([project]); validateDomains(domains);
   assert.throws(() => validateProjects([project, project]));
@@ -173,6 +181,13 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const second = { ...project, id: 'p2', leader_id: '87654321', original_code: 'P2', project_title: '另一位學生的私人專題', password: 'Another-password-456' };
     saved = await request('/api/projects', { projects: [saved.data.projects[0], second], version: saved.data.version }, admin);
     assert.equal(saved.status, 200); assert.equal(state.projects[0].password_hash, firstHash);
+    assert.equal((await request('/api/projects', undefined, stage)).status, 403);
+    assert.equal((await request('/api/domain-configs', undefined, stage)).status, 403);
+    const stageState = await request('/api/state', undefined, stage);
+    assert.equal(stageState.status, 200);
+    assertStageWhitelist(stageState.data);
+    assert.equal(stageState.data.projects[0].project_title, project.project_title);
+    assert.equal((await request('/api/state', undefined, admin)).data.projects[0].leader_id, project.leader_id);
     for (const endpoint of ['/api/state', '/api/projects', '/api/domain-configs', '/api/student/me']) assert.equal((await request(endpoint)).status, 401);
     assert.deepEqual((await request('/api/public-results')).data.results, []);
     assert.equal((await request('/api/projects', { projects: [{ ...project, password: '5678' }], version: saved.data.version }, admin)).status, 400);
@@ -209,13 +224,14 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal((await request('/api/student/me', undefined, undefined, studentCookie.replace(/.$/, 'x'))).status, 401);
     assert.equal((await request('/api/projects', { projects: [], version: 0 }, admin)).status, 409);
     const draw = await request('/api/lottery/draw', { field: 'ALL', version: saved.data.version }, stage);
+    assertStageWhitelist(draw.data);
     // A second device holding the pre-draw roster cannot overwrite draw results.
     const staleRoster = await request('/api/projects', { projects: saved.data.projects, version: saved.data.version }, admin);
     assert.equal(staleRoster.status, 409);
     assert.equal(state.version, draw.data.version);
     assert.ok(state.projects.every(p => p.draw_order));
     assert.equal(draw.status, 200); assert.ok(draw.data.projects[0].assigned_group); assert.ok(draw.data.projects[0].draw_order);
-    assert.ok(draw.data.projects[0].evaluators.length); assert.equal(draw.data.projects[0].password, undefined);
+    assert.ok(state.projects[0].evaluators?.length); assert.equal(draw.data.projects[0].evaluators, undefined);
     assert.equal(state.projects[0].password, undefined);
     const publicDraw = (await request('/api/public-results')).data.results[0];
     assert.deepEqual(Object.keys(publicDraw).sort(), ['assigned_group', 'draw_code', 'draw_order', 'field', 'original_code']);
@@ -226,7 +242,8 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const reviewers = await request('/api/domain-configs', { domainConfigs: [{ ...domains[0], evaluatorsPerGroup: { 1: ['新評審'], 2: ['新評審'] } }], version: draw.data.version }, admin);
     assert.equal(reviewers.status, 200); assert.deepEqual(reviewers.data.projects[0].evaluators, ['新評審']);
     const reset = await request('/api/lottery/reset', { field: 'ALL', version: reviewers.data.version }, stage);
-    assert.equal(reset.status, 200); assert.equal(reset.data.projects[0].assigned_group, null); assert.deepEqual(reset.data.projects[0].evaluators, []);
+    assertStageWhitelist(reset.data);
+    assert.equal(reset.status, 200); assert.equal(reset.data.projects[0].assigned_group, null); assert.deepEqual(state.projects[0].evaluators, []);
     const renamed = await request('/api/domain-configs', { domainConfigs: [{ ...domains[0], field: '更名領域' }], renamedField: { oldName: '測試領域', newName: '更名領域' }, version: reset.data.version }, admin);
     assert.equal(renamed.status, 200); assert.equal(renamed.data.projects[0].field, '更名領域');
     if (cloudflareTest) for (let n = 0; n < 3; n++) {

@@ -2,7 +2,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { createStore, ApiError, validateProjects, validateDomains, type DatabaseState } from './store';
-import { projectDto, studentProjectDto, publicStudentProjectDto, prepareProjects, verifyPassword, hashPassword, sharedPasswordHash } from './credentials';
+import { projectDto, stageProjectDto, studentProjectDto, publicStudentProjectDto, prepareProjects, verifyPassword, hashPassword, sharedPasswordHash } from './credentials';
 import { createStudentSession, getStudentProject, clearStudentSession } from './studentSessions';
 import { createStaffSession, getStaffSession, clearStaffSession } from './staffSessions';
 import { loginLimiter } from './rateLimit';
@@ -37,18 +37,25 @@ app.use('/api', (req, res, next) => {
 const route = (handler: (req: Request, res: Response) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => { Promise.resolve(handler(req, res)).catch(next); };
 
-async function getRole(req: Request, required = false): Promise<'admin' | 'stage' | null> {
-  return (await getStaffSession(req, required))?.profile.role || null;
-}
 async function authorize(req: Request, adminOnly = false) {
-  const role = await getRole(req, true);
+  const role = (await getStaffSession(req))!.profile.role;
   if (adminOnly && role !== 'admin') throw new ApiError(403, '此操作僅限管理員。');
   return role;
 }
-function staffState(state: DatabaseState, role: string | null) {
-  return { ...state, success: true, sharedPasswordEnabled: !!sharedPasswordHash(state.projects), projects: state.projects.map(p => ({
-    ...projectDto(p), ...(role === 'admin' ? { password_set: !!p.password_hash && !p.password } : {}),
-  })) };
+function staffState(state: DatabaseState, role: 'admin' | 'stage') {
+  const base = {
+    success: true, version: state.version, lastUpdated: state.lastUpdated,
+    sharedPasswordEnabled: !!sharedPasswordHash(state.projects),
+  };
+  if (role === 'stage') return {
+    ...base,
+    domainConfigs: state.domainConfigs.map(c => ({ id: c.id, field: c.field, groupCount: c.groupCount })),
+    projects: state.projects.map(stageProjectDto),
+  };
+  return {
+    ...base, domainConfigs: state.domainConfigs,
+    projects: state.projects.map(p => ({ ...projectDto(p), password_set: !!p.password_hash && !p.password })),
+  };
 }
 function checkVersion(req: Request, state: DatabaseState) {
   if (!Number.isInteger(req.body.version)) throw new ApiError(400, '缺少資料版本，請重新整理。');
@@ -119,11 +126,11 @@ app.get('/api/state', route(async (req, res) => {
   res.json(staffState(await createStore().load(), role));
 }));
 app.get('/api/projects', route(async (req, res) => {
-  const role = await authorize(req);
-  res.json(staffState(await createStore().load(), role));
+  await authorize(req, true);
+  res.json(staffState(await createStore().load(), 'admin'));
 }));
 app.get('/api/domain-configs', route(async (req, res) => {
-  await authorize(req);
+  await authorize(req, true);
   const state = await createStore().load();
   res.json({ success: true, domainConfigs: state.domainConfigs, version: state.version });
 }));

@@ -39,6 +39,15 @@ export function projectDto(p: ProjectItem): ProjectItem {
   };
 }
 
+// The stage needs only the presentation order and title, never the student roster.
+export function stageProjectDto(p: ProjectItem) {
+  return {
+    id: p.id, field: p.field, project_title: p.project_title,
+    assigned_group: p.assigned_group ?? null, draw_order: p.draw_order ?? null,
+    draw_code: p.draw_code ?? null,
+  };
+}
+
 export function studentProjectDto(p: ProjectItem): ProjectItem {
   return {
     ...projectDto(p),
