@@ -107,9 +107,6 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   const [domainForEvaluators, setDomainForEvaluators] = useState<DomainConfig | null>(null);
   const [evaluatorDrafts, setEvaluatorDrafts] = useState<Record<number, string>>({});
 
-  // Direct group count input drafts per domain
-  const [groupCountInputs, setGroupCountInputs] = useState<Record<string, string>>({});
-
   const draftOpen = !!(pendingImportProjects || projectToDelete || editingProject || isAddModalOpen || isDomainModalOpen || domainToDelete || isEvaluatorModalOpen);
   const draftIsStale = draftOpen && draftVersionRef.current !== dataVersion;
   const beginDraft = () => { draftVersionRef.current = dataVersion; };
@@ -235,8 +232,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       setDomainFormError('請輸入領域名稱！');
       return;
     }
-    if (domainFormGroupCount < 1) {
-      setDomainFormError('分組組數至少須為 1 組！');
+    if (!Number.isInteger(domainFormGroupCount) || domainFormGroupCount < 1 || domainFormGroupCount > 50) {
+      setDomainFormError('分組組數須為 1 至 50 組的整數！');
       return;
     }
 
@@ -295,35 +292,6 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     }
 
     setIsDomainModalOpen(false);
-  });
-
-  // Direct set group count from numeric input
-  const handleDirectSetGroupCount = withSaveFeedback(async (id: string, newCount: number) => {
-    const clamped = Math.max(1, Math.min(50, Math.floor(newCount) || 1));
-    const updated = domainConfigs.map((c) => {
-      if (c.id === id) {
-        return { ...c, groupCount: clamped };
-      }
-      return c;
-    });
-    await onUpdateDomainConfigs(updated);
-  });
-
-  // Quick adjust group count directly (+ / -)
-  const handleQuickAdjustGroupCount = withSaveFeedback(async (id: string, delta: number) => {
-    const updated = domainConfigs.map((c) => {
-      if (c.id === id) {
-        const next = Math.max(1, Math.min(50, c.groupCount + delta));
-        return { ...c, groupCount: next };
-      }
-      return c;
-    });
-    setGroupCountInputs((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-    await onUpdateDomainConfigs(updated);
   });
 
   // Delete Domain
@@ -672,7 +640,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     : 'bg-white border-slate-200 shadow-2xs'
                 }`}
               >
-                {/* Header: Title & Group Count Direct Input */}
+                {/* Header: Title & Group Count */}
                 <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-100">
                   <div className="min-w-0 flex-1">
                     <h3 className="text-sm font-bold text-slate-900 truncate">
@@ -687,62 +655,12 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     </div>
                   </div>
 
-                  {/* Group Count Direct Controller on Mobile */}
+                  {/* Group count is changed in the edit dialog. */}
                   <div className="shrink-0 flex flex-col items-end gap-1">
                     <span className="text-[10px] text-slate-400 font-medium">分組組數</span>
-                    <div className="inline-flex items-center gap-1 bg-slate-50 px-1 py-0.5 rounded-xl border border-slate-200">
-                      <button
-                        type="button"
-                        onClick={() => handleQuickAdjustGroupCount(stat.id, -1)}
-                        disabled={stat.groupCount <= 1}
-                        title="減少 1 組"
-                        className="w-6 h-6 rounded-lg bg-white hover:bg-slate-200 active:bg-slate-300 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700 font-bold text-xs flex items-center justify-center cursor-pointer shadow-2xs"
-                      >
-                        -
-                      </button>
-                      <input
-                        type="number"
-                        aria-label={`${stat.field}分組組數`}
-                        min={1}
-                        max={50}
-                        value={groupCountInputs[stat.id] !== undefined ? groupCountInputs[stat.id] : stat.groupCount}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setGroupCountInputs((prev) => ({ ...prev, [stat.id]: val }));
-                          const num = parseInt(val, 10);
-                          if (!isNaN(num) && num >= 1 && num <= 50) {
-                            handleDirectSetGroupCount(stat.id, num);
-                          }
-                        }}
-                        onBlur={(e) => {
-                          const num = parseInt(e.target.value, 10);
-                          if (isNaN(num) || num < 1) {
-                            handleDirectSetGroupCount(stat.id, 1);
-                            setGroupCountInputs((prev) => ({ ...prev, [stat.id]: '1' }));
-                          } else if (num > 50) {
-                            handleDirectSetGroupCount(stat.id, 50);
-                            setGroupCountInputs((prev) => ({ ...prev, [stat.id]: '50' }));
-                          } else {
-                            setGroupCountInputs((prev) => {
-                              const next = { ...prev };
-                              delete next[stat.id];
-                              return next;
-                            });
-                          }
-                        }}
-                        className="w-8 text-center font-mono font-bold text-xs text-blue-700 bg-transparent focus:outline-hidden"
-                        title="直接輸入組數"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleQuickAdjustGroupCount(stat.id, 1)}
-                        title="增加 1 組"
-                        className="w-6 h-6 rounded-lg bg-white hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-bold text-xs flex items-center justify-center cursor-pointer shadow-2xs"
-                      >
-                        +
-                      </button>
-                      <span className="text-[10px] text-slate-400 pr-1">組</span>
-                    </div>
+                    <span className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800" aria-label={`${stat.field}分組組數 ${stat.groupCount} 組`}>
+                      {stat.groupCount} 組
+                    </span>
                   </div>
                 </div>
 
@@ -786,7 +704,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   <button
                     onClick={() => handleOpenEditDomain(cfgObj)}
                     className="py-1.5 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium flex items-center justify-center gap-1 border border-slate-200 cursor-pointer transition-colors"
-                    title="修改名稱"
+                    title="編輯領域名稱與分組組數"
                   >
                     <Edit className="w-3.5 h-3.5" />
                     <span>編輯</span>
@@ -845,59 +763,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                       {stat.count}
                     </td>
                     <td className="py-2 px-4 text-center border border-slate-200">
-                      <div className="inline-flex items-center gap-1 bg-white px-1.5 py-1 rounded-xl border border-slate-200 shadow-2xs hover:border-blue-400 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
-                        <button
-                          type="button"
-                          onClick={() => handleQuickAdjustGroupCount(stat.id, -1)}
-                          disabled={stat.groupCount <= 1}
-                          title="減少 1 組"
-                          className="w-5 h-5 rounded-md bg-slate-100 hover:bg-slate-200 active:bg-slate-300 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700 font-bold text-xs flex items-center justify-center cursor-pointer transition-colors"
-                        >
-                          -
-                        </button>
-                        <input
-                          type="number"
-                          aria-label={`${stat.field}分組組數`}
-                          min={1}
-                          max={50}
-                          value={groupCountInputs[stat.id] !== undefined ? groupCountInputs[stat.id] : stat.groupCount}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setGroupCountInputs((prev) => ({ ...prev, [stat.id]: val }));
-                            const num = parseInt(val, 10);
-                            if (!isNaN(num) && num >= 1 && num <= 50) {
-                              handleDirectSetGroupCount(stat.id, num);
-                            }
-                          }}
-                          onBlur={(e) => {
-                            const num = parseInt(e.target.value, 10);
-                            if (isNaN(num) || num < 1) {
-                              handleDirectSetGroupCount(stat.id, 1);
-                              setGroupCountInputs((prev) => ({ ...prev, [stat.id]: '1' }));
-                            } else if (num > 50) {
-                              handleDirectSetGroupCount(stat.id, 50);
-                              setGroupCountInputs((prev) => ({ ...prev, [stat.id]: '50' }));
-                            } else {
-                              setGroupCountInputs((prev) => {
-                                const next = { ...prev };
-                                delete next[stat.id];
-                                return next;
-                              });
-                            }
-                          }}
-                          className="w-10 text-center font-mono font-bold text-xs sm:text-sm text-blue-700 bg-transparent focus:outline-hidden [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-text"
-                          title="可直接輸入或點選調整組數"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleQuickAdjustGroupCount(stat.id, 1)}
-                          title="增加 1 組"
-                          className="w-5 h-5 rounded-md bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-bold text-xs flex items-center justify-center cursor-pointer transition-colors"
-                        >
-                          +
-                        </button>
-                        <span className="text-[11px] text-slate-400 select-none pr-0.5">組</span>
-                      </div>
+                      <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 font-bold text-slate-800" aria-label={`${stat.field}分組組數 ${stat.groupCount} 組`}>
+                        {stat.groupCount} 組
+                      </span>
                     </td>
                     <td className="py-2 px-4 border border-slate-200 max-w-xs">
                       <div className="space-y-1 text-[11px]">
@@ -1561,7 +1429,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     required
                     value={domainFormGroupCount}
                     onChange={(e) => {
-                      setDomainFormGroupCount(parseInt(e.target.value, 10) || 1);
+                      setDomainFormGroupCount(Number(e.target.value));
                       setDomainFormError(null);
                     }}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
