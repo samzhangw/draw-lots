@@ -60,13 +60,13 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   const stageContainerRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef<HTMLElement>(null);
 
-  // Get current active domain config
-  const currentDomainConfig = domainConfigs.find((c) => c.field === selectedField);
-
   // Filter projects based on selected field
   const currentPool = selectedField === 'ALL'
     ? projects
     : projects.filter((p) => p.field === selectedField);
+  const visibleDomainConfigs = domainConfigs.filter((cfg) =>
+    (selectedField === 'ALL' || cfg.field === selectedField) && currentPool.some((p) => p.field === cfg.field)
+  );
 
   const undrawnPool = currentPool.filter((p) => !p.draw_order);
   const drawnPool = currentPool
@@ -376,38 +376,62 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
             /* ========================================================
              * Idle / Ready to Draw Screen
              * ======================================================== */
-            <div className="space-y-4 max-w-xl mx-auto">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-3xl bg-blue-50 border border-blue-100 flex items-center justify-center mx-auto text-blue-600 shadow-sm">
-                <Zap className="w-7 h-7 sm:w-8 sm:h-8" />
-              </div>
-
-              <div className="space-y-1.5">
-                <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
-                  {currentPool.length === 0 ? '此範圍尚無專題' : undrawnPool.length === 0 ? '此範圍已完成抽籤' : '準備開始抽籤'}
-                </h2>
-                <p className="text-slate-500 text-xs sm:text-sm leading-relaxed">
-                  {currentPool.length === 0
-                    ? '請先在管理後台匯入專題資料，完成後即可在此進行抽籤。'
-                    : undrawnPool.length === 0
-                    ? '場次與報告順位已排定，請查看下方結果看板。'
-                    : selectedField === 'ALL'
-                    ? `全校共 ${domainConfigs.length} 個領域、${projects.length} 件專題。系統將依各領域之「組數」獨立分組排定報告順序。`
-                    : `「${selectedField}」領域尚有 ${undrawnPool.length} 組尚未抽籤，將劃分 ${currentDomainConfig?.groupCount || 2} 組獨立排定。`}
-                </p>
-              </div>
-
-              {/* Domains to be drawn preview */}
-              <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
-                {(selectedField === 'ALL' ? domainConfigs : domainConfigs.filter((c) => c.field === selectedField)).map((c) => (
-                  <span
-                    key={c.id}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium bg-slate-100 text-slate-700 px-2.5 py-1 rounded-xl border border-slate-200"
-                  >
-                    <span>{c.field}</span>
-                    <span className="text-slate-400 font-mono">({c.groupCount}組)</span>
+            <div className="w-full max-w-6xl mx-auto text-left">
+              <div className="flex flex-col gap-5 rounded-3xl border border-blue-100 bg-gradient-to-r from-blue-50 via-white to-slate-50 p-5 sm:p-7 lg:flex-row lg:items-center lg:justify-between lg:p-8">
+                <div className="flex items-start gap-4 sm:gap-5">
+                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-700 text-white shadow-md shadow-blue-200 sm:h-16 sm:w-16" aria-hidden="true">
+                    <Zap className="h-8 w-8 sm:h-9 sm:w-9" />
                   </span>
-                ))}
+                  <div>
+                    <p className="text-sm font-bold text-blue-800 sm:text-base">專題報告抽籤</p>
+                    <h2 className="mt-1 text-2xl font-black leading-tight tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">
+                      {currentPool.length === 0 ? '此範圍尚無專題' : undrawnPool.length === 0 ? '此範圍已完成抽籤' : '準備開始抽籤'}
+                    </h2>
+                    <p className="mt-3 max-w-2xl text-sm font-medium leading-relaxed text-slate-600 sm:text-base">
+                      {currentPool.length === 0
+                        ? '請先在管理後台匯入專題資料，完成後即可在此進行抽籤。'
+                        : undrawnPool.length === 0
+                        ? '場次與報告順位已排定，請查看下方結果看板。'
+                        : '各領域依設定組數獨立分組，並排定各組的報告順序。'}
+                    </p>
+                  </div>
+                </div>
+                {currentPool.length > 0 && (
+                  <div className="grid shrink-0 grid-cols-2 gap-4 rounded-2xl border border-blue-200 bg-white/90 px-5 py-3 shadow-sm lg:px-6 lg:py-4">
+                    <div>
+                      <span className="block text-xs font-bold text-blue-700 sm:text-sm">抽籤領域</span>
+                      <span className="mt-1 block text-3xl font-black tabular-nums text-slate-950 sm:text-4xl">{visibleDomainConfigs.length}<span className="ml-1 text-base font-semibold text-slate-600">個</span></span>
+                    </div>
+                    <div>
+                      <span className="block text-xs font-bold text-blue-700 sm:text-sm">專題總數</span>
+                      <span className="mt-1 block text-3xl font-black tabular-nums text-slate-950 sm:text-4xl">{currentPool.length}<span className="ml-1 text-base font-semibold text-slate-600">件</span></span>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {currentPool.length > 0 && (
+                <div className="mt-6">
+                  <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+                    <h3 className="text-lg font-black text-slate-900 sm:text-2xl">{undrawnPool.length === 0 ? '各領域分組設定' : '本次抽籤領域'}</h3>
+                    <span className="text-xs font-semibold text-slate-500 sm:text-sm">各領域獨立排定報告順序</span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-4">
+                    {visibleDomainConfigs.map((c, index) => (
+                      <article key={c.id} className="flex min-w-0 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                        <div>
+                          <span className="text-xs font-bold tabular-nums text-blue-700">領域 {String(index + 1).padStart(2, '0')}</span>
+                          <h4 className="mt-2 text-base font-black leading-snug break-words text-slate-900 sm:text-lg">{c.field}</h4>
+                        </div>
+                        <div className="mt-5 flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
+                          <span className="text-sm font-semibold text-slate-600">{projects.filter((p) => p.field === c.field).length} 件專題</span>
+                          <span className="whitespace-nowrap rounded-xl bg-blue-50 px-3 py-1.5 text-xl font-black tabular-nums text-blue-900">{c.groupCount}<span className="ml-1 text-sm font-semibold">組</span></span>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
