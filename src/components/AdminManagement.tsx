@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { ProjectItem, DomainStats, DomainConfig } from '../types';
-import { parseExcelFile, preserveImportedProjectIds, exportToExcel, downloadInputTemplate, REQUIRED_INPUT_HEADERS, REQUIRED_OUTPUT_HEADERS } from '../lib/excel';
+import { parseExcelFile, preserveImportedProjectIds, exportToExcel, downloadInputTemplate } from '../lib/excel';
 import { isAdvisorConflict, normalizeProfessorName } from '../lib/lottery';
 import { useModalFocus } from '../lib/useModalFocus';
 import { FloatingNotice } from './FloatingNotice';
@@ -885,37 +885,6 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </tr>
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* Excel Schema Badges */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-5 text-xs text-slate-600 grid grid-cols-1 md:grid-cols-2 gap-4 shadow-sm">
-        <div className="space-y-1.5">
-          <div className="font-bold text-slate-800 flex items-center gap-1.5">
-            <Info className="w-3.5 h-3.5 text-blue-600" />
-            <span>■ 輸入 Excel 欄位：</span>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {REQUIRED_INPUT_HEADERS.map((h) => (
-              <span key={h} className="bg-slate-100 px-2 py-0.5 rounded text-slate-700 font-mono border border-slate-200">
-                {h}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="font-bold text-slate-800 flex items-center gap-1.5">
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span>■ 輸出 Excel 欄位：</span>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {REQUIRED_OUTPUT_HEADERS.map((h) => (
-              <span key={h} className={`px-2 py-0.5 rounded font-mono ${h.includes('+') ? 'bg-emerald-50 text-emerald-700 font-bold border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
-                {h}
-              </span>
-            ))}
-          </div>
         </div>
       </div>
 
