@@ -1,0 +1,79 @@
+# 國立臺中科技大學專題展報告抽籤系統
+
+React + Vite 前端，Express API 統一使用 Supabase Database 與 Supabase Auth。
+
+## 啟動
+
+1. 安裝 Node.js 22.12 以上版本與相依套件：`npm install`（或 `pnpm install`）。
+2. 在 Supabase 專案的 SQL Editor 依序執行 [初始資料庫 migration](supabase/migrations/202610010001_lottery_state.sql)、[學生資安 migration](supabase/migrations/202610010002_student_security.sql) 、[工作人員 session migration](supabase/migrations/202610010003_staff_sessions_and_preferences.sql) 與 [移除音效偏好資料表 migration](supabase/migrations/202610010004_remove_staff_preferences.sql)。已有資料庫請依序執行尚未套用的 migration；第二份會移除所有舊明文學生密碼，之後須重新設定。
+3. 複製 `.env.example` 為 `.env.local`，填入：
+
+   ```dotenv
+   SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+   SUPABASE_SECRET_KEY=sb_secret_...
+   SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+   PORT=3000
+   ```
+
+   亦支援舊版 `SUPABASE_SERVICE_ROLE_KEY`、`SUPABASE_ANON_KEY`。Secret / service role key 僅供伺服器使用，不能使用 `VITE_` 前綴，也不要提交至版本控制。[Supabase 官方金鑰說明](https://supabase.com/docs/guides/getting-started/api-keys)
+
+4. 在 Supabase Authentication → Users 建立並確認管理員與抽籤人員的 Email 帳號。將下列 SQL 的 Email 改為實際帳號後執行；權限存於 `app_metadata`，使用者不能自行更改：
+
+   ```sql
+   update auth.users
+   set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"admin"}'::jsonb
+   where email = 'admin@example.edu.tw';
+
+   update auth.users
+   set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"stage"}'::jsonb
+   where email = 'stage@example.edu.tw';
+   ```
+
+5. 執行 `npm run dev`，開啟 `http://localhost:3000`。管理員使用 `/admin`，抽籤人員使用 `/stage`。登入使用上述 Email 與密碼，舊示範帳密已移除。
+
+## 資料與權限
+
+- `ntcust_lottery_state` 的單一資料列以 JSONB 儲存完整名冊、領域與評審設定，保留 `assigned_group`、`evaluators` 等所有欄位。整份名冊取代時，刪除與清空也會同步生效。
+- 每次修改以 `version` 比對更新，名冊與設定在同一個資料庫操作提交。其他裝置已更新時回傳 HTTP 409，請重新載入後再操作。
+- RLS 與資料表權限禁止瀏覽器直接存取，由 API 查驗後端 session 與 Supabase Auth 身分後讀寫。`admin` 可修改名冊與設定；`stage` 可抽籤及重設。
+- 完整名冊與領域設定 API 僅限已登入的 admin / stage。匿名 `/api/public-results` 僅回傳領域、公開專題編號、分組及順位，移除學號、班級、專題名稱與評審等資料。
+- 學生頁不預先下載名冊。登入後透過 HttpOnly、SameSite=Strict cookie 查詢 `/api/student/me`，後端 session 綁定唯一專題 ID，不接受前端選擇其他專題。正式環境 cookie 設為 Secure，必須使用 HTTPS。
+- 學生密碼使用 scrypt（N=32768、r=8、p=3）及每筆隨機 salt 保存雜湊；API 不回傳密碼或雜湊，管理員只能設定／重設密碼與查看設定狀態。新密碼須為 12 至 128 字元，不可使用學號。留空不建立預設密碼：既有帳號保留其雜湊，新帳號須由管理員設定密碼後才能登入；變更學號時也需重新設定密碼。
+- **所有舊明文密碼視為已暴露並停用**，即使未執行第二份 migration，後端也不再接受它們。執行 migration 後，管理員在專題編輯畫面重新設定並私下提供新密碼。歷史 JSON／Excel 備份仍需由管理員妥善控管，不要提交至版本控制。
+- 學生 session 期限為一小時，資料庫僅保存 token 的 SHA-256；重設密碼或刪除專題會使相關 session 無效。學生登出會刪除後端 session，移除 cookie。可用 privileged 排程定期清除 `ntcust_student_sessions` 的過期資料列。
+- 登入有每帳號 10 次／15 分鐘、每 IP 100 次／15 分鐘的應用層限制，跨站 JSON 操作會被拒絕。限流目前為每個 Node 行程獨立；多副本部署需另加共享限流。
+- Excel 套件固定使用官方來源 `xlsx@0.20.3`，鎖定檔保存完整性；匯入上限 5 MB／2000 筆。密碼欄位可留空，後續於後台設定；有填密碼時須符合新規則，匯出結果不包含憑證。
+- 管理員／展演人員的登入 session 與 Supabase access token 存在 `ntcust_staff_sessions`，不再回傳 token 或寫入 localStorage／sessionStorage。瀏覽器只持有 HttpOnly 隨機 cookie；每次操作均查驗後端 session、到期時間與 Supabase 身分。登出刪除 session，舊 cookie 立即失效。勾選「記住我」只決定 cookie 是否保留至 token 到期，不延長登入期限。
+- 音效開關只保留在前端記憶體，重新整理後恢復預設開啟，不呼叫後端 API。未提交表單、搜尋／篩選、彈窗、載入狀態與動畫亦留在前端。第四份 migration 會移除第三份曾建立的音效偏好資料表；保留既有 migration 以支援已部署的資料庫。
+- 所有正式業務資料、學生與工作人員 session均由 Supabase 保存；前端記憶體僅供畫面顯示。後端重啟不會遺失已提交資料，沒有本機資料庫備援。可定期清除 session 表的過期資料列。
+- 資料連線或儲存失敗會顯示錯誤，不會改用本機 JSON、localStorage 或前端計算抽籤結果。學生按「重新整理」取得最新資料。
+- 初始名冊為空，可由管理員匯入 Excel。未設定連線資訊時 API 回傳 503，不會自動建立示範資料。
+
+## 舊資料移轉
+
+保留原始 `data/server-db.json` 作為備份。完成建表與環境設定後，在尚未操作過的空白 Supabase 資料庫執行：
+
+```sh
+npm run migrate:local
+# 或指定其他備份檔
+npm run migrate:local -- /absolute/path/server-db.json
+```
+
+移轉工具會保留專題與領域設定、移除舊明文密碼，並拒絕覆蓋已使用的資料庫。舊瀏覽器 localStorage 快取不會自動上傳。
+
+## 驗證與部署
+
+```sh
+npm run lint
+npm run test
+npm run build
+NODE_ENV=production npm start
+```
+
+部署需要可執行 Node.js 的服務，並設定相同的 Supabase 環境變數。前端與 `/api` 由同一個 Express 服務提供；`vite preview` 僅供靜態預覽，不提供 API。
+
+測試使用本機模擬 Supabase HTTP 服務，涵蓋工作人員 cookie／登出撤銷／重啟恢復、匿名讀取限制、學生專題存取、cookie、密碼雜湊／重設／舊密碼停用、API 權限、完整欄位儲存、刪除／清空、抽籤／重設、版本衝突、登入限流與連線失敗，另測試 Excel 匯入匯出。實際 Supabase migration 與雲端連線需填入專案資訊後驗證。
+
+最近一次本機驗證：8 項測試通過；PostgreSQL（PGlite）實際執行 migration，驗證舊密碼移除、禁止明文密碼的 constraint、匿名／authenticated 權限拒絕與重複執行。套件 advisory 查詢涵蓋鎖定及啟用版本，未回報已知漏洞；不代表所有部署層面的風險都已消除。
+
+API 內部錯誤僅回傳固定訊息與事件 ID；5xx 不會回傳資料庫錯誤、檔案路徑或堆疊。格式錯誤 JSON 回 400，過大請求回 413。特殊領域名稱（含 `__proto__`、`constructor`）可正常參與獨立分組抽籤。

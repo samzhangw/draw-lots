@@ -1,0 +1,8 @@
+{
+  "name": "Remix 台中科技大學專題展報告抽籤系統",
+  "description": "國立臺中科技大學專題成果展報告抽籤順序系統。支援學生組長學號登入查詢、台上大螢幕一鍵抽籤動畫展演、管理員隨時匯入更新Excel資料、領域組別統計及抽籤後Excel即時匯出。",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
