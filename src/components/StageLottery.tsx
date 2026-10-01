@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ProjectItem, DomainConfig } from '../types';
 import { apiRequest, StoreState } from '../lib/api';
 import confetti from 'canvas-confetti';
+import './StageLottery.css';
 import {
   Dices,
   Sparkles,
@@ -154,7 +155,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
           field: selectedField,
           version: dataVersion,
         }),
-        new Promise<void>((resolve) => setTimeout(resolve, 2600)),
+        new Promise<void>((resolve) => setTimeout(resolve, 3600)),
       ]);
       if (!Array.isArray(backendResult.projects)) throw new Error('抽籤回應格式不正確。');
       setBatchDrawSummary(
@@ -264,30 +265,35 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
 
       {/* Main Big Stage Presentation Card */}
       <section className="relative overflow-hidden rounded-[1.75rem] bg-white border border-blue-100 border-t-4 border-t-blue-500 shadow-lg shadow-blue-100/70 p-5 sm:p-8 lg:p-10 text-center" aria-label="抽籤主舞台">
-        {/* Dynamic Glow effects during animation */}
-        {isAnimating && (
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-rose-500/10 to-amber-500/5 animate-pulse pointer-events-none" />
-        )}
+        {isAnimating && <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(219,234,254,0.75),transparent_70%)] pointer-events-none" />}
 
         <div className="relative z-10 max-w-5xl mx-auto min-h-[300px] sm:min-h-[350px] flex flex-col items-center justify-center" aria-live="polite">
           {isAnimating ? (
-            <div className="w-full space-y-5 py-3 sm:py-5">
+            <div className="w-full py-3 sm:py-5">
               <p className="text-sm font-bold tracking-wide text-blue-700">{selectedField === 'ALL' ? '全校各領域' : selectedField} · 現場抽籤中</p>
-              <div className="relative mx-auto flex h-36 w-36 items-center justify-center sm:h-44 sm:w-44" aria-hidden="true">
-                <div className="absolute inset-0 rounded-full border-[10px] border-blue-100" />
-                <div className="absolute inset-0 rounded-full border-[10px] border-transparent border-t-blue-600 border-r-amber-400 motion-safe:animate-spin" />
-                <div className="flex h-24 w-24 items-center justify-center rounded-3xl border border-blue-100 bg-blue-50 text-blue-700 shadow-sm sm:h-28 sm:w-28"><Dices className="h-12 w-12 sm:h-14 sm:w-14 motion-safe:animate-pulse" /></div>
+              <div className="stage-draw-scene" aria-hidden="true">
+                <div className="stage-draw-halo" />
+                <div className="stage-draw-card stage-draw-card--one">
+                  <span className="stage-draw-card-icon"><Layers className="h-5 w-5" /></span>
+                  <span className="stage-draw-card-label">專題展抽籤</span>
+                  <span className="stage-draw-card-question">？</span>
+                </div>
+                <div className="stage-draw-card stage-draw-card--two">
+                  <span className="stage-draw-card-icon"><Dices className="h-5 w-5" /></span>
+                  <span className="stage-draw-card-label">專題展抽籤</span>
+                  <span className="stage-draw-card-question">？</span>
+                </div>
+                <div className="stage-draw-card stage-draw-card--three">
+                  <span className="stage-draw-card-icon"><Sparkles className="h-5 w-5" /></span>
+                  <span className="stage-draw-card-label">專題展抽籤</span>
+                  <span className="stage-draw-card-question">？</span>
+                </div>
               </div>
               <div>
-                <h2 className="text-2xl font-black text-slate-900 sm:text-4xl">正在產生抽籤結果</h2>
-                <p className="mt-2 text-sm text-slate-600 sm:text-base">請稍候，正式場次與報告順位將在完成後公布。</p>
+                <h2 className="text-2xl font-black text-slate-900 sm:text-4xl">正在洗牌抽選</h2>
+                <p className="mt-2 text-sm text-slate-600 sm:text-base">場次與順位將在抽籤完成後一同揭曉。</p>
               </div>
-              <div className="mx-auto grid max-w-2xl grid-cols-3 gap-2 sm:gap-4" aria-hidden="true">
-                <div className="rounded-xl border border-blue-100 bg-blue-50 px-2 py-3 text-xs font-bold text-blue-800 sm:text-sm"><Layers className="mx-auto mb-1.5 h-5 w-5" />獨立分組</div>
-                <div className="rounded-xl border border-amber-100 bg-amber-50 px-2 py-3 text-xs font-bold text-amber-800 sm:text-sm"><Dices className="mx-auto mb-1.5 h-5 w-5" />隨機抽選</div>
-                <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-2 py-3 text-xs font-bold text-emerald-800 sm:text-sm"><CheckCircle2 className="mx-auto mb-1.5 h-5 w-5" />公布順位</div>
-              </div>
-              <p className="text-xs text-slate-500">此為展示動畫；抽籤結果由後端產生並儲存。</p>
+              <p className="mt-5 text-xs text-slate-500">卡片為展示動畫，正式結果由後端產生並儲存。</p>
             </div>
           ) : batchDrawSummary ? (
             /* ========================================================

@@ -1,0 +1,92 @@
+.stage-draw-scene {
+  --card-spread: 72px;
+  position: relative;
+  width: min(100%, 390px);
+  height: 205px;
+  margin: 8px auto 2px;
+  isolation: isolate;
+}
+
+.stage-draw-halo {
+  position: absolute;
+  inset: 28px 28px 8px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(96, 165, 250, 0.2), rgba(251, 191, 36, 0.1) 45%, transparent 72%);
+  filter: blur(6px);
+  animation: stage-draw-breathe 2.4s ease-in-out infinite;
+}
+
+.stage-draw-card {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  display: flex;
+  width: 106px;
+  height: 150px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 10px 10px;
+  border: 2px solid #bfdbfe;
+  border-radius: 18px;
+  background: linear-gradient(155deg, #ffffff, #eff6ff);
+  box-shadow: 0 15px 28px rgba(30, 64, 175, 0.16), inset 0 0 0 4px rgba(255, 255, 255, 0.85);
+  color: #1d4ed8;
+  will-change: transform;
+}
+
+.stage-draw-card--one { animation: stage-draw-one 2.4s ease-in-out infinite; }
+.stage-draw-card--two { animation: stage-draw-two 2.4s ease-in-out infinite; border-color: #fcd34d; background: linear-gradient(155deg, #ffffff, #fffbeb); color: #b45309; }
+.stage-draw-card--three { animation: stage-draw-three 2.4s ease-in-out infinite; border-color: #a7f3d0; background: linear-gradient(155deg, #ffffff, #ecfdf5); color: #047857; }
+
+.stage-draw-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: currentColor;
+}
+
+.stage-draw-card-icon svg { color: white; }
+.stage-draw-card-label { font-size: 11px; font-weight: 800; letter-spacing: 0.03em; white-space: nowrap; }
+.stage-draw-card-question { font-size: 42px; font-weight: 900; line-height: 1; }
+
+@keyframes stage-draw-one {
+  0%, 100% { transform: translateX(calc(-50% - var(--card-spread))) translateY(14px) rotate(-13deg) scale(0.93); z-index: 1; }
+  33% { transform: translateX(-50%) translateY(-8px) rotate(0deg) scale(1.08); z-index: 3; }
+  66% { transform: translateX(calc(-50% + var(--card-spread))) translateY(14px) rotate(13deg) scale(0.93); z-index: 1; }
+}
+
+@keyframes stage-draw-two {
+  0%, 100% { transform: translateX(-50%) translateY(-8px) rotate(0deg) scale(1.08); z-index: 3; }
+  33% { transform: translateX(calc(-50% + var(--card-spread))) translateY(14px) rotate(13deg) scale(0.93); z-index: 1; }
+  66% { transform: translateX(calc(-50% - var(--card-spread))) translateY(14px) rotate(-13deg) scale(0.93); z-index: 1; }
+}
+
+@keyframes stage-draw-three {
+  0%, 100% { transform: translateX(calc(-50% + var(--card-spread))) translateY(14px) rotate(13deg) scale(0.93); z-index: 1; }
+  33% { transform: translateX(calc(-50% - var(--card-spread))) translateY(14px) rotate(-13deg) scale(0.93); z-index: 1; }
+  66% { transform: translateX(-50%) translateY(-8px) rotate(0deg) scale(1.08); z-index: 3; }
+}
+
+@keyframes stage-draw-breathe {
+  0%, 100% { opacity: 0.6; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@media (min-width: 640px) {
+  .stage-draw-scene { --card-spread: 112px; height: 250px; }
+  .stage-draw-card { width: 132px; height: 180px; padding: 16px 12px 13px; border-radius: 22px; }
+  .stage-draw-card-icon { width: 39px; height: 39px; }
+  .stage-draw-card-label { font-size: 13px; }
+  .stage-draw-card-question { font-size: 52px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-draw-halo, .stage-draw-card { animation: none; }
+  .stage-draw-card--one { transform: translateX(calc(-50% - var(--card-spread))) translateY(14px) rotate(-13deg); }
+  .stage-draw-card--two { transform: translateX(-50%) translateY(-8px); z-index: 3; }
+  .stage-draw-card--three { transform: translateX(calc(-50% + var(--card-spread))) translateY(14px) rotate(13deg); }
+}
