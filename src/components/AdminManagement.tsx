@@ -27,7 +27,9 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
-  LoaderCircle
+  LoaderCircle,
+  Copy,
+  KeyRound
 } from 'lucide-react';
 
 interface AdminManagementProps {
@@ -64,6 +66,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const pendingActionRef = useRef<string | null>(null);
   const [passwordCopied, setPasswordCopied] = useState(false);
+  const [passwordCopyError, setPasswordCopyError] = useState(false);
   const draftVersionRef = useRef<number | null>(dataVersion);
 
   const submitSharedAction = async () => {
@@ -74,10 +77,22 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       setSharedAction(null);
       setGeneratedPassword(password || null);
       setPasswordCopied(false);
-      setUploadFeedback({ type: 'success', message: password ? '全體共用密碼已更新。請複製並安全發送給學生。' : '共用密碼已停用，請為學生重新設定個別密碼。' });
+      setPasswordCopyError(false);
+      setUploadFeedback(password ? null : { type: 'success', message: '共用密碼已停用，請為學生重新設定個別密碼。' });
     } catch (error) {
       setUploadFeedback({ type: 'error', message: error instanceof Error ? error.message : '共用密碼設定失敗' });
     } finally { setSharedSaving(false); }
+  };
+
+  const copyGeneratedPassword = async () => {
+    if (!generatedPassword) return;
+    try {
+      await navigator.clipboard.writeText(generatedPassword);
+      setPasswordCopied(true);
+      setPasswordCopyError(false);
+    } catch {
+      setPasswordCopyError(true);
+    }
   };
 
   const withSaveFeedback = <Args extends unknown[]>(key: string | ((...args: Args) => string), action: (...args: Args) => Promise<void>) =>
@@ -530,7 +545,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   useModalFocus(activeModalKey, () => {
     if (pendingAction) return;
     if (sharedAction) { if (!sharedSaving) setSharedAction(null); }
-    else if (generatedPassword) { setGeneratedPassword(null); setPasswordCopied(false); }
+    else if (generatedPassword) { setGeneratedPassword(null); setPasswordCopied(false); setPasswordCopyError(false); }
     else if (isEvaluatorModalOpen) setIsEvaluatorModalOpen(false);
     else if (isDomainModalOpen) setIsDomainModalOpen(false);
     else if (domainToDelete) setDomainToDelete(null);
@@ -662,14 +677,57 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
           <div className="flex justify-end gap-2"><button onClick={() => setSharedAction(null)} disabled={sharedSaving} className="px-4 py-2 rounded-lg border">取消</button><button onClick={() => void submitSharedAction()} disabled={sharedSaving} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white disabled:opacity-50">{sharedSaving && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}{sharedSaving ? '處理中…' : '確認'}</button></div>
         </div>
       </div>}
-      {generatedPassword && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="新共用密碼">
-        <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl">
-          <h2 className="text-lg font-bold">全體共用密碼已產生</h2>
-          <p className="text-sm text-slate-700">請立即複製並安全發送給學生。關閉後無法再次查看；重新產生會讓舊密碼失效。</p>
-          <output className="block p-3 rounded-lg bg-slate-100 font-mono break-all select-all" aria-label="共用密碼">{generatedPassword}</output>
-          <div className="flex justify-end gap-2"><button onClick={() => { setGeneratedPassword(null); setPasswordCopied(false); }} className="px-4 py-2 rounded-lg border">關閉</button><button onClick={() => { void navigator.clipboard.writeText(generatedPassword).then(() => setPasswordCopied(true)).catch(() => setUploadFeedback({ type: 'error', message: '複製失敗，請手動選取密碼。' })); }} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">{passwordCopied ? '已複製' : '複製密碼'}</button></div>
+      {generatedPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="shared-password-title" aria-describedby="shared-password-description">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-start gap-4 border-b border-emerald-100 bg-emerald-50 px-5 py-6 sm:px-7">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white" aria-hidden="true">
+                <KeyRound className="h-6 w-6" />
+              </span>
+              <div>
+                <p className="text-xs font-bold tracking-wide text-emerald-800">設定完成</p>
+                <h2 id="shared-password-title" className="mt-1 text-xl font-black text-slate-900 sm:text-2xl">全體共用密碼已產生</h2>
+                <p id="shared-password-description" className="mt-2 text-sm leading-relaxed text-slate-600">請立即複製並妥善提供給學生。</p>
+              </div>
+            </div>
+
+            <div className="space-y-5 px-5 py-6 sm:px-7">
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold text-slate-700">學生共用密碼</span>
+                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">僅顯示這一次</span>
+                </div>
+                <output className="block select-all break-all rounded-2xl border border-slate-700 bg-slate-900 px-4 py-5 text-center font-mono text-3xl font-bold tracking-[0.15em] text-white sm:text-4xl" aria-label="新產生的學生共用密碼">
+                  {generatedPassword}
+                </output>
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">
+                關閉後無法再次查看；若重新產生，這組密碼會立即失效。
+              </div>
+
+              {passwordCopyError && <p role="alert" className="text-sm font-semibold text-rose-700">無法自動複製。請選取上方密碼手動複製。</p>}
+              <div className="flex flex-col gap-2 sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={() => void copyGeneratedPassword()}
+                  className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                >
+                  {passwordCopied ? <CheckCircle2 className="h-5 w-5" aria-hidden="true" /> : <Copy className="h-5 w-5" aria-hidden="true" />}
+                  {passwordCopied ? '已複製密碼' : '複製密碼'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setGeneratedPassword(null); setPasswordCopied(false); setPasswordCopyError(false); }}
+                  className="min-h-12 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500"
+                >
+                  關閉視窗
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>}
+      )}
 
       {/* Non-blocking feedback */}
       {uploadFeedback && (
