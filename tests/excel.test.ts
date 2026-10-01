@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
-import { parseExcelFile, createExportWorkbook, REQUIRED_OUTPUT_HEADERS } from '../src/lib/excel';
+import { parseExcelFile, preserveImportedProjectIds, createExportWorkbook, REQUIRED_OUTPUT_HEADERS } from '../src/lib/excel';
 
 const row = { 序號: '1', 學制: '四技', 系所: '資管', 班級: '甲', 指導老師: '王教授', 領域: '企業智慧化', 編號: 'P1', 專題名稱: '中文測試', 組長學號: '12345678', 組長密碼: 'Strong-password-123' };
 function makeFile(rows: Record<string, string>[]): File {
@@ -29,4 +29,13 @@ test('imports never invent predictable passwords and reject weak passwords or ex
   const oversized = new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'oversized.xlsx');
   assert.equal((await parseExcelFile(oversized)).success, false);
   assert.equal((await parseExcelFile(makeFile(Array.from({ length: 2001 }, () => row)))).success, false);
+});
+
+test('replacing a roster keeps stable IDs for matching student leaders', async () => {
+  const before = (await parseExcelFile(makeFile([row]))).projects!;
+  const next = (await parseExcelFile(makeFile([{ ...row, 專題名稱: '更新專題' }, { ...row, 組長學號: 'new-leader', 專題名稱: '新專題' }]))).projects!;
+  const reconciled = preserveImportedProjectIds(next, before);
+  assert.equal(reconciled[0].id, before[0].id);
+  assert.equal(reconciled[0].project_title, '更新專題');
+  assert.equal(reconciled[1].id, next[1].id);
 });

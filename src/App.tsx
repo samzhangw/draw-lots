@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { ProjectItem, ViewMode, DomainConfig } from './types';
 import { apiRequest, StoreState } from './lib/api';
 import { Navbar } from './components/Navbar';
@@ -49,6 +49,9 @@ export default function App() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [domainConfigs, setDomainConfigs] = useState<DomainConfig[]>([]);
   const [sharedPasswordEnabled, setSharedPasswordEnabled] = useState(false);
+  const [dataVersion, setDataVersion] = useState<number | null>(null);
+  const dataVersionRef = useRef<number | null>(null);
+  const loadRequestIdRef = useRef(0);
   const [dataError, setDataError] = useState<string | null>(null);
   const [authSession, setAuthSession] = useState<AuthSession | null>(() => getAuthSession());
 
@@ -66,10 +69,13 @@ export default function App() {
     try { await apiRequest('/api/auth/logout', {}); }
     catch (error) { setDataError(error instanceof Error ? error.message : '登出失敗，請重試'); return; }
     clearAuthSession();
+    loadRequestIdRef.current++;
     setAuthSession(null);
     setProjects([]);
     setDomainConfigs([]);
     setSharedPasswordEnabled(false);
+    dataVersionRef.current = null;
+    setDataVersion(null);
     handleSelectView('student');
   }, []);
 
@@ -128,6 +134,11 @@ export default function App() {
   }, []);
 
   const applyState = (state: StoreState) => {
+    // Keep the version and displayed data in the same snapshot. An older GET
+    // response must not roll the UI back after a newer save has completed.
+    if (dataVersionRef.current !== null && state.version < dataVersionRef.current) return;
+    dataVersionRef.current = state.version;
+    setDataVersion(state.version);
     setProjects(state.projects);
     setDomainConfigs(state.domainConfigs);
     setSharedPasswordEnabled(state.sharedPasswordEnabled);
@@ -135,34 +146,39 @@ export default function App() {
   };
 
   const loadData = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
     if (!getAuthSession()) {
       setProjects([]);
       setDomainConfigs([]);
       setSharedPasswordEnabled(false);
+      dataVersionRef.current = null;
+      setDataVersion(null);
       setDataError(null);
       setIsLoading(false);
       return;
     }
     setIsLoading(true);
     try {
-      applyState(await apiRequest('/api/state'));
+      const state = await apiRequest<StoreState>('/api/state');
+      if (requestId === loadRequestIdRef.current && getAuthSession()) applyState(state);
     } catch (error) {
-      setDataError(error instanceof Error ? error.message : '資料載入失敗');
+      if (requestId === loadRequestIdRef.current) setDataError(error instanceof Error ? error.message : '資料載入失敗');
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestIdRef.current) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => { void loadData(); }, [loadData, authSession]);
   useEffect(() => {
-    const expired = () => { setAuthSession(null); setProjects([]); setDomainConfigs([]); setSharedPasswordEnabled(false); };
+    const expired = () => { loadRequestIdRef.current++; setAuthSession(null); setProjects([]); setDomainConfigs([]); setSharedPasswordEnabled(false); dataVersionRef.current = null; setDataVersion(null); };
     window.addEventListener('auth-expired', expired);
     return () => window.removeEventListener('auth-expired', expired);
   }, []);
 
   const handleSaveProjects = async (updated: ProjectItem[]) => {
     try {
-      applyState(await apiRequest('/api/projects', { projects: updated }));
+      if (dataVersion === null) throw new Error('資料尚未載入，請重新整理。');
+      applyState(await apiRequest('/api/projects', { projects: updated, version: dataVersion }));
     } catch (error) {
       setDataError(error instanceof Error ? error.message : '儲存失敗');
       throw error;
@@ -170,7 +186,8 @@ export default function App() {
   };
 
   const handleSharedPassword = async (action: 'generate' | 'clear') => {
-    const state = await apiRequest<StoreState & { password?: string }>('/api/student/shared-password', { action });
+    if (dataVersion === null) throw new Error('資料尚未載入，請重新整理。');
+    const state = await apiRequest<StoreState & { password?: string }>('/api/student/shared-password', { action, version: dataVersion });
     applyState(state);
     return state.password;
   };
@@ -180,7 +197,8 @@ export default function App() {
     renamedField?: { oldName: string; newName: string }
   ) => {
     try {
-      applyState(await apiRequest('/api/domain-configs', { domainConfigs: newConfigs, renamedField }));
+      if (dataVersion === null) throw new Error('資料尚未載入，請重新整理。');
+      applyState(await apiRequest('/api/domain-configs', { domainConfigs: newConfigs, renamedField, version: dataVersion }));
     } catch (error) {
       setDataError(error instanceof Error ? error.message : '儲存失敗');
       throw error;
@@ -241,6 +259,7 @@ export default function App() {
               ) : (
                 <StageLottery
                   projects={projects}
+                  dataVersion={dataVersion}
                   onApplyState={applyState}
                   domainList={domainList}
                   domainConfigs={domainConfigs}
@@ -260,6 +279,7 @@ export default function App() {
               ) : (
                 <AdminManagement
                   projects={projects}
+                  dataVersion={dataVersion}
                   onSaveProjects={handleSaveProjects}
                   sharedPasswordEnabled={sharedPasswordEnabled}
                   onSharedPassword={handleSharedPassword}

@@ -201,6 +201,11 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal((await request('/api/student/me', undefined, undefined, studentCookie.replace(/.$/, 'x'))).status, 401);
     assert.equal((await request('/api/projects', { projects: [], version: 0 }, admin)).status, 409);
     const draw = await request('/api/lottery/draw', { field: 'ALL', version: saved.data.version }, stage);
+    // A second device holding the pre-draw roster cannot overwrite draw results.
+    const staleRoster = await request('/api/projects', { projects: saved.data.projects, version: saved.data.version }, admin);
+    assert.equal(staleRoster.status, 409);
+    assert.equal(state.version, draw.data.version);
+    assert.ok(state.projects.every(p => p.draw_order));
     assert.equal(draw.status, 200); assert.ok(draw.data.projects[0].assigned_group); assert.ok(draw.data.projects[0].draw_order);
     assert.ok(draw.data.projects[0].evaluators.length); assert.equal(draw.data.projects[0].password, undefined);
     assert.equal(state.projects[0].password, undefined);

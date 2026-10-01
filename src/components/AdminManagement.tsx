@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { ProjectItem, DomainStats, DomainConfig } from '../types';
-import { parseExcelFile, exportToExcel, downloadInputTemplate, REQUIRED_INPUT_HEADERS, REQUIRED_OUTPUT_HEADERS } from '../lib/excel';
+import { parseExcelFile, preserveImportedProjectIds, exportToExcel, downloadInputTemplate, REQUIRED_INPUT_HEADERS, REQUIRED_OUTPUT_HEADERS } from '../lib/excel';
 import { isAdvisorConflict, normalizeProfessorName } from '../lib/lottery';
 import {
   Upload,
@@ -25,6 +25,7 @@ import {
 
 interface AdminManagementProps {
   projects: ProjectItem[];
+  dataVersion: number | null;
   onSaveProjects: (updated: ProjectItem[]) => Promise<void>;
   sharedPasswordEnabled: boolean;
   onSharedPassword: (action: 'generate' | 'clear') => Promise<string | undefined>;
@@ -35,6 +36,7 @@ interface AdminManagementProps {
 
 export const AdminManagement: React.FC<AdminManagementProps> = ({
   projects,
+  dataVersion,
   onSaveProjects,
   sharedPasswordEnabled,
   onSharedPassword,
@@ -52,6 +54,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
   const [sharedSaving, setSharedSaving] = useState(false);
   const [passwordCopied, setPasswordCopied] = useState(false);
+  const draftVersionRef = useRef<number | null>(dataVersion);
 
   const submitSharedAction = async () => {
     if (!sharedAction || sharedSaving) return;
@@ -69,6 +72,10 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
   const withSaveFeedback = <Args extends unknown[]>(action: (...args: Args) => Promise<void>) =>
     async (...args: Args) => {
+      if (draftIsStale) {
+        setUploadFeedback({ type: 'error', message: '其他裝置或操作已更新資料。請先關閉舊編輯視窗，再從最新資料重新開啟。' });
+        return;
+      }
       try { await action(...args); }
       catch (error) {
         setUploadFeedback({ type: 'error', message: error instanceof Error ? error.message : '儲存失敗' });
@@ -77,6 +84,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
   // In-app modals for file import & delete confirmation
   const [pendingImportProjects, setPendingImportProjects] = useState<ProjectItem[] | null>(null);
+  const [overwriteAcknowledged, setOverwriteAcknowledged] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<{ id: string; title: string } | null>(null);
 
   // Edit / Add Project modal state
@@ -99,6 +107,10 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
   // Direct group count input drafts per domain
   const [groupCountInputs, setGroupCountInputs] = useState<Record<string, string>>({});
+
+  const draftOpen = !!(pendingImportProjects || projectToDelete || editingProject || isAddModalOpen || isDomainModalOpen || domainToDelete || isEvaluatorModalOpen);
+  const draftIsStale = draftOpen && draftVersionRef.current !== dataVersion;
+  const beginDraft = () => { draftVersionRef.current = dataVersion; };
 
   // Form state for project add/edit
   const [formData, setFormData] = useState<Partial<ProjectItem>>({
@@ -151,6 +163,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
   // Open modal to Add Domain
   const handleOpenAddDomain = () => {
+    beginDraft();
     setEditingDomain(null);
     setDomainFormName('');
     setDomainFormGroupCount(2);
@@ -160,6 +173,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
   // Open modal to Edit Domain
   const handleOpenEditDomain = (cfg: DomainConfig) => {
+    beginDraft();
     setEditingDomain(cfg);
     setDomainFormName(cfg.field);
     setDomainFormGroupCount(cfg.groupCount);
@@ -169,6 +183,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
   // Open Evaluator modal for a specific domain
   const handleOpenEvaluatorModal = (cfg: DomainConfig) => {
+    beginDraft();
     setDomainForEvaluators(cfg);
     const drafts: Record<number, string> = {};
     for (let g = 1; g <= cfg.groupCount; g++) {
@@ -339,7 +354,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     const result = await parseExcelFile(file);
 
     if (result.success && result.projects) {
+      beginDraft();
       setPendingImportProjects(result.projects);
+      setOverwriteAcknowledged(false);
     } else {
       setUploadFeedback({
         type: 'error',
@@ -357,7 +374,11 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
     let finalProjects: ProjectItem[] = [];
     if (mode === 'overwrite') {
-      finalProjects = pendingImportProjects;
+      if (projects.some(p => p.draw_order) && !overwriteAcknowledged) {
+        setUploadFeedback({ type: 'error', message: '名冊已有抽籤結果，請先勾選確認覆蓋風險。' });
+        return;
+      }
+      finalProjects = preserveImportedProjectIds(pendingImportProjects, projects);
     } else {
       const existingLeaderIds = new Set(projects.map((p) => p.leader_id.trim().toLowerCase()));
       const newAdditions = pendingImportProjects.filter(
@@ -373,6 +394,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       message: `成功更新專題名冊！目前名冊共計 ${finalProjects.length} 筆，資料已即時寫入系統。`,
     });
     setPendingImportProjects(null);
+    setOverwriteAcknowledged(false);
   });
 
   // Export Excel
@@ -390,6 +412,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
   // Open edit modal for project
   const handleStartEdit = (p: ProjectItem) => {
+    beginDraft();
     setEditingProject(p);
     setFormData({
       ...p,
@@ -400,6 +423,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
   // Open add project modal
   const handleOpenAddProject = () => {
+    beginDraft();
     setEditingProject(null);
     setFormData({
       education_system: '日間部四技',
@@ -474,6 +498,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 space-y-6">
+      {draftIsStale && <div role="alert" className="fixed top-3 left-3 right-3 z-[60] mx-auto max-w-xl rounded-xl border border-amber-400 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950 shadow-lg">
+        資料已在其他裝置或操作中更新。這份草稿已過期，無法儲存；可先複製已輸入內容，再關閉視窗並以最新資料重新編輯。
+      </div>}
       {/* Title & Action Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-2">
         <div className="flex items-center gap-3">
@@ -762,7 +789,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   </button>
 
                   <button
-                    onClick={() => setDomainToDelete(cfgObj)}
+                    onClick={() => { beginDraft(); setDomainToDelete(cfgObj); }}
                     className="p-1.5 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-transparent hover:border-rose-200 cursor-pointer transition-colors"
                     title="刪除"
                   >
@@ -916,7 +943,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                         </button>
 
                         <button
-                          onClick={() => setDomainToDelete(cfgObj)}
+                          onClick={() => { beginDraft(); setDomainToDelete(cfgObj); }}
                           className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 cursor-pointer transition-colors"
                           title="刪除此領域"
                         >
@@ -1150,7 +1177,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                               <Edit className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => setProjectToDelete({ id: p.id, title: p.project_title })}
+                              onClick={() => { beginDraft(); setProjectToDelete({ id: p.id, title: p.project_title }); }}
                               className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
                               title="刪除"
                             >
@@ -1335,7 +1362,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                                 <Edit className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                onClick={() => setProjectToDelete({ id: p.id, title: p.project_title })}
+                                onClick={() => { beginDraft(); setProjectToDelete({ id: p.id, title: p.project_title }); }}
                                 className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
                                 title="刪除"
                               >
@@ -1615,13 +1642,18 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   請選擇匯入模式：您可以選擇完全覆蓋現有名單，或是將新名單追加至現有名單之後。
                 </p>
                 {sharedPasswordEnabled && <p className="text-xs text-indigo-700 mt-2">共用密碼啟用中，匯入檔案內的個別密碼欄位會略過；新專題沿用目前共用密碼。</p>}
+                {projects.some(p => p.draw_order) && <label className="mt-3 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                  <input type="checkbox" checked={overwriteAcknowledged} onChange={e => setOverwriteAcknowledged(e.target.checked)} className="mt-0.5 shrink-0" />
+                  <span>我了解「完全覆蓋」會以 Excel 內容取代現有名冊，可能清除或改變已完成的抽籤結果。需要保留現有結果時，請使用「追加」。</span>
+                </label>}
               </div>
             </div>
 
             <div className="pt-2 flex flex-col gap-2">
               <button
                 onClick={() => handleApplyImport('overwrite')}
-                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                disabled={projects.some(p => p.draw_order) && !overwriteAcknowledged}
+                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span>完全覆蓋並替換現有名單</span>
               </button>

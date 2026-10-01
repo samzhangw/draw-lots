@@ -44,6 +44,7 @@ React + Vite 前端，Express API 統一使用 Supabase Database 與 Supabase Au
 - 學生 session 期限為一小時，資料庫僅保存 token 的 SHA-256；重設密碼或刪除專題會使相關 session 無效。學生登出會刪除後端 session，移除 cookie。可用 privileged 排程定期清除 `ntcust_student_sessions` 的過期資料列。
 - 登入有每帳號 10 次／15 分鐘、每 IP 100 次／15 分鐘的限制，跨站 JSON 操作會被拒絕。Cloudflare 使用 Durable Object 原子計數，跨地區／重啟共用相同限制，僅保存帳號與 IP 的雜湊索引及短期計數；本機 Node.js 使用行程內限流。
 - Excel 套件固定使用官方來源 `xlsx@0.20.3`，鎖定檔保存完整性；匯入上限 5 MB／2000 筆。密碼欄位可留空，後續於後台設定；有填密碼時須符合新規則，匯出結果不包含憑證。
+- 跨裝置寫入使用資料庫版本比對；兩個裝置以同一版本儲存時，只有第一筆成功，另一筆收到 409，須重新載入後再操作。前端版本號與畫面資料一起更新；若載入新版時有開啟中的舊草稿，會保留其輸入供複製但禁止儲存。Excel「完全覆蓋」會替換名冊；已有抽籤結果時須另外勾選確認。相同組長學號的匯入專題會保留原專題 ID，以維持未重設的學生密碼。
 - 管理員／展演人員的登入 session 與 Supabase access token 存在 `ntcust_staff_sessions`，不再回傳 token 或寫入 localStorage／sessionStorage。瀏覽器只持有 HttpOnly 隨機 cookie；每次操作均查驗後端 session、到期時間與 Supabase 身分。登出刪除 session，舊 cookie 立即失效。勾選「記住我」只決定 cookie 是否保留至 token 到期，不延長登入期限。
 - 音效播放與音效開關已移除；抽籤動畫保留。未提交表單、搜尋／篩選、彈窗、載入狀態與動畫仍留在前端。第四份 migration 會移除第三份曾建立的音效偏好資料表；保留既有 migration 以支援已部署的資料庫。
 - 所有正式業務資料、學生與工作人員 session均由 Supabase 保存；前端記憶體僅供畫面顯示。後端重啟不會遺失已提交資料，沒有本機資料庫備援。可定期清除 session 表的過期資料列。
@@ -116,6 +117,6 @@ npm run dev:cloudflare
 
 測試使用本機模擬 Supabase HTTP 服務，涵蓋工作人員 cookie／登出撤銷／重啟恢復、匿名讀取限制、學生專題存取、cookie、密碼雜湊／重設／舊密碼停用、API 權限、完整欄位儲存、刪除／清空、抽籤／重設、版本衝突、登入限流與連線失敗，另測試 Excel 匯入匯出。實際 Supabase migration 與雲端連線需填入專案資訊後驗證。
 
-最近一次本機驗證：8 項測試通過；PostgreSQL（PGlite）實際執行 migration，驗證舊密碼移除、禁止明文密碼的 constraint、匿名／authenticated 權限拒絕與重複執行。套件 advisory 查詢涵蓋鎖定及啟用版本，未回報已知漏洞；不代表所有部署層面的風險都已消除。
+最近一次本機驗證：10 項測試通過；PostgreSQL（PGlite）實際執行 migration，驗證舊密碼移除、禁止明文密碼的 constraint、匿名／authenticated 權限拒絕與重複執行。套件 advisory 查詢涵蓋鎖定及啟用版本，未回報已知漏洞；不代表所有部署層面的風險都已消除。
 
 API 內部錯誤僅回傳固定訊息與事件 ID；5xx 不會回傳資料庫錯誤、檔案路徑或堆疊。格式錯誤 JSON 回 400，過大請求回 413。特殊領域名稱（含 `__proto__`、`constructor`）可正常參與獨立分組抽籤。

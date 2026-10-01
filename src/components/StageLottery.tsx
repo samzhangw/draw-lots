@@ -26,6 +26,7 @@ import {
 
 interface StageLotteryProps {
   projects: ProjectItem[];
+  dataVersion: number | null;
   onApplyState: (state: StoreState) => void;
   domainList: string[];
   domainConfigs: DomainConfig[];
@@ -33,6 +34,7 @@ interface StageLotteryProps {
 
 export const StageLottery: React.FC<StageLotteryProps> = ({
   projects,
+  dataVersion,
   onApplyState,
   domainList,
   domainConfigs,
@@ -150,6 +152,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   const handleConfirmBatchDraw = async () => {
     setIsBatchModalOpen(false);
     if (undrawnPool.length === 0 || isAnimating) return;
+    if (dataVersion === null) { setNoticeMessage('資料尚未載入，請重新整理後再試。'); return; }
 
     setIsAnimating(true);
     setBatchDrawSummary(null);
@@ -164,6 +167,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
     // Trigger backend draw calculation immediately on the server
     const backendDrawPromise = apiRequest<StoreState & { summary: string }>('/api/lottery/draw', {
       field: selectedField,
+      version: dataVersion,
     }).then(result => ({ result, error: null }), error => ({ result: null, error }));
 
     let tick = 0;
@@ -261,8 +265,9 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
 
   const handleConfirmReset = async () => {
     setIsResetModalOpen(false);
+    if (dataVersion === null) { setNoticeMessage('資料尚未載入，請重新整理後再試。'); return; }
     try {
-      const data = await apiRequest('/api/lottery/reset', { field: selectedField });
+      const data = await apiRequest('/api/lottery/reset', { field: selectedField, version: dataVersion });
       onApplyState(data);
       setBatchDrawSummary(null);
       setAnimRollingTeam(null);
