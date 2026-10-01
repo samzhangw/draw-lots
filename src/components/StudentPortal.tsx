@@ -7,7 +7,6 @@ import {
   Award,
   AlertCircle,
   RefreshCw,
-  CheckCircle2,
   ChevronRight,
   FileText,
   User,
@@ -199,7 +198,6 @@ export const StudentPortal: React.FC = () => {
                 {/* Project Header Info */}
                 <div className="flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 space-y-3">
-                    <div className="inline-flex items-center gap-2 text-sm font-bold text-emerald-700"><CheckCircle2 className="h-5 w-5" />抽籤完成，報告順序已確認</div>
                     <p className="flex items-center gap-2 text-sm font-bold text-slate-500"><FileText className="h-4 w-4" />專題名稱</p>
                     <h2 className="break-words text-xl font-black leading-snug text-slate-900 sm:text-3xl">
                       {myProject.project_title}
