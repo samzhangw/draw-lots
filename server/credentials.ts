@@ -39,6 +39,13 @@ export function projectDto(p: ProjectItem): ProjectItem {
   };
 }
 
+export function studentProjectDto(p: ProjectItem): ProjectItem {
+  return {
+    ...projectDto(p),
+    seq_no: '', education_system: '', department: '', class_name: '', advisor: '', leader_id: '',
+  };
+}
+
 export function publicStudentProjectDto(p: ProjectItem): ProjectItem {
   const drawn = !!p.draw_order;
   return {

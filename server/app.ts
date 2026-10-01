@@ -2,7 +2,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { createStore, ApiError, validateProjects, validateDomains, type DatabaseState } from './store';
-import { projectDto, publicStudentProjectDto, prepareProjects, verifyPassword, hashPassword, sharedPasswordHash } from './credentials';
+import { projectDto, studentProjectDto, publicStudentProjectDto, prepareProjects, verifyPassword, hashPassword, sharedPasswordHash } from './credentials';
 import { createStudentSession, getStudentProject, clearStudentSession } from './studentSessions';
 import { createStaffSession, getStaffSession, clearStaffSession } from './staffSessions';
 import { loginLimiter } from './rateLimit';
@@ -95,11 +95,11 @@ app.post('/api/student/verify', loginLimiter(), route(async (req, res) => {
   const valid = await verifyPassword(password, project?.password ? undefined : project?.password_hash);
   if (!valid || !project) throw new ApiError(401, '學號或密碼不正確，尚未設定密碼者請洽大會管理員。');
   await createStudentSession(req, res, project);
-  res.json({ success: true, sharedPasswordMode: project.shared_password_mode === true, project: project.shared_password_mode ? publicStudentProjectDto(project) : projectDto(project) });
+  res.json({ success: true, sharedPasswordMode: project.shared_password_mode === true, project: project.shared_password_mode ? publicStudentProjectDto(project) : studentProjectDto(project) });
 }));
 app.get('/api/student/me', route(async (req, res) => {
   const project = await getStudentProject(req);
-  res.json({ success: true, sharedPasswordMode: project.shared_password_mode === true, project: project.shared_password_mode ? publicStudentProjectDto(project) : projectDto(project) });
+  res.json({ success: true, sharedPasswordMode: project.shared_password_mode === true, project: project.shared_password_mode ? publicStudentProjectDto(project) : studentProjectDto(project) });
 }));
 app.post('/api/student/logout', route(async (req, res) => {
   await clearStudentSession(req, res);

@@ -179,6 +179,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const student = await request('/api/student/verify', { leaderId: project.leader_id, password: project.password });
     assert.equal(student.status, 200); assert.equal(student.data.project.password, undefined);
     assert.equal(student.data.project.password_hash, undefined);
+    for (const field of ['seq_no', 'leader_id', 'class_name', 'advisor', 'education_system', 'department']) assert.equal(student.data.project[field], '');
     assert.match(student.cookie!, /HttpOnly/i); assert.match(student.cookie!, /Secure/i); assert.match(student.cookie!, /SameSite=Strict/i);
     const studentCookie = student.cookie!.split(';')[0];
     const sessionToken = studentCookie.split('=')[1];
@@ -213,6 +214,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.deepEqual(Object.keys(publicDraw).sort(), ['assigned_group', 'draw_code', 'draw_order', 'field', 'original_code']);
     const ownedDraw = await request('/api/student/me', undefined, undefined, studentCookie);
     assert.ok(ownedDraw.data.project.draw_order);
+    assert.equal(ownedDraw.data.project.leader_id, '');
     assert.equal((await request('/api/lottery/draw', { field: 'ALL', version: draw.data.version }, stage)).status, 409);
     const reviewers = await request('/api/domain-configs', { domainConfigs: [{ ...domains[0], evaluatorsPerGroup: { 1: ['新評審'], 2: ['新評審'] } }], version: draw.data.version }, admin);
     assert.equal(reviewers.status, 200); assert.deepEqual(reviewers.data.projects[0].evaluators, ['新評審']);

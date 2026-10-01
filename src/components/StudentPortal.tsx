@@ -233,12 +233,9 @@ export const StudentPortal: React.FC = () => {
                 <User className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div>
-                <div className="text-[11px] sm:text-xs text-slate-500">目前登入組長</div>
-                <div className="text-sm sm:text-base font-bold text-slate-900 font-mono flex items-center gap-1.5">
-                  {sharedPasswordMode ? studentIdInput.trim() || '共用密碼查詢' : myProject.leader_id}
-                  {!sharedPasswordMode && <span className="text-[11px] sm:text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-sans font-normal border border-slate-200">
-                    {myProject.class_name}
-                  </span>}
+                <div className="text-[11px] sm:text-xs text-slate-500">目前狀態</div>
+                <div className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-1.5">
+                  學生查詢已登入
                 </div>
               </div>
             </div>
@@ -276,21 +273,11 @@ export const StudentPortal: React.FC = () => {
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         抽籤完成·順序已確認
                       </span>
-                      {!sharedPasswordMode && <span className="text-xs text-slate-400 font-mono">
-                        序號 #{myProject.seq_no}
-                      </span>}
                     </div>
                     {!sharedPasswordMode && <>
                     <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 leading-tight">
                       {myProject.project_title}
                     </h2>
-                    <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5">
-                      <span>組長學號：<strong className="font-mono text-slate-800">{myProject.leader_id}</strong></span>
-                      <span>·</span>
-                      <span>班級：<span className="text-slate-700">{myProject.class_name}</span></span>
-                      <span>·</span>
-                      <span>指導老師：<strong className="text-slate-800">{myProject.advisor}</strong></span>
-                    </div>
                     </>}
                   </div>
 
@@ -323,9 +310,9 @@ export const StudentPortal: React.FC = () => {
                       <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                         {myProject.field}
                       </div>
-                      <div className="text-xs text-slate-500 mt-1">
-                        原始登記編號：<span className="font-mono font-semibold text-slate-700">{myProject.original_code || `#${myProject.seq_no}`}</span>
-                      </div>
+                      {myProject.original_code && <div className="text-xs text-slate-500 mt-1">
+                        原始登記編號：<span className="font-mono font-semibold text-slate-700">{myProject.original_code}</span>
+                      </div>}
                     </div>
 
                     <div className="pt-2 border-t border-blue-100 text-[11px] text-blue-700/80 font-medium">
@@ -358,9 +345,6 @@ export const StudentPortal: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-indigo-100 text-[11px] text-indigo-700/80 font-medium">
-                      指導老師已依法完成迴避審查
-                    </div>
                   </div>
 
                   {/* 3. 報告順序 */}
@@ -439,7 +423,7 @@ export const StudentPortal: React.FC = () => {
                     <div className="text-lg sm:text-xl font-bold text-slate-900">
                       {myProject.field}
                     </div>
-                    <div className="text-[11px] text-slate-400 font-mono">編號: {myProject.original_code || `#${myProject.seq_no}`}</div>
+                    {myProject.original_code && <div className="text-[11px] text-slate-400 font-mono">編號: {myProject.original_code}</div>}
                   </div>}
 
                   <div className="rounded-2xl p-4 sm:p-5 bg-slate-50 border border-slate-200 space-y-1.5">
