@@ -486,85 +486,115 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       {draftIsStale && <div role="alert" className="fixed top-3 left-3 right-3 z-[60] mx-auto max-w-xl rounded-xl border border-amber-400 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950 shadow-lg">
         資料已在其他裝置或操作中更新。這份草稿已過期，無法儲存；可先複製已輸入內容，再關閉視窗並以最新資料重新編輯。
       </div>}
-      {/* Title & Action Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-2">
-        <div className="flex items-center gap-3">
-          <img
-            src="https://cidsexhibition.nutc.edu.tw/images/logo.png"
-            alt="國立臺中科技大學 資訊與流通學院"
-            className="h-10 sm:h-11 w-auto object-contain shrink-0"
-          />
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900">
-              專題抽籤管理員後台
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              各領域獨立分組 · 各組評審委員名冊 · Excel 匯入/匯出
-            </p>
-          </div>
+      {/* Page title */}
+      <div className="flex items-center gap-3 pb-1">
+        <img
+          src="https://cidsexhibition.nutc.edu.tw/images/logo.png"
+          alt="國立臺中科技大學 資訊與流通學院"
+          className="h-10 sm:h-11 w-auto object-contain shrink-0"
+        />
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900">
+            專題抽籤管理員後台
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            各領域獨立分組 · 各組評審委員名冊 · Excel 匯入/匯出
+          </p>
         </div>
+      </div>
 
-        {/* Action Controls: Excel Batch Center & Manual Add */}
-        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-          {/* Excel Batch Operations Group */}
-          <div className="inline-flex items-center p-1 bg-slate-100/90 rounded-2xl border border-slate-200/90 gap-1.5 shadow-2xs">
+      {/* Main admin actions */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(19rem,1fr)]">
+        <section aria-labelledby="roster-actions-heading" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:rounded-3xl sm:p-5">
+          <div className="mb-4">
+            <h2 id="roster-actions-heading" className="flex items-center gap-2 text-sm font-bold text-slate-900 sm:text-base">
+              <FileSpreadsheet className="h-4 w-4 text-blue-600" />專題名冊操作
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">匯入或新增專題，也可下載範本及匯出結果。</p>
+          </div>
+          <input
+            type="file"
+            aria-label="選擇專題名冊檔案"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept=".xlsx, .xls, .csv"
+            className="hidden"
+          />
+          <div className="grid gap-2 sm:grid-cols-2">
             <button
-              onClick={downloadInputTemplate}
-              className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-              title="下載標準 Excel 名冊匯入範本"
-            >
-              <Download className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              <span>下載匯入範本</span>
-            </button>
-
-            <input
-              type="file"
-              aria-label="選擇專題名冊檔案"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              accept=".xlsx, .xls, .csv"
-              className="hidden"
-            />
-
-            <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-              title="隨時匯入或覆蓋專題名冊"
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-xs transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+              title="匯入專題名冊"
             >
-              <Upload className="w-3.5 h-3.5 shrink-0" />
-              <span>{isUploading ? '讀取中...' : '匯入 Excel 名冊'}</span>
+              <Upload className="h-4 w-4 shrink-0" />
+              <span>{isUploading ? '讀取中…' : '匯入 Excel 名冊'}</span>
             </button>
-
             <button
-              onClick={handleExport}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              title="匯出含 [+抽籤結果編號] 的 Excel 名冊"
+              type="button"
+              onClick={handleOpenAddProject}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white shadow-xs transition-colors hover:bg-slate-800 cursor-pointer"
+              title="手動新增單一專題"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
+              <Plus className="h-4 w-4 shrink-0" />
+              <span>手動新增專題</span>
+            </button>
+            <button
+              type="button"
+              onClick={downloadInputTemplate}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 cursor-pointer"
+              title="下載標準 Excel 名冊匯入範本"
+            >
+              <Download className="h-4 w-4 shrink-0" />
+              <span>下載匯入範本</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleExport}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100 cursor-pointer"
+              title="匯出含抽籤結果的 Excel 名冊"
+            >
+              <FileSpreadsheet className="h-4 w-4 shrink-0" />
               <span>匯出結果 Excel</span>
             </button>
           </div>
+        </section>
 
-          {/* Quick Manual Add Button */}
-          <button
-            onClick={handleOpenAddProject}
-            className="px-3.5 py-2 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-            title="手動新增單一專題"
-          >
-            <Plus className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span>手動新增專題</span>
-          </button>
-          <button
-            onClick={() => setSharedAction('generate')}
-            disabled={!projects.length || sharedSaving}
-            className="px-3.5 py-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            {sharedPasswordEnabled ? '重新產生共用密碼' : '產生全體共用密碼'}
-          </button>
-          {sharedPasswordEnabled && <button onClick={() => setSharedAction('clear')} className="px-3.5 py-2 rounded-2xl border border-slate-300 text-slate-700 text-xs font-bold cursor-pointer">停用共用密碼</button>}
-        </div>
+        <section aria-labelledby="password-actions-heading" className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 shadow-xs sm:rounded-3xl sm:p-5">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 id="password-actions-heading" className="flex items-center gap-2 text-sm font-bold text-slate-900 sm:text-base">
+                <ShieldCheck className="h-4 w-4 text-indigo-600" />學生共用密碼
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">管理所有學生登入使用的共用密碼。</p>
+            </div>
+            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${sharedPasswordEnabled ? 'border-indigo-200 bg-indigo-100 text-indigo-800' : 'border-slate-200 bg-white text-slate-600'}`}>
+              {sharedPasswordEnabled ? '使用中' : '未啟用'}
+            </span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setSharedAction('generate')}
+              disabled={!projects.length || sharedSaving}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+            >
+              <ShieldCheck className="h-4 w-4 shrink-0" />
+              <span>{sharedPasswordEnabled ? '重新產生共用密碼' : '產生全體共用密碼'}</span>
+            </button>
+            {sharedPasswordEnabled && (
+              <button
+                type="button"
+                onClick={() => setSharedAction('clear')}
+                disabled={sharedSaving}
+                className="flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+              >
+                停用共用密碼
+              </button>
+            )}
+          </div>
+        </section>
       </div>
 
       {sharedAction && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="確認共用密碼操作">
@@ -891,7 +921,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
       {/* Projects Table / Card View Card */}
       <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-6 shadow-sm">
-        {/* Section Header: Title & Hand Add Project Action */}
+        {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-100">
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -903,15 +933,6 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleOpenAddProject}
-            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer self-start sm:self-auto"
-            title="手動新增一筆專題至名冊"
-          >
-            <Plus className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>手動新增專題</span>
-          </button>
         </div>
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
