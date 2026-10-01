@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { ProjectItem, DomainStats, DomainConfig } from '../types';
 import { parseExcelFile, preserveImportedProjectIds, exportToExcel, downloadInputTemplate } from '../lib/excel';
 import { isAdvisorConflict, normalizeProfessorName } from '../lib/lottery';
+import { sortProjects, type ProjectSortKey, type ProjectSortDirection } from '../lib/projectSort';
 import { useModalFocus } from '../lib/useModalFocus';
 import { FloatingNotice } from './FloatingNotice';
 import {
@@ -22,7 +23,10 @@ import {
   FolderPlus,
   UserCheck,
   ShieldCheck,
-  Users
+  Users,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown
 } from 'lucide-react';
 
 interface AdminManagementProps {
@@ -52,6 +56,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadFeedback, setUploadFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [adminProjectDisplayMode, setAdminProjectDisplayMode] = useState<'table' | 'cards'>('table');
+  const [projectSort, setProjectSort] = useState<{ key: ProjectSortKey; direction: ProjectSortDirection } | null>(null);
   const [sharedAction, setSharedAction] = useState<'generate' | 'clear' | null>(null);
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
   const [sharedSaving, setSharedSaving] = useState(false);
@@ -159,6 +164,29 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       (p.draw_code && p.draw_code.toLowerCase().includes(q));
     return matchesField && matchesSearch;
   });
+  const displayedProjects = projectSort
+    ? sortProjects(filteredProjects, projectSort.key, projectSort.direction)
+    : filteredProjects;
+  const sortableHeader = (key: ProjectSortKey, label: string) => {
+    const direction = projectSort?.key === key ? projectSort.direction : null;
+    return (
+      <th scope="col" aria-sort={direction || 'none'} className="px-3 py-2.5">
+        <button
+          type="button"
+          onClick={() => setProjectSort((current) => ({
+            key, direction: current?.key === key && current.direction === 'ascending' ? 'descending' : 'ascending',
+          }))}
+          className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-1 py-1 text-left transition-colors hover:bg-slate-200 focus-visible:outline-2 focus-visible:outline-blue-600 cursor-pointer ${direction ? 'font-bold text-blue-800' : ''}`}
+          title={`${label}：${direction === 'ascending' ? '升冪，點擊改為降冪' : direction === 'descending' ? '降冪，點擊改為升冪' : '點擊以升冪排序'}`}
+        >
+          <span>{label}</span>
+          {direction === 'ascending' ? <ArrowUp aria-hidden="true" className="h-3.5 w-3.5" />
+            : direction === 'descending' ? <ArrowDown aria-hidden="true" className="h-3.5 w-3.5" />
+            : <ArrowUpDown aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" />}
+        </button>
+      </th>
+    );
+  };
 
   // Open modal to Add Domain
   const handleOpenAddDomain = () => {
@@ -1003,7 +1031,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                {filteredProjects.map((p) => {
+                {displayedProjects.map((p) => {
                   const hasConflict = p.assigned_group && isAdvisorConflict(p.advisor, p.evaluators || []);
                   return (
                     <div
@@ -1114,17 +1142,17 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               <table className="w-full text-left text-xs sm:text-sm min-w-[820px]">
                 <thead className="sticky top-0 bg-slate-100/90 text-slate-700 z-10 border-b border-slate-200">
                   <tr className="text-xs font-semibold">
-                    <th className="py-2.5 px-3">序號</th>
-                    <th className="py-2.5 px-3">+編號(抽籤後)</th>
-                    <th className="py-2.5 px-3">分組場次</th>
-                    <th className="py-2.5 px-3">評審委員</th>
-                    <th className="py-2.5 px-3">領域</th>
-                    <th className="py-2.5 px-3">編號</th>
-                    <th className="py-2.5 px-3">專題名稱</th>
-                    <th className="py-2.5 px-3">組長學號</th>
-                    <th className="py-2.5 px-3">登入密碼</th>
-                    <th className="py-2.5 px-3">指導老師</th>
-                    <th className="py-2.5 px-3 text-right">操作</th>
+                    {sortableHeader('seq_no', '序號')}
+                    {sortableHeader('draw_code', '+編號(抽籤後)')}
+                    {sortableHeader('assigned_group', '分組場次')}
+                    {sortableHeader('evaluators', '評審委員')}
+                    {sortableHeader('field', '領域')}
+                    {sortableHeader('original_code', '編號')}
+                    {sortableHeader('project_title', '專題名稱')}
+                    {sortableHeader('leader_id', '組長學號')}
+                    {sortableHeader('password_set', '登入密碼')}
+                    {sortableHeader('advisor', '指導老師')}
+                    <th scope="col" className="py-2.5 px-3 text-right">操作</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1166,7 +1194,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                       </td>
                     </tr>
                   ) : (
-                    filteredProjects.map((p) => {
+                    displayedProjects.map((p) => {
                       const hasConflict = p.assigned_group && isAdvisorConflict(p.advisor, p.evaluators || []);
                       return (
                         <tr key={p.id} className="hover:bg-slate-50 text-slate-700 transition-colors">
