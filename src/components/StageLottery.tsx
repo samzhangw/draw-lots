@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ProjectItem, DomainConfig } from '../types';
-import { isAdvisorConflict } from '../lib/lottery';
 import { getSecureRandomInt, securePickOne } from '../lib/cryptoRandom';
 import { apiRequest, StoreState } from '../lib/api';
 import confetti from 'canvas-confetti';
@@ -475,7 +474,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                 </div>
 
                 <div className="text-[11px] text-slate-400">
-                  指導老師: {animRollingTeam?.advisor || '---'} · 領域: {animRollingTeam?.field || '---'}
+                  領域: {animRollingTeam?.field || '---'}
                 </div>
               </div>
 
@@ -637,7 +636,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                 type="text"
                 value={boardSearchQuery}
                 onChange={(e) => setBoardSearchQuery(e.target.value)}
-                placeholder="輸入學號、專題、老師快速定位..."
+                placeholder="輸入專題名稱或抽籤編號快速定位..."
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-sans"
               />
               {boardSearchQuery && (
@@ -735,10 +734,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               const isMatch = (item: ProjectItem) => {
                 if (!cleanQuery) return false;
                 return (
-                  item.leader_id.toLowerCase().includes(cleanQuery) ||
                   item.project_title.toLowerCase().includes(cleanQuery) ||
-                  item.advisor.toLowerCase().includes(cleanQuery) ||
-                  (item.class_name && item.class_name.toLowerCase().includes(cleanQuery)) ||
                   (item.draw_code && item.draw_code.toLowerCase().includes(cleanQuery))
                 );
               };
@@ -853,13 +849,6 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                                           {item.project_title}
                                         </h5>
 
-                                        <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 mt-1.5 pt-1.5 border-t border-slate-100 gap-1">
-                                          <span className="font-mono text-blue-700 font-semibold">
-                                            {item.leader_id}
-                                          </span>
-                                          <span>{item.class_name}</span>
-                                          <span>指導: {item.advisor}</span>
-                                        </div>
                                       </div>
                                     </div>
                                   );
@@ -873,16 +862,13 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                   ) : (
                     /* Table View (Structured Table per Domain) */
                     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
-                      <table className="w-full text-left text-xs sm:text-sm min-w-[650px]">
+                      <table className="w-full text-left text-xs sm:text-sm min-w-[500px]">
                         <thead>
                           <tr className="bg-slate-50 text-slate-600 text-xs font-semibold border-b border-slate-200">
                             <th className="py-2.5 px-3 whitespace-nowrap">報告順位</th>
                             <th className="py-2.5 px-3 whitespace-nowrap">分組場次</th>
                             <th className="py-2.5 px-3 whitespace-nowrap">+編號(抽籤後)</th>
                             <th className="py-2.5 px-3">專題名稱</th>
-                            <th className="py-2.5 px-3 whitespace-nowrap">組長學號</th>
-                            <th className="py-2.5 px-3 whitespace-nowrap">班級</th>
-                            <th className="py-2.5 px-3 whitespace-nowrap">指導老師</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -924,15 +910,6 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                                         相符
                                       </span>
                                     )}
-                                  </td>
-                                  <td className="py-2.5 px-3 whitespace-nowrap font-mono text-blue-700 font-semibold">
-                                    {item.leader_id}
-                                  </td>
-                                  <td className="py-2.5 px-3 whitespace-nowrap text-slate-600">
-                                    {item.class_name}
-                                  </td>
-                                  <td className="py-2.5 px-3 whitespace-nowrap text-slate-600 font-medium">
-                                    {item.advisor}
                                   </td>
                                 </tr>
                               );
