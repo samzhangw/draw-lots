@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AuthSession } from '../lib/auth';
-import { Dices, ShieldCheck, LogOut, LoaderCircle } from 'lucide-react';
+import { UserRound, LogOut, LoaderCircle } from 'lucide-react';
 
 interface NavbarProps {
   authSession?: AuthSession | null;
@@ -46,10 +46,9 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
           <details className="group relative shrink-0">
             <summary
               aria-label={`目前登入：${roleLabel}，開啟帳號選單`}
-              className={`relative flex h-11 w-11 list-none items-center justify-center rounded-2xl border shadow-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 cursor-pointer [&::-webkit-details-marker]:hidden ${isAdmin ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100'}`}
+              className={`flex h-11 w-11 list-none items-center justify-center rounded-full border-2 shadow-sm transition-all hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 cursor-pointer [&::-webkit-details-marker]:hidden ${isAdmin ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 group-open:border-emerald-400' : 'border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100 group-open:border-rose-400'}`}
             >
-              {isAdmin ? <ShieldCheck className="h-5 w-5" aria-hidden="true" /> : <Dices className="h-5 w-5" aria-hidden="true" />}
-              <span className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-[3px] border-white ${isAdmin ? 'bg-emerald-500' : 'bg-rose-500'}`} aria-hidden="true" />
+              <UserRound className="h-5 w-5" strokeWidth={2.25} aria-hidden="true" />
             </summary>
             <div className="absolute right-0 top-full z-50 mt-3 w-[min(19rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
               <div className="px-3 py-3">
