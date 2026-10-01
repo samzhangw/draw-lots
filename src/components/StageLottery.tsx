@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ProjectItem, DomainConfig } from '../types';
-import { getSecureRandomInt, securePickOne } from '../lib/cryptoRandom';
 import { apiRequest, StoreState } from '../lib/api';
 import confetti from 'canvas-confetti';
 import {
@@ -42,13 +41,6 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
-  // Redesigned animation states
-  const [animProgress, setAnimProgress] = useState<number>(0);
-  const [animPhase, setAnimPhase] = useState<'shuffling' | 'verifying' | 'finalizing' | 'completed'>('shuffling');
-  const [animActiveField, setAnimActiveField] = useState<string>('');
-  const [animRollingTeam, setAnimRollingTeam] = useState<ProjectItem | null>(null);
-  const [animRollingCode, setAnimRollingCode] = useState<string>('');
-  const [animCompletedDomains, setAnimCompletedDomains] = useState<string[]>([]);
   const [batchDrawSummary, setBatchDrawSummary] = useState<string | null>(null);
 
   // Redesigned board states
@@ -155,100 +147,29 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
 
     setIsAnimating(true);
     setBatchDrawSummary(null);
-    setAnimProgress(0);
-    setAnimCompletedDomains([]);
-    setAnimPhase('shuffling');
-
-    const targetDomains = selectedField === 'ALL'
-      ? domainConfigs
-      : domainConfigs.filter((c) => c.field === selectedField);
-
-    // Trigger backend draw calculation immediately on the server
-    const backendDrawPromise = apiRequest<StoreState & { summary: string }>('/api/lottery/draw', {
-      field: selectedField,
-      version: dataVersion,
-    }).then(result => ({ result, error: null }), error => ({ result: null, error }));
-
-    let tick = 0;
-    const totalTicks = 34; // approx 3.2 seconds of dramatic animation
-
-    const intervalId = setInterval(() => {
-      tick++;
-
-      // Progress percentage
-      const progressPercent = Math.min(100, Math.round((tick / totalTicks) * 100));
-      setAnimProgress(progressPercent);
-
-      // Phase transitions
-      if (tick < 12) {
-        setAnimPhase('shuffling');
-      } else if (tick < 26) {
-        setAnimPhase('verifying');
-      } else {
-        setAnimPhase('finalizing');
-      }
-
-      // Cycle through active domains
-      const currentDomainIdx = Math.floor((tick / totalTicks) * targetDomains.length) % targetDomains.length;
-      const activeDomain = targetDomains[currentDomainIdx] || targetDomains[0];
-      if (!activeDomain) {
-        clearInterval(intervalId);
-        void finalizeDrawExecution();
-        return;
-      }
-      setAnimActiveField(activeDomain.field);
-
-      // Pick a random team from undrawn pool to show rolling preview
-      const candidate = securePickOne(undrawnPool) || undrawnPool[0];
-      setAnimRollingTeam(candidate);
-
-      // Simulated rolling order code
-      const randGrp = getSecureRandomInt(activeDomain.groupCount || 2) + 1;
-      const randSeq = String(getSecureRandomInt(20) + 1).padStart(2, '0');
-      setAnimRollingCode(`${activeDomain.field.slice(0, 4)}-第${randGrp}組-序號${randSeq}`);
-
-      // Sequentially mark domains as completed
-      const completedCount = Math.floor((tick / totalTicks) * targetDomains.length);
-      const completedList = targetDomains.slice(0, completedCount).map((d) => d.field);
-      setAnimCompletedDomains(completedList);
-
-      if (tick >= totalTicks) {
-        clearInterval(intervalId);
-        finalizeDrawExecution();
-      }
-    }, 95);
-
-    const finalizeDrawExecution = async () => {
-      try {
-        // Await the backend calculation result returned in one single response
-        const response = await backendDrawPromise;
-        if (response.error) throw response.error;
-        const backendResult = response.result;
-        if (backendResult && Array.isArray(backendResult.projects)) {
-          setBatchDrawSummary(
-            backendResult.summary ||
-              (selectedField === 'ALL'
-                ? `【後端抽籤完成】全校共 ${domainConfigs.length} 個領域已由伺服器完成獨立分組抽籤！`
-                : `【後端抽籤完成】「${selectedField}」領域已由伺服器完成獨立分組抽籤！`)
-          );
-
-          setAnimCompletedDomains(targetDomains.map((d) => d.field));
-          setAnimProgress(100);
-          setAnimPhase('completed');
-
-          // Update projects state with the full backend response
-          onApplyState(backendResult);
-          setIsAnimating(false);
-
-          triggerCelebration();
-          return;
-        }
-        throw new Error('抽籤回應格式不正確。');
-      } catch (apiErr) {
-        setNoticeMessage(apiErr instanceof Error ? apiErr.message : '抽籤失敗，請重新整理後再試。');
-        setIsAnimating(false);
-      }
-    };
+    try {
+      // Keep the presentation visible briefly, but only show results returned by the backend.
+      const [backendResult] = await Promise.all([
+        apiRequest<StoreState & { summary: string }>('/api/lottery/draw', {
+          field: selectedField,
+          version: dataVersion,
+        }),
+        new Promise<void>((resolve) => setTimeout(resolve, 2600)),
+      ]);
+      if (!Array.isArray(backendResult.projects)) throw new Error('抽籤回應格式不正確。');
+      setBatchDrawSummary(
+        backendResult.summary ||
+          (selectedField === 'ALL'
+            ? `全校共 ${domainConfigs.length} 個領域已完成獨立分組抽籤。`
+            : `「${selectedField}」領域已完成獨立分組抽籤。`)
+      );
+      onApplyState(backendResult);
+      triggerCelebration();
+    } catch (apiErr) {
+      setNoticeMessage(apiErr instanceof Error ? apiErr.message : '抽籤失敗，請重新整理後再試。');
+    } finally {
+      setIsAnimating(false);
+    }
   };
 
   /**
@@ -269,74 +190,64 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       const data = await apiRequest('/api/lottery/reset', { field: selectedField, version: dataVersion });
       onApplyState(data);
       setBatchDrawSummary(null);
-      setAnimRollingTeam(null);
-      setAnimCompletedDomains([]);
     } catch (error) {
       setNoticeMessage(error instanceof Error ? error.message : '重設失敗，請稍後再試。');
     }
   };
 
-  const completionPercent = currentPool.length > 0
-    ? Math.round((drawnPool.length / currentPool.length) * 100)
-    : 0;
-
   return (
     <div
       ref={stageContainerRef}
-      className={`min-h-[calc(100vh-4rem)] bg-slate-50 text-slate-800 transition-all ${
+      className={`min-h-[calc(100vh-4rem)] bg-gradient-to-b from-blue-50/70 via-white to-slate-50 text-slate-800 transition-all ${
         isFullscreen
-          ? 'p-3 sm:p-6 fixed inset-0 z-50 overflow-y-auto bg-slate-50'
+          ? 'p-3 sm:p-6 fixed inset-0 z-50 overflow-y-auto bg-white'
           : 'py-4 sm:py-7 px-3 sm:px-6 max-w-[1600px] mx-auto space-y-5 sm:space-y-7'
       }`}
     >
       {/* Presentation control header */}
-      <section className="relative overflow-hidden rounded-[1.75rem] bg-slate-950 text-white shadow-xl shadow-slate-900/15">
-        <div className="absolute -right-20 -top-28 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl pointer-events-none" />
-        <div className="absolute -left-20 bottom-0 h-52 w-52 rounded-full bg-rose-500/10 blur-3xl pointer-events-none" />
+      <section className="relative overflow-hidden rounded-[1.75rem] border border-blue-100 bg-white text-slate-900 shadow-sm">
+        <div className="absolute -right-20 -top-28 h-72 w-72 rounded-full bg-blue-100/80 blur-3xl pointer-events-none" />
+        <div className="absolute -left-20 bottom-0 h-52 w-52 rounded-full bg-amber-100/70 blur-3xl pointer-events-none" />
         <div className="relative p-5 sm:p-7 lg:p-9 space-y-6">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
             <div className="flex items-center gap-4 min-w-0">
-              <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-white flex items-center justify-center shrink-0 p-2 shadow-lg">
+              <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl border border-slate-100 bg-white flex items-center justify-center shrink-0 p-2 shadow-sm">
                 <img src="https://cidsexhibition.nutc.edu.tw/images/logo.png" alt="國立臺中科技大學 資訊與流通學院" className="max-h-full max-w-full object-contain" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] sm:text-xs font-semibold tracking-wide text-indigo-200">國立臺中科技大學 · 資訊與流通學院</p>
+                <p className="text-[11px] sm:text-xs font-semibold tracking-wide text-blue-700">國立臺中科技大學 · 資訊與流通學院</p>
                 <h1 className="mt-1 text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight">專題報告抽籤展演</h1>
-                <p className="mt-1 text-xs sm:text-sm text-slate-300">各領域獨立分組，現場同步公布發表順位</p>
+                <p className="mt-1 text-xs sm:text-sm text-slate-600">各領域獨立分組，現場同步公布發表順位</p>
               </div>
             </div>
-            <span className={`self-start inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs sm:text-sm font-bold border ${isAnimating ? 'bg-amber-400/15 border-amber-300/30 text-amber-200' : currentPool.length === 0 ? 'bg-white/10 border-white/20 text-slate-300' : undrawnPool.length ? 'bg-blue-400/15 border-blue-300/30 text-blue-200' : 'bg-emerald-400/15 border-emerald-300/30 text-emerald-200'}`} aria-live="polite">
-              <span className={`h-2 w-2 rounded-full ${isAnimating ? 'bg-amber-300 animate-pulse' : currentPool.length === 0 ? 'bg-slate-400' : undrawnPool.length ? 'bg-blue-300' : 'bg-emerald-300'}`} />
+            <span className={`self-start inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs sm:text-sm font-bold border ${isAnimating ? 'bg-amber-50 border-amber-200 text-amber-800' : currentPool.length === 0 ? 'bg-slate-50 border-slate-200 text-slate-600' : undrawnPool.length ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`} aria-live="polite">
+              <span className={`h-2 w-2 rounded-full ${isAnimating ? 'bg-amber-500 animate-pulse' : currentPool.length === 0 ? 'bg-slate-400' : undrawnPool.length ? 'bg-blue-500' : 'bg-emerald-500'}`} />
               {isAnimating ? '抽籤進行中' : currentPool.length === 0 ? '尚無專題' : undrawnPool.length ? '等待抽籤' : '抽籤已完成'}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.8fr)_auto] gap-3 lg:items-end pt-5 border-t border-white/15">
+          <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-end sm:justify-between">
             <label className="block min-w-0">
-              <span className="block text-[11px] font-semibold text-slate-300 mb-2">抽籤範圍</span>
-              <span className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3.5 py-3 focus-within:ring-2 focus-within:ring-indigo-300">
-                <Filter className="w-4 h-4 text-indigo-200 shrink-0" />
+              <span className="block text-[11px] font-semibold text-slate-600 mb-2">抽籤範圍</span>
+              <span className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-3 focus-within:ring-2 focus-within:ring-blue-200">
+                <Filter className="w-4 h-4 text-blue-700 shrink-0" />
                 <select
                   value={selectedField}
                   onChange={(e) => { setSelectedField(e.target.value); setBatchDrawSummary(null); }}
                   disabled={isAnimating}
-                  className="w-full min-w-0 bg-transparent text-white font-semibold text-sm outline-none cursor-pointer disabled:cursor-not-allowed [&>option]:text-slate-900"
+                  className="w-full min-w-0 bg-transparent text-slate-900 font-semibold text-sm outline-none cursor-pointer disabled:cursor-not-allowed"
                 >
                   <option value="ALL">全校所有領域（{projects.length} 件）</option>
                   {domainConfigs.map((cfg) => <option key={cfg.id} value={cfg.field}>{cfg.field}（{projects.filter(p => p.field === cfg.field).length} 件）</option>)}
                 </select>
               </span>
             </label>
-            <div className="min-w-0 pb-1" aria-label={`抽籤進度 ${completionPercent}%`}>
-              <div className="flex items-center justify-between text-xs font-semibold mb-2"><span className="text-slate-300">目前範圍進度</span><span className="text-white tabular-nums">{completionPercent}%</span></div>
-              <div className="h-2.5 w-full rounded-full bg-white/15 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-sky-400 to-emerald-400 transition-all duration-500" style={{ width: `${completionPercent}%` }} /></div>
-            </div>
             <div className="flex items-center gap-2">
-              <button onClick={toggleFullscreen} type="button" className="flex-1 lg:flex-none inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 px-4 py-3 text-sm font-bold transition-colors cursor-pointer" title={isFullscreen ? '退出全螢幕' : '全螢幕大螢幕投影'}>
+              <button onClick={toggleFullscreen} type="button" className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 px-4 py-3 text-sm font-bold text-blue-800 transition-colors cursor-pointer" title={isFullscreen ? '退出全螢幕' : '全螢幕大螢幕投影'}>
                 {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                 {isFullscreen ? '退出全螢幕' : '全螢幕展示'}
               </button>
-              <button onClick={handleOpenResetModal} disabled={isAnimating || drawnPool.length === 0} type="button" className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 hover:bg-rose-500/25 px-4 py-3 text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" title="重設此範圍抽籤結果">
+              <button onClick={handleOpenResetModal} disabled={isAnimating || drawnPool.length === 0} type="button" className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 px-4 py-3 text-sm font-bold text-slate-700 hover:text-rose-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" title="重設此範圍抽籤結果">
                 <RotateCcw className="w-4 h-4" />
                 <span className="hidden sm:inline">重設結果</span>
               </button>
@@ -352,7 +263,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       </div>
 
       {/* Main Big Stage Presentation Card */}
-      <section className="relative overflow-hidden rounded-[1.75rem] bg-white border border-slate-200 border-t-4 border-t-indigo-500 shadow-lg shadow-slate-200/70 p-5 sm:p-8 lg:p-10 text-center" aria-label="抽籤主舞台">
+      <section className="relative overflow-hidden rounded-[1.75rem] bg-white border border-blue-100 border-t-4 border-t-blue-500 shadow-lg shadow-blue-100/70 p-5 sm:p-8 lg:p-10 text-center" aria-label="抽籤主舞台">
         {/* Dynamic Glow effects during animation */}
         {isAnimating && (
           <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-rose-500/10 to-amber-500/5 animate-pulse pointer-events-none" />
@@ -360,121 +271,23 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
 
         <div className="relative z-10 max-w-5xl mx-auto min-h-[300px] sm:min-h-[350px] flex flex-col items-center justify-center" aria-live="polite">
           {isAnimating ? (
-            /* ========================================================
-             * Redesigned Multi-Phase Domain Lottery Animation
-             * ======================================================== */
-            <div className="space-y-5 sm:space-y-6 w-full animate-in fade-in duration-300">
-              {/* Phase Step Badges */}
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <span
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${
-                    animPhase === 'shuffling'
-                      ? 'bg-rose-50 border-rose-300 text-rose-700 ring-2 ring-rose-200'
-                      : 'bg-slate-100 border-slate-200 text-slate-500'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>步驟 1: 各領域獨立矩陣洗牌</span>
-                </span>
-
-                <span
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${
-                    animPhase === 'verifying'
-                      ? 'bg-blue-50 border-blue-300 text-blue-700 ring-2 ring-blue-200'
-                      : 'bg-slate-100 border-slate-200 text-slate-500'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>步驟 2: 各領域獨立隨機排序</span>
-                </span>
-
-                <span
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${
-                    animPhase === 'finalizing'
-                      ? 'bg-amber-50 border-amber-300 text-amber-700 ring-2 ring-amber-200'
-                      : 'bg-slate-100 border-slate-200 text-slate-500'
-                  }`}
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>步驟 3: 全校報告序號派定</span>
-                </span>
+            <div className="w-full space-y-5 py-3 sm:py-5">
+              <p className="text-sm font-bold tracking-wide text-blue-700">{selectedField === 'ALL' ? '全校各領域' : selectedField} · 現場抽籤中</p>
+              <div className="relative mx-auto flex h-36 w-36 items-center justify-center sm:h-44 sm:w-44" aria-hidden="true">
+                <div className="absolute inset-0 rounded-full border-[10px] border-blue-100" />
+                <div className="absolute inset-0 rounded-full border-[10px] border-transparent border-t-blue-600 border-r-amber-400 motion-safe:animate-spin" />
+                <div className="flex h-24 w-24 items-center justify-center rounded-3xl border border-blue-100 bg-blue-50 text-blue-700 shadow-sm sm:h-28 sm:w-28"><Dices className="h-12 w-12 sm:h-14 sm:w-14 motion-safe:animate-pulse" /></div>
               </div>
-
-              {/* Real-time Progress Bar */}
-              <div className="max-w-xl mx-auto w-full space-y-1.5">
-                <div className="flex justify-between items-center text-xs text-slate-600 font-mono font-bold">
-                  <span className="flex items-center gap-1 text-rose-600">
-                    <Zap className="w-3.5 h-3.5 fill-current animate-bounce" />
-                    <span>正在執行領域獨立抽籤中...</span>
-                  </span>
-                  <span>{animProgress}%</span>
-                </div>
-                <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-rose-500 via-blue-500 to-emerald-500 transition-all duration-100"
-                    style={{ width: `${animProgress}%` }}
-                  />
-                </div>
+              <div>
+                <h2 className="text-2xl font-black text-slate-900 sm:text-4xl">正在產生抽籤結果</h2>
+                <p className="mt-2 text-sm text-slate-600 sm:text-base">請稍候，正式場次與報告順位將在完成後公布。</p>
               </div>
-
-              {/* Dynamic Center Reel Card */}
-              <div className="p-5 sm:p-7 bg-slate-950 text-white rounded-3xl border border-slate-800 shadow-xl max-w-2xl mx-auto w-full space-y-4">
-                <div className="flex items-center justify-between text-[11px] sm:text-xs text-slate-400 font-mono">
-                  <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-blue-400 border border-slate-700 font-bold">
-                    當前運算領域：{animActiveField || '全校領域'}
-                  </span>
-                  <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>序號狀態：即時產生中</span>
-                  </span>
-                </div>
-
-                <div className="text-xl sm:text-3xl font-black text-rose-400 font-mono tracking-wider animate-pulse">
-                  {animRollingCode || '領域-第1組-序號01'}
-                </div>
-
-                <div className="text-sm sm:text-base font-bold text-slate-100 line-clamp-1">
-                  {animRollingTeam?.project_title || '隨機洗牌中...'}
-                </div>
-
-                <div className="text-[11px] text-slate-400">
-                  領域：{animRollingTeam?.field || '---'} · 畫面為抽籤動畫，正式結果以下方看板為準
-                </div>
+              <div className="mx-auto grid max-w-2xl grid-cols-3 gap-2 sm:gap-4" aria-hidden="true">
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-2 py-3 text-xs font-bold text-blue-800 sm:text-sm"><Layers className="mx-auto mb-1.5 h-5 w-5" />獨立分組</div>
+                <div className="rounded-xl border border-amber-100 bg-amber-50 px-2 py-3 text-xs font-bold text-amber-800 sm:text-sm"><Dices className="mx-auto mb-1.5 h-5 w-5" />隨機抽選</div>
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-2 py-3 text-xs font-bold text-emerald-800 sm:text-sm"><CheckCircle2 className="mx-auto mb-1.5 h-5 w-5" />公布順位</div>
               </div>
-
-              {/* Real-time Domain Matrix Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-w-3xl mx-auto w-full pt-1">
-                {domainConfigs.map((cfg) => {
-                  const isDone = animCompletedDomains.includes(cfg.field);
-                  const isCurrent = animActiveField === cfg.field;
-                  const count = projects.filter((p) => p.field === cfg.field).length;
-
-                  return (
-                    <div
-                      key={cfg.id}
-                      className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
-                        isDone
-                          ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                          : isCurrent
-                          ? 'bg-blue-50 border-blue-400 text-blue-900 ring-2 ring-blue-200'
-                          : 'bg-slate-50 border-slate-200 text-slate-500 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between font-bold text-[11px] truncate">
-                        <span className="truncate">{cfg.field}</span>
-                        {isDone ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        ) : isCurrent ? (
-                          <div className="w-3 h-3 rounded-full border-2 border-blue-600 border-t-transparent animate-spin shrink-0" />
-                        ) : null}
-                      </div>
-                      <div className="text-[10px] mt-1 text-slate-500">
-                        {count} 件 · 分 {cfg.groupCount} 組
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <p className="text-xs text-slate-500">此為展示動畫；抽籤結果由後端產生並儲存。</p>
             </div>
           ) : batchDrawSummary ? (
             /* ========================================================
@@ -496,7 +309,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
 
               {/* Completed Domain Summary Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-w-3xl mx-auto w-full pt-2">
-                {domainConfigs.map((cfg) => {
+                {(selectedField === 'ALL' ? domainConfigs : domainConfigs.filter((cfg) => cfg.field === selectedField)).map((cfg) => {
                   const teams = projects.filter((p) => p.field === cfg.field);
                   return (
                     <div
@@ -566,7 +379,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
           <button
             onClick={handleOpenBatchModal}
             disabled={isAnimating || undrawnPool.length === 0}
-            className="w-full sm:w-auto min-w-[260px] sm:min-w-[340px] px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-base sm:text-lg shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:hover:scale-100 disabled:shadow-none flex items-center justify-center gap-2.5 cursor-pointer"
+            className="w-full sm:w-auto min-w-[260px] sm:min-w-[340px] px-8 py-4 rounded-2xl bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-base sm:text-lg shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:hover:scale-100 disabled:shadow-none flex items-center justify-center gap-2.5 cursor-pointer"
           >
             <Zap className="w-5 h-5 fill-current shrink-0 animate-pulse" />
             <span>
@@ -650,7 +463,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               onClick={() => setBoardDomainFilter('ALL')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer border ${
                 boardDomainFilter === 'ALL'
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                  ? 'bg-blue-700 text-white border-blue-700 shadow-xs'
                   : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
               }`}
             >
@@ -708,17 +521,17 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               return (
                 <div key={cfg.id} className="space-y-3.5">
                   {/* Domain Header Banner */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 p-4 sm:p-5 rounded-2xl bg-slate-900 text-white">
+                  <div className="flex flex-wrap items-center justify-between gap-2 p-4 sm:p-5 rounded-2xl border border-blue-200 bg-blue-50 text-slate-900">
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-rose-400" />
-                      <h4 className="text-base sm:text-lg font-black text-white tracking-tight">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                      <h4 className="text-base sm:text-lg font-black text-blue-950 tracking-tight">
                         {cfg.field}
                       </h4>
-                      <span className="text-xs text-slate-300 font-mono">
+                      <span className="text-xs text-slate-600 font-mono">
                         (劃分 {cfg.groupCount} 組 · 已抽 {domainDrawnProjects.length} 件)
                       </span>
                     </div>
-                    <span className="text-[11px] font-bold text-indigo-100 bg-white/10 px-2.5 py-1 rounded-full border border-white/15">
+                    <span className="text-[11px] font-bold text-blue-800 bg-white px-2.5 py-1 rounded-full border border-blue-200">
                       各組獨立排序
                     </span>
                   </div>
@@ -830,7 +643,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
                       <table className="w-full text-left text-xs sm:text-sm min-w-[500px]">
                         <thead>
-                          <tr className="bg-slate-900 text-white text-xs font-semibold border-b border-slate-800">
+                          <tr className="bg-blue-50 text-blue-950 text-xs font-semibold border-b border-blue-200">
                             <th className="py-2.5 px-3 whitespace-nowrap">報告順位</th>
                             <th className="py-2.5 px-3 whitespace-nowrap">分組場次</th>
                             <th className="py-2.5 px-3 whitespace-nowrap">抽籤編號</th>
@@ -996,7 +809,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
             <div className="pt-2">
               <button
                 onClick={() => setNoticeMessage(null)}
-                className="w-full py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 cursor-pointer"
+                className="w-full py-2 rounded-xl bg-blue-700 text-white text-xs font-semibold hover:bg-blue-800 cursor-pointer"
               >
                 我知道了
               </button>
