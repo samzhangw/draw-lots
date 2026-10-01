@@ -212,10 +212,6 @@ export default function App() {
     return domainConfigs.map((d) => d.field);
   }, [domainConfigs]);
 
-  const drawnProjectsCount = useMemo(() => {
-    return projects.filter((p) => !!p.draw_order).length;
-  }, [projects]);
-
   if (!authReady) return <div className="p-8 text-center text-slate-500">正在載入後端登入狀態…</div>;
 
   return (
@@ -223,10 +219,6 @@ export default function App() {
       <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-xl focus:bg-white focus:px-4 focus:py-3 focus:font-bold focus:text-blue-800 focus:shadow-lg">跳至主要內容</a>
       {/* Top Navigation */}
       <Navbar
-        currentView={currentView}
-        onSelectView={handleSelectView}
-        totalProjects={projects.length}
-        drawnProjectsCount={drawnProjectsCount}
         authSession={authSession}
         onLogout={handleLogout}
       />
