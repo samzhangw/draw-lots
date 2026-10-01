@@ -317,7 +317,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal((await request('/api/student/shared-password', { action: 'generate', version: state.version }, stage)).status, 403);
     const generated = await request('/api/student/shared-password', { action: 'generate', version: state.version }, adminAgain);
     assert.equal(generated.status, 200);
-    assert.match(generated.data.password, /^[A-Za-z0-9_-]{32}$/);
+    assert.match(generated.data.password, /^[0-9A-HJKMNP-TV-Z]{8}$/);
     assert.equal(generated.data.sharedPasswordEnabled, true);
     assert.equal(generated.data.projects[0].password_hash, undefined);
     assert.equal(generated.data.projects[0].shared_password_mode, undefined);
@@ -339,6 +339,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const rotated = await request('/api/student/shared-password', { action: 'generate', version: state.version }, adminAgain);
     assert.equal(rotated.status, 200);
     assert.notEqual(rotated.data.password, generated.data.password);
+    assert.match(rotated.data.password, /^[0-9A-HJKMNP-TV-Z]{8}$/);
     assert.equal((await request('/api/student/me', undefined, undefined, commonCookie)).status, 401);
     assert.equal((await request('/api/student/verify', { leaderId: project.leader_id, password: generated.data.password })).status, 401);
     assert.equal((await request('/api/student/verify', { leaderId: project.leader_id, password: rotated.data.password })).status, 200);

@@ -584,7 +584,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       {sharedAction && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="確認共用密碼操作">
         <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl">
           <h2 className="text-lg font-bold">{sharedAction === 'generate' ? '產生全體共用密碼？' : '停用全體共用密碼？'}</h2>
-          <p className="text-sm text-slate-700">{sharedAction === 'generate' ? '系統會產生一組隨機密碼，取代所有學生目前的密碼並讓現有登入失效。新密碼只會顯示一次。知道其他組長學號的人也能用共用密碼查詢該組的公開抽籤資訊，私人名冊資料不會顯示。' : '停用後所有學生都無法登入，直到管理員分別設定個別密碼。'}</p>
+          <p className="text-sm text-slate-700">{sharedAction === 'generate' ? '系統會產生一組 8 碼隨機英數密碼，取代所有學生目前的密碼並讓現有登入失效。新密碼只會顯示一次。知道其他組長學號的人也能用共用密碼查詢該組的公開抽籤資訊，私人名冊資料不會顯示。' : '停用後所有學生都無法登入，直到管理員分別設定個別密碼。'}</p>
           <div className="flex justify-end gap-2"><button onClick={() => setSharedAction(null)} disabled={sharedSaving} className="px-4 py-2 rounded-lg border">取消</button><button onClick={() => void submitSharedAction()} disabled={sharedSaving} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold disabled:opacity-50">{sharedSaving ? '處理中…' : '確認'}</button></div>
         </div>
       </div>}

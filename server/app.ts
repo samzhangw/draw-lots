@@ -11,6 +11,7 @@ import { publicError } from './errors';
 import { executeAllDomainsIndependentLottery, allocateDomainSubgroups } from '../src/lib/lottery';
 
 export const app = express();
+const SHARED_PASSWORD_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 app.disable('x-powered-by');
 app.use('/api', (_req, res, next) => {
   res.locals.requestId = randomUUID();
@@ -153,7 +154,7 @@ app.post('/api/student/shared-password', route(async (req, res) => {
     res.json(staffState(await store.save(state, state.version), 'admin'));
     return;
   }
-  const password = randomBytes(24).toString('base64url');
+  const password = Array.from(randomBytes(8), byte => SHARED_PASSWORD_ALPHABET[byte & 31]).join('');
   const password_hash = await hashPassword(password);
   state.projects = state.projects.map(p => ({ ...projectDto(p), password_hash, shared_password_mode: true }));
   res.json({ ...staffState(await store.save(state, state.version), 'admin'), password });
