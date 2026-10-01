@@ -44,7 +44,7 @@ React + Vite 前端，Express API 統一使用 Supabase Database 與 Supabase Au
 - 登入有每帳號 10 次／15 分鐘、每 IP 100 次／15 分鐘的限制，跨站 JSON 操作會被拒絕。Cloudflare 使用 Durable Object 原子計數，跨地區／重啟共用相同限制，僅保存帳號與 IP 的雜湊索引及短期計數；本機 Node.js 使用行程內限流。
 - Excel 套件固定使用官方來源 `xlsx@0.20.3`，鎖定檔保存完整性；匯入上限 5 MB／2000 筆。密碼欄位可留空，後續於後台設定；有填密碼時須符合新規則，匯出結果不包含憑證。
 - 管理員／展演人員的登入 session 與 Supabase access token 存在 `ntcust_staff_sessions`，不再回傳 token 或寫入 localStorage／sessionStorage。瀏覽器只持有 HttpOnly 隨機 cookie；每次操作均查驗後端 session、到期時間與 Supabase 身分。登出刪除 session，舊 cookie 立即失效。勾選「記住我」只決定 cookie 是否保留至 token 到期，不延長登入期限。
-- 音效開關只保留在前端記憶體，重新整理後恢復預設開啟，不呼叫後端 API。未提交表單、搜尋／篩選、彈窗、載入狀態與動畫亦留在前端。第四份 migration 會移除第三份曾建立的音效偏好資料表；保留既有 migration 以支援已部署的資料庫。
+- 音效播放與音效開關已移除；抽籤動畫保留。未提交表單、搜尋／篩選、彈窗、載入狀態與動畫仍留在前端。第四份 migration 會移除第三份曾建立的音效偏好資料表；保留既有 migration 以支援已部署的資料庫。
 - 所有正式業務資料、學生與工作人員 session均由 Supabase 保存；前端記憶體僅供畫面顯示。後端重啟不會遺失已提交資料，沒有本機資料庫備援。可定期清除 session 表的過期資料列。
 - 資料連線或儲存失敗會顯示錯誤，不會改用本機 JSON、localStorage 或前端計算抽籤結果。學生按「重新整理」取得最新資料。
 - 初始名冊為空，可由管理員匯入 Excel。未設定連線資訊時 API 回傳 503，不會自動建立示範資料。

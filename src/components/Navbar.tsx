@@ -1,17 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ViewMode } from '../types';
 import { AuthSession } from '../lib/auth';
 import {
   Trophy,
   Dices,
   ShieldCheck,
-  Volume2,
-  VolumeX,
   Lock,
-  LogOut,
-  UserCheck
+  LogOut
 } from 'lucide-react';
-import { soundManager } from '../lib/audio';
 
 interface NavbarProps {
   currentView: ViewMode;
@@ -30,14 +26,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   authSession,
   onLogout,
 }) => {
-  const [soundOn, setSoundOn] = useState(soundManager.isSoundEnabled());
-
-  const toggleSound = () => {
-    const next = !soundOn;
-    setSoundOn(next);
-    soundManager.setSoundEnabled(next);
-  };
-
   const navItems = [
     {
       id: 'student' as ViewMode,
@@ -191,23 +179,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
 
-            {/* Audio Toggle */}
-            <button
-              onClick={toggleSound}
-              type="button"
-              title={soundOn ? '點擊靜音' : '點擊開啟抽籤音效'}
-              aria-label={soundOn ? '點擊靜音' : '點擊開啟抽籤音效'}
-              className="flex items-center gap-1.5 px-3 py-1.5 lg:py-2 rounded-xl bg-white hover:bg-slate-100/90 border border-slate-200 text-slate-700 text-xs font-medium transition-colors shadow-2xs cursor-pointer min-h-[38px]"
-            >
-              {soundOn ? (
-                <Volume2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              ) : (
-                <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />
-              )}
-              <span className="text-[11px] text-slate-600">
-                {soundOn ? '音效開' : '靜音'}
-              </span>
-            </button>
           </div>
         </div>
 
@@ -244,7 +215,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </a>
 
-            {/* Mobile Right Controls: Logout & Audio Toggle */}
+            {/* Mobile Logout */}
             <div className="flex items-center gap-1.5 shrink-0">
               {authSession && onLogout && (
                 <button
@@ -259,19 +230,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               )}
 
-              <button
-                onClick={toggleSound}
-                type="button"
-                title={soundOn ? '點擊靜音' : '點擊開啟音效'}
-                aria-label={soundOn ? '點擊靜音' : '點擊開啟音效'}
-                className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 active:bg-slate-200 border border-slate-200 text-slate-700 cursor-pointer"
-              >
-                {soundOn ? (
-                  <Volume2 className="w-4 h-4 text-emerald-600" />
-                ) : (
-                  <VolumeX className="w-4 h-4 text-slate-400" />
-                )}
-              </button>
             </div>
           </div>
 

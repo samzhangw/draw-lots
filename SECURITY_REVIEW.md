@@ -15,7 +15,7 @@
 
 **部署前需執行 `supabase/migrations/202610010002_student_security.sql`**，並在後台重新設定學生密碼。Supabase 線上資料表權限需另外驗證；歷史備份未提交 Git，也未刪除。測試涵蓋程式行為與本機模擬服務，不等於線上滲透測試。
 
-原項目 5 已修復：工作人員登入憑證移至 Supabase 後端 session，瀏覽器僅保存 HttpOnly 隨機 cookie；API 不接受前端 Bearer token，登出刪除 session 後立即失效。音效偏好為暫時介面狀態，已取消後端 API 與儲存。需依序執行 `supabase/migrations/202610010003_staff_sessions_and_preferences.sql` 與 `supabase/migrations/202610010004_remove_staff_preferences.sql`；後者移除不必要的音效偏好資料表。
+原項目 5 已修復：工作人員登入憑證移至 Supabase 後端 session，瀏覽器僅保存 HttpOnly 隨機 cookie；API 不接受前端 Bearer token，登出刪除 session 後立即失效。音效播放與按鈕已移除，後端音效偏好 API 與儲存也已取消。需依序執行 `supabase/migrations/202610010003_staff_sessions_and_preferences.sql` 與 `supabase/migrations/202610010004_remove_staff_preferences.sql`；後者移除不必要的音效偏好資料表。
 
 尚未處理：Cloudflare 已採 Durable Object 共享登入限流；一般 Node 多副本部署仍需共享限流。公開查詢的資源限流，正式 HTTPS / CSP / MFA / 線上 RLS 仍須部署時驗證。本次已處理使用者指定的三項高風險問題及原始項目 6、7。
 

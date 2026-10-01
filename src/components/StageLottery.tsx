@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ProjectItem, DomainConfig } from '../types';
-import { soundManager } from '../lib/audio';
 import { isAdvisorConflict } from '../lib/lottery';
 import { getSecureRandomInt, securePickOne } from '../lib/cryptoRandom';
 import { apiRequest, StoreState } from '../lib/api';
@@ -172,7 +171,6 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
 
     const intervalId = setInterval(() => {
       tick++;
-      soundManager.playTick();
 
       // Progress percentage
       const progressPercent = Math.min(100, Math.round((tick / totalTicks) * 100));
@@ -239,7 +237,6 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
           onApplyState(backendResult);
           setIsAnimating(false);
 
-          soundManager.playGrandFanfare();
           triggerCelebration();
           return;
         }
