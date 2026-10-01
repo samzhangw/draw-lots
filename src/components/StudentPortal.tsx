@@ -17,7 +17,6 @@ import {
   LogIn,
   Layers,
   Users,
-  Sparkles
 } from 'lucide-react';
 
 export const StudentPortal: React.FC = () => {
@@ -148,7 +147,7 @@ export const StudentPortal: React.FC = () => {
                   {/* Student ID */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      組長學號 <span className="font-normal text-slate-400">(Student ID)</span>
+                      組長學號
                     </label>
                     <div className="relative">
                       <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
@@ -170,7 +169,7 @@ export const StudentPortal: React.FC = () => {
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                         <Lock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>登入密碼 <span className="font-normal text-slate-400">(Password)</span></span>
+                        <span>登入密碼</span>
                       </label>
                     </div>
                     <div className="relative">
@@ -292,93 +291,39 @@ export const StudentPortal: React.FC = () => {
                   </div>}
                 </div>
 
-                {/* 3大關鍵報告資訊卡片 (領域名稱 · 分組場次 · 發表順序) */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* 1. 領域名稱 */}
-                  <div className="rounded-2xl p-5 bg-gradient-to-br from-blue-50/80 to-slate-50 border border-blue-200/90 shadow-2xs flex flex-col justify-between space-y-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-blue-700 flex items-center gap-1.5">
-                        <Layers className="w-4 h-4 text-blue-600" />
-                        領域名稱
-                      </span>
-                      <span className="text-[10px] font-mono uppercase text-blue-500 bg-white px-2 py-0.5 rounded-full border border-blue-200">
-                        Field
-                      </span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-label="抽籤結果">
+                  <section className="rounded-3xl bg-indigo-950 p-6 sm:p-8 text-white shadow-sm min-h-44 flex flex-col justify-between gap-5">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-indigo-200">
+                      <Users className="w-5 h-5" />
+                      分組場次
                     </div>
-
-                    <div>
-                      <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {myProject.field}
-                      </div>
+                    <div className="text-5xl sm:text-6xl font-black tracking-tight">第 {myProject.assigned_group ?? '—'} 組</div>
+                  </section>
+                  <section className="rounded-3xl border-2 border-rose-200 bg-rose-50 p-6 sm:p-8 text-rose-950 min-h-44 flex flex-col justify-between gap-5">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-rose-700">
+                      <Award className="w-5 h-5" />
+                      上台順序
                     </div>
-                  </div>
-
-                  {/* 2. 分組場次 */}
-                  <div className="rounded-2xl p-5 bg-gradient-to-br from-indigo-50/80 to-slate-50 border border-indigo-200/90 shadow-2xs flex flex-col justify-between space-y-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-indigo-700 flex items-center gap-1.5">
-                        <Users className="w-4 h-4 text-indigo-600" />
-                        分組場次
-                      </span>
-                      <span className="text-[10px] font-mono uppercase text-indigo-500 bg-white px-2 py-0.5 rounded-full border border-indigo-200">
-                        Session
-                      </span>
-                    </div>
-
-                    <div>
-                      <div className="text-3xl sm:text-4xl font-black text-indigo-700 tracking-tight font-mono">
-                        第 {myProject.assigned_group || 1} 組
-                      </div>
-                      {!sharedPasswordMode && !!myProject.evaluators?.length && <div className="text-xs text-slate-500 mt-1">
-                        評審委員：<span className="font-medium text-slate-800">{myProject.evaluators.join('、')}</span>
-                      </div>}
-                    </div>
-
-                  </div>
-
-                  {/* 3. 報告順序 */}
-                  <div className="rounded-2xl p-5 bg-gradient-to-br from-rose-50 to-orange-50/50 border-2 border-rose-300 shadow-xs flex flex-col justify-between space-y-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-rose-700 flex items-center gap-1.5">
-                        <Award className="w-4 h-4 text-rose-600" />
-                        報告出場順序
-                      </span>
-                      <span className="text-[10px] font-mono uppercase text-rose-600 bg-white px-2 py-0.5 rounded-full border border-rose-200">
-                        Order
-                      </span>
-                    </div>
-
-                    <div>
-                      <div className="flex items-baseline gap-2">
-                        <div className="text-3xl sm:text-4xl font-black text-rose-600 tracking-tight font-mono">
-                          第 {myProject.draw_order} 順位
-                        </div>
-                      </div>
-                      {myProject.draw_code && (
-                        <div className="mt-1">
-                          <span className="inline-block text-xs font-mono font-black text-rose-800 bg-white px-2.5 py-1 rounded-lg border border-rose-300 shadow-2xs">
-                            {myProject.draw_code}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="pt-2 border-t border-rose-100 text-[11px] text-rose-700 font-bold">
-                      於第 {myProject.assigned_group || 1} 組之第 {myProject.draw_order} 位上台簡報
-                    </div>
-                  </div>
+                    <div className="text-5xl sm:text-6xl font-black tracking-tight text-rose-700">第 {myProject.draw_order} 位</div>
+                  </section>
                 </div>
 
-                {/* 統整導覽橫幅 (Summary Callout) */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-950 flex items-start sm:items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5 sm:mt-0">
-                    <Sparkles className="w-4 h-4" />
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 sm:px-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                      <Layers className="w-4 h-4" />
+                      領域名稱
+                    </div>
+                    <div className="mt-1 text-lg sm:text-xl font-bold text-slate-900 break-words">{myProject.field}</div>
                   </div>
-                  <div className="text-xs sm:text-sm leading-relaxed">
-                    <span className="font-bold text-slate-900">發表時程確認：</span>
-                    貴組專題隸屬於「<strong className="text-blue-800 font-bold">{myProject.field}</strong>」領域，分配至「<strong className="text-indigo-800 font-bold">第 {myProject.assigned_group || 1} 組</strong>」場次，並擔任「<strong className="text-rose-700 font-black text-sm sm:text-base">第 {myProject.draw_order} 順位</strong>」發表！
-                  </div>
+                  {myProject.draw_code && <div className="sm:text-right min-w-0">
+                    <div className="text-xs font-semibold text-slate-500">抽籤編號</div>
+                    <div className="mt-1 text-sm sm:text-base font-bold text-slate-800 break-all">{myProject.draw_code}</div>
+                  </div>}
                 </div>
+                {!sharedPasswordMode && !!myProject.evaluators?.length && <p className="text-xs text-slate-600 px-1">
+                  評審委員：{myProject.evaluators.join('、')}
+                </p>}
               </div>
             ) : (
               /* Undrawn Waiting State */
