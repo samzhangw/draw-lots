@@ -6,7 +6,8 @@ import {
   Dices,
   ShieldCheck,
   Lock,
-  LogOut
+  LogOut,
+  ChevronDown,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -34,6 +35,36 @@ export const Navbar: React.FC<NavbarProps> = ({
     finally { setIsLoggingOut(false); }
   };
   const isAdmin = authSession?.role === 'admin';
+  const roleLabel = isAdmin ? '大會系統管理員' : '台上抽籤人員';
+  const accountMenu = authSession && onLogout && (
+    <details className="group relative shrink-0">
+      <summary
+        aria-label={`目前登入：${roleLabel}，開啟帳號選單`}
+        className="flex min-h-10 list-none items-center gap-2 rounded-xl border border-slate-200 bg-white p-1 pr-2 text-slate-800 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 cursor-pointer [&::-webkit-details-marker]:hidden"
+      >
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${isAdmin ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+          {isAdmin ? <ShieldCheck className="h-4 w-4" /> : <Dices className="h-4 w-4" />}
+        </span>
+        <span className="hidden xl:block text-xs font-bold whitespace-nowrap">{roleLabel}</span>
+        <ChevronDown className="h-3.5 w-3.5 text-slate-500 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
+        <div className="border-b border-slate-100 px-3 py-2.5">
+          <p className="text-sm font-bold text-slate-900">{roleLabel}</p>
+          <p className="mt-1 break-all text-xs text-slate-500">{authSession.username}</p>
+        </div>
+        <button
+          onClick={() => void handleLogout()}
+          disabled={isLoggingOut}
+          type="button"
+          className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-rose-700 transition-colors hover:bg-rose-50 disabled:cursor-wait disabled:opacity-50 cursor-pointer"
+        >
+          <LogOut className="h-4 w-4" />
+          {isLoggingOut ? '登出中…' : isAdmin ? '登出後台' : '登出'}
+        </button>
+      </div>
+    </details>
+  );
   const navItems = [
     {
       id: 'student' as ViewMode,
@@ -164,30 +195,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             })}
           </nav>
 
-          {/* Signed-in identity and a separate, easy-to-find exit action */}
-          <div className="flex items-center gap-2 shrink-0">
-            {authSession && <>
-              <div className="hidden lg:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 min-w-0 max-w-48">
-                <span className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${isAdmin ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                  {isAdmin ? <ShieldCheck className="w-4 h-4" /> : <Dices className="w-4 h-4" />}
-                </span>
-                <span className="min-w-0 flex flex-col leading-tight">
-                  <span className="font-bold text-xs text-slate-800 truncate">{authSession.displayName}</span>
-                  <span className="text-[11px] text-slate-500 truncate" title={authSession.username}>{authSession.username}</span>
-                </span>
-              </div>
-              {onLogout && <button
-                onClick={() => void handleLogout()}
-                disabled={isLoggingOut}
-                type="button"
-                className="min-h-10 px-3.5 rounded-xl border border-rose-200 bg-white text-rose-700 hover:bg-rose-50 hover:border-rose-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 text-xs font-bold flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-wait cursor-pointer"
-                aria-label={isAdmin ? '登出大會系統管理員' : '登出抽籤展演人員'}
-              >
-                <LogOut className="w-4 h-4" />
-                <span>{isLoggingOut ? '登出中…' : isAdmin ? '登出後台' : '登出'}</span>
-              </button>}
-            </>}
-          </div>
+          {accountMenu}
         </div>
 
         {/* ========================================================= */}
@@ -223,23 +231,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </a>
 
-            {authSession && onLogout && <button
-              onClick={() => void handleLogout()}
-              disabled={isLoggingOut}
-              type="button"
-              aria-label={isAdmin ? '登出大會系統管理員' : '登出抽籤展演人員'}
-              className="flex items-center justify-center gap-1.5 px-3 min-h-10 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 disabled:opacity-50 cursor-pointer"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>{isLoggingOut ? '登出中…' : '登出'}</span>
-            </button>}
+            {accountMenu}
           </div>
-
-          {authSession && <div className="flex items-center gap-1.5 px-1 text-[11px] text-slate-600 min-w-0" aria-label="目前登入身分">
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isAdmin ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-            <span className="font-semibold text-slate-800 shrink-0">{authSession.displayName}</span>
-            <span className="truncate text-slate-500">{authSession.username}</span>
-          </div>}
 
           {/* Mobile Bottom Row: Full-Width 3-Column Tab Bar */}
           <nav
