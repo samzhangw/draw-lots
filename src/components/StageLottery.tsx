@@ -439,74 +439,80 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
         aria-modal={isBoardPresentation ? true : undefined}
         aria-label="已抽出順序看板"
       >
-        {/* Board Top Header & Controls */}
-        <div className={`${isBoardPresentation ? 'sticky top-0 z-10 bg-white pt-2' : ''} flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-200`}>
-          <div>
-            <h3 className="text-xl sm:text-3xl font-black text-slate-900 flex items-center gap-2.5">
-              <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0"><CheckCircle2 className="w-5 h-5" /></span>
-              <span>分組與報告順序</span>
-            </h3>
-            <p className="text-sm sm:text-base text-slate-600 mt-1">
-              依領域與場次排列；各組報告順位由第一位起算
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5">
+        {/* Board title and tools */}
+        <div className={`${isBoardPresentation ? 'sticky top-0 z-10 bg-white pt-2' : ''} space-y-5 border-b border-slate-200 pb-5`}>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h3 className="flex items-center gap-2.5 text-xl font-black text-slate-900 sm:text-3xl">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><CheckCircle2 className="h-5 w-5" /></span>
+                <span>分組與報告順序</span>
+              </h3>
+              <p className="mt-1 text-sm text-slate-600 sm:text-base">
+                依領域與場次排列；各組報告順位由第一位起算
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => setIsBoardPresentation((value) => !value)}
               aria-pressed={isBoardPresentation}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-800 cursor-pointer"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 self-stretch rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 sm:self-start cursor-pointer"
             >
               {isBoardPresentation ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
               {isBoardPresentation ? '返回抽籤畫面' : '放大看板'}
             </button>
-            {/* Quick Search Input */}
-            <div className="relative min-w-[240px] sm:min-w-[280px]">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                aria-label="搜尋專題名稱或抽籤編號"
-                value={boardSearchQuery}
-                onChange={(e) => setBoardSearchQuery(e.target.value)}
-                placeholder="搜尋專題名稱或抽籤編號"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-sans"
-              />
-              {boardSearchQuery && (
-                <button
-                  onClick={() => setBoardSearchQuery('')}
-                  aria-label="清除搜尋"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+          </div>
 
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div className="w-full min-w-0 md:max-w-2xl">
+              <label htmlFor="board-project-search" className="mb-1.5 block text-sm font-bold text-slate-700">搜尋專題名稱或抽籤編號</label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-blue-700" />
+                <input
+                  id="board-project-search"
+                  type="text"
+                  value={boardSearchQuery}
+                  onChange={(e) => setBoardSearchQuery(e.target.value)}
+                  placeholder="輸入專題名稱或抽籤編號"
+                  className="min-h-12 w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-11 pr-11 text-sm font-medium text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 sm:text-base"
+                />
+                {boardSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setBoardSearchQuery('')}
+                    aria-label="清除搜尋"
+                    className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-800 cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
             {/* View Switcher: Lanes vs Table */}
-            <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 text-xs">
+            <div role="group" aria-label="看板檢視方式" className="inline-flex min-h-12 w-full items-center rounded-xl border border-slate-200 bg-slate-100 p-1 text-sm sm:w-auto md:shrink-0">
               <button
+                type="button"
                 onClick={() => setBoardDisplayMode('lanes')}
                 aria-pressed={boardDisplayMode === 'lanes'}
-                className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 font-semibold transition-all cursor-pointer ${
                   boardDisplayMode === 'lanes'
                     ? 'bg-white text-rose-700 shadow-xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <LayoutGrid className="w-3.5 h-3.5" />
+                <LayoutGrid className="h-4 w-4" />
                 <span>分組看板</span>
               </button>
               <button
+                type="button"
                 onClick={() => setBoardDisplayMode('table')}
                 aria-pressed={boardDisplayMode === 'table'}
-                className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 font-semibold transition-all cursor-pointer ${
                   boardDisplayMode === 'table'
                     ? 'bg-white text-rose-700 shadow-xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <Table className="w-3.5 h-3.5" />
+                <Table className="h-4 w-4" />
                 <span>名單表格</span>
               </button>
             </div>
