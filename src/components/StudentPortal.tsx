@@ -306,7 +306,7 @@ export const StudentPortal: React.FC = () => {
                   </section>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 sm:px-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
                       <Layers className="w-4 h-4" />
@@ -314,10 +314,6 @@ export const StudentPortal: React.FC = () => {
                     </div>
                     <div className="mt-1 text-lg sm:text-xl font-bold text-slate-900 break-words">{myProject.field}</div>
                   </div>
-                  {myProject.draw_code && <div className="sm:text-right min-w-0">
-                    <div className="text-xs font-semibold text-slate-500">抽籤編號</div>
-                    <div className="mt-1 text-sm sm:text-base font-bold text-slate-800 break-all">{myProject.draw_code}</div>
-                  </div>}
                 </div>
                 {!sharedPasswordMode && !!myProject.evaluators?.length && <p className="text-xs text-slate-600 px-1">
                   評審委員：{myProject.evaluators.join('、')}
