@@ -171,11 +171,11 @@ export const StudentPortal: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
               <button
                 onClick={onRefresh}
                 disabled={isLoading}
-                className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-sm font-bold text-blue-800 transition hover:bg-blue-100 disabled:opacity-60"
+                className="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-2 py-2.5 text-[13px] font-bold text-blue-800 transition hover:bg-blue-100 disabled:opacity-60 sm:w-auto sm:px-3.5 sm:text-sm"
                 title="重新整理以同步最新抽籤結果"
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -184,7 +184,7 @@ export const StudentPortal: React.FC = () => {
               <button
                 onClick={handleLogout}
                 disabled={isLoading}
-                className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60"
+                className="w-full min-w-0 rounded-xl border border-slate-200 bg-white px-2 py-2.5 text-[13px] font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60 sm:w-auto sm:px-3.5 sm:text-sm"
               >
                 登出／切換學號
               </button>
