@@ -254,7 +254,6 @@ export default function App() {
                   onSuccess={(session) => {
                     setAuthSession(session);
                   }}
-                  onCancel={() => handleSelectView('student')}
                 />
               ) : (
                 <StageLottery
@@ -274,7 +273,6 @@ export default function App() {
                   onSuccess={(session) => {
                     setAuthSession(session);
                   }}
-                  onCancel={() => handleSelectView('student')}
                 />
               ) : (
                 <AdminManagement

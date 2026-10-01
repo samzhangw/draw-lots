@@ -7,20 +7,17 @@ import {
   Eye,
   EyeOff,
   LogIn,
-  ArrowLeft,
   AlertCircle,
 } from 'lucide-react';
 
 interface AuthGateProps {
   targetView: 'stage' | 'admin';
   onSuccess: (session: AuthSession) => void;
-  onCancel: () => void;
 }
 
 export const AuthGate: React.FC<AuthGateProps> = ({
   targetView,
   onSuccess,
-  onCancel,
 }) => {
   const isStage = targetView === 'stage';
   const defaultUser = '';
@@ -52,18 +49,6 @@ export const AuthGate: React.FC<AuthGateProps> = ({
 
   return (
     <div className="max-w-md mx-auto px-4 py-8 sm:py-12 space-y-6">
-      {/* Return to student link */}
-      <div>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>返回各組報告順序查詢</span>
-        </button>
-      </div>
-
       {/* Main Login Card */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
         {/* Card Header with official logo */}
