@@ -179,7 +179,8 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const student = await request('/api/student/verify', { leaderId: project.leader_id, password: project.password });
     assert.equal(student.status, 200); assert.equal(student.data.project.password, undefined);
     assert.equal(student.data.project.password_hash, undefined);
-    for (const field of ['seq_no', 'leader_id', 'class_name', 'advisor', 'education_system', 'department']) assert.equal(student.data.project[field], '');
+    assert.equal(student.data.project.leader_id, project.leader_id);
+    for (const field of ['seq_no', 'class_name', 'advisor', 'education_system', 'department']) assert.equal(student.data.project[field], '');
     assert.match(student.cookie!, /HttpOnly/i); assert.match(student.cookie!, /Secure/i); assert.match(student.cookie!, /SameSite=Strict/i);
     const studentCookie = student.cookie!.split(';')[0];
     const sessionToken = studentCookie.split('=')[1];
@@ -214,7 +215,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.deepEqual(Object.keys(publicDraw).sort(), ['assigned_group', 'draw_code', 'draw_order', 'field', 'original_code']);
     const ownedDraw = await request('/api/student/me', undefined, undefined, studentCookie);
     assert.ok(ownedDraw.data.project.draw_order);
-    assert.equal(ownedDraw.data.project.leader_id, '');
+    assert.equal(ownedDraw.data.project.leader_id, project.leader_id);
     assert.equal((await request('/api/lottery/draw', { field: 'ALL', version: draw.data.version }, stage)).status, 409);
     const reviewers = await request('/api/domain-configs', { domainConfigs: [{ ...domains[0], evaluatorsPerGroup: { 1: ['新評審'], 2: ['新評審'] } }], version: draw.data.version }, admin);
     assert.equal(reviewers.status, 200); assert.deepEqual(reviewers.data.projects[0].evaluators, ['新評審']);
@@ -327,10 +328,12 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(commonLogin.status, 200);
     assert.equal(commonLogin.data.sharedPasswordMode, true);
     assert.equal(commonLogin.data.project.project_title, '');
-    assert.equal(commonLogin.data.project.leader_id, '');
+    assert.equal(commonLogin.data.project.leader_id, project.leader_id);
     assert.equal(commonLogin.data.project.advisor, '');
     const commonCookie = commonLogin.cookie!.split(';')[0];
-    assert.equal((await request('/api/student/me', undefined, undefined, commonCookie)).data.project.project_title, '');
+    const commonMe = await request('/api/student/me', undefined, undefined, commonCookie);
+    assert.equal(commonMe.data.project.project_title, '');
+    assert.equal(commonMe.data.project.leader_id, project.leader_id);
     assert.equal((await request('/api/projects', { projects: [{ ...projectDto(project), password: 'Another-password-123' }], version: state.version }, adminAgain)).status, 400);
     const appended = await request('/api/projects', { projects: [projectDto(project), { ...projectDto(project), id: 'new', leader_id: 'new-student', project_title: '私人新專題' }], version: state.version }, adminAgain);
     assert.equal(appended.status, 200);

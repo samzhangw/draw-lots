@@ -42,7 +42,7 @@ export function projectDto(p: ProjectItem): ProjectItem {
 export function studentProjectDto(p: ProjectItem): ProjectItem {
   return {
     ...projectDto(p),
-    seq_no: '', education_system: '', department: '', class_name: '', advisor: '', leader_id: '',
+    seq_no: '', education_system: '', department: '', class_name: '', advisor: '',
   };
 }
 
@@ -51,7 +51,7 @@ export function publicStudentProjectDto(p: ProjectItem): ProjectItem {
   return {
     id: '', seq_no: '', education_system: '', department: '', class_name: '', advisor: '',
     field: drawn ? p.field : '', original_code: drawn ? p.original_code : '',
-    project_title: '', leader_id: '', assigned_group: drawn ? p.assigned_group ?? null : null,
+    project_title: '', leader_id: p.leader_id, assigned_group: drawn ? p.assigned_group ?? null : null,
     draw_order: drawn ? p.draw_order ?? null : null, draw_code: drawn ? p.draw_code ?? null : null,
     draw_time: null, evaluators: [],
   };

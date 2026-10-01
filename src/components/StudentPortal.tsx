@@ -232,9 +232,9 @@ export const StudentPortal: React.FC = () => {
                 <User className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div>
-                <div className="text-[11px] sm:text-xs text-slate-500">目前狀態</div>
-                <div className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-1.5">
-                  學生查詢已登入
+                <div className="text-[11px] sm:text-xs text-slate-500">目前登入學號</div>
+                <div className="text-sm sm:text-base font-bold text-slate-900 font-mono flex items-center gap-1.5">
+                  {myProject.leader_id}
                 </div>
               </div>
             </div>
