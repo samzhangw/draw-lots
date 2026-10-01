@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ProjectItem, DomainConfig } from '../types';
 import { apiRequest, StoreState } from '../lib/api';
 import { useModalFocus } from '../lib/useModalFocus';
+import { FloatingNotice } from './FloatingNotice';
 import confetti from 'canvas-confetti';
 import './StageLottery.css';
 import {
@@ -206,8 +207,8 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   };
 
   useModalFocus(
-    isBatchModalOpen ? 'draw' : isResetModalOpen ? 'reset' : noticeMessage ? 'notice' : null,
-    () => { setIsBatchModalOpen(false); setIsResetModalOpen(false); setNoticeMessage(null); }
+    isBatchModalOpen ? 'draw' : isResetModalOpen ? 'reset' : null,
+    () => { setIsBatchModalOpen(false); setIsResetModalOpen(false); }
   );
   useModalFocus(isBoardPresentation ? 'board-presentation' : null, () => setIsBoardPresentation(false));
 
@@ -836,25 +837,9 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
         </div>
       )}
 
-      {/* Notice Modal */}
+      {/* Non-blocking reminder */}
       {noticeMessage && (
-        <div role="dialog" aria-modal="true" aria-label="系統提示" className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 text-center shadow-xl space-y-3">
-            <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-100">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <h4 className="text-sm font-bold text-slate-900">系統提示</h4>
-            <p className="text-xs text-slate-600 leading-relaxed">{noticeMessage}</p>
-            <div className="pt-2">
-              <button
-                onClick={() => setNoticeMessage(null)}
-                className="w-full py-2 rounded-xl bg-blue-700 text-white text-xs font-semibold hover:bg-blue-800 cursor-pointer"
-              >
-                我知道了
-              </button>
-            </div>
-          </div>
-        </div>
+        <FloatingNotice message={noticeMessage} type="error" onClose={() => setNoticeMessage(null)} />
       )}
     </div>
   );

@@ -11,6 +11,7 @@ import { StudentPortal } from './components/StudentPortal';
 import { StageLottery } from './components/StageLottery';
 import { AdminManagement } from './components/AdminManagement';
 import { AuthGate } from './components/AuthGate';
+import { FloatingNotice } from './components/FloatingNotice';
 import {
   getAuthSession,
   clearAuthSession,
@@ -234,10 +235,13 @@ export default function App() {
       <main id="main-content" tabIndex={-1} className="flex-1 pb-16">
         <span className="sr-only" aria-live="polite">{currentView === 'student' ? '各組報告順序查詢' : currentView === 'stage' ? '台上抽籤展演' : '管理後台'}</span>
         {dataError && (
-          <div role="alert" className="max-w-7xl mx-auto m-4 p-4 rounded-xl border border-red-200 bg-red-50 text-red-800">
-            {dataError}
-            <button className="ml-4 underline" onClick={() => void loadData()}>重新載入</button>
-          </div>
+          <FloatingNotice
+            type="error"
+            message={dataError}
+            onClose={() => setDataError(null)}
+            actionLabel="重新載入"
+            onAction={() => void loadData()}
+          />
         )}
         {isLoading && (projects.length === 0 || currentView !== 'student') ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">

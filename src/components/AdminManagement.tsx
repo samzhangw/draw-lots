@@ -3,6 +3,7 @@ import { ProjectItem, DomainStats, DomainConfig } from '../types';
 import { parseExcelFile, preserveImportedProjectIds, exportToExcel, downloadInputTemplate, REQUIRED_INPUT_HEADERS, REQUIRED_OUTPUT_HEADERS } from '../lib/excel';
 import { isAdvisorConflict, normalizeProfessorName } from '../lib/lottery';
 import { useModalFocus } from '../lib/useModalFocus';
+import { FloatingNotice } from './FloatingNotice';
 import {
   Upload,
   Download,
@@ -614,30 +615,13 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
         </div>
       </div>}
 
-      {/* Feedback Alert */}
+      {/* Non-blocking feedback */}
       {uploadFeedback && (
-        <div
-          role={uploadFeedback.type === 'error' ? 'alert' : 'status'}
-          className={`p-3.5 rounded-2xl border flex items-start gap-2.5 text-xs sm:text-sm ${
-            uploadFeedback.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-              : 'bg-rose-50 border-rose-200 text-rose-800'
-          }`}
-        >
-          {uploadFeedback.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
-          ) : (
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
-          )}
-          <div className="flex-1 whitespace-pre-line">{uploadFeedback.message}</div>
-          <button
-            onClick={() => setUploadFeedback(null)}
-            aria-label="關閉提示"
-            className="text-slate-400 hover:text-slate-700 cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <FloatingNotice
+          message={uploadFeedback.message}
+          type={uploadFeedback.type}
+          onClose={() => setUploadFeedback(null)}
+        />
       )}
 
       {/* Domain & Group Count Pivot Table */}
