@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Image as ImageIcon, Upload, Link, X, RotateCcw, Check, Sparkles, AlertCircle } from 'lucide-react';
+import { useModalFocus } from '../lib/useModalFocus';
 
 interface LogoUploadModalProps {
   isOpen: boolean;
@@ -21,6 +22,8 @@ export const LogoUploadModal: React.FC<LogoUploadModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useModalFocus(isOpen ? 'logo' : null, onClose);
 
   if (!isOpen) return null;
 
@@ -98,7 +101,7 @@ export const LogoUploadModal: React.FC<LogoUploadModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div role="dialog" aria-modal="true" aria-label="更換頁首圖標" className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
       <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-5 sm:p-7 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
         
         {/* Header */}
@@ -118,6 +121,7 @@ export const LogoUploadModal: React.FC<LogoUploadModalProps> = ({
           </div>
           <button
             onClick={onClose}
+            aria-label="關閉圖標設定"
             className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 cursor-pointer transition-colors"
           >
             <X className="w-5 h-5" />
@@ -198,6 +202,7 @@ export const LogoUploadModal: React.FC<LogoUploadModalProps> = ({
           <div className="space-y-3">
             <input
               type="file"
+              aria-label="選擇圖標圖片"
               ref={fileInputRef}
               accept="image/png, image/jpeg, image/webp, image/svg+xml"
               onChange={(e) => {
@@ -237,10 +242,11 @@ export const LogoUploadModal: React.FC<LogoUploadModalProps> = ({
         {/* Tab Content: Image URL */}
         {selectedTab === 'url' && (
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-700">
+            <label htmlFor="logo-image-url" className="text-xs font-semibold text-slate-700">
               圖片網址 (URL)
             </label>
             <input
+              id="logo-image-url"
               type="url"
               placeholder="https://example.com/logo.png"
               value={urlInput}

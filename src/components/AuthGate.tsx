@@ -77,7 +77,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({
         <form onSubmit={handleLogin} className="space-y-4">
           {/* Username */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            <label htmlFor="staff-email" className="block text-xs font-bold text-slate-700 mb-1.5">
               登入 Email <span className="font-normal text-slate-400">(Account)</span>
             </label>
             <div className="relative">
@@ -85,6 +85,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({
                 <User className="w-4 h-4" />
               </div>
               <input
+                id="staff-email"
                 type="email"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -97,7 +98,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({
 
           {/* Password */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            <label htmlFor="staff-password" className="block text-xs font-bold text-slate-700 mb-1.5">
               通行密碼 <span className="font-normal text-slate-400">(Password)</span>
             </label>
             <div className="relative">
@@ -105,6 +106,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({
                 <Lock className="w-4 h-4" />
               </div>
               <input
+                id="staff-password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -115,6 +117,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? '隱藏密碼' : '顯示密碼'}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer transition-colors"
                 title={showPassword ? '隱藏密碼' : '顯示密碼'}
               >
@@ -138,7 +141,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({
 
           {/* Error Message */}
           {errorMessage && (
-            <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs animate-in fade-in">
+            <div role="alert" className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs animate-in fade-in">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
               <span className="leading-snug">{errorMessage}</span>
             </div>

@@ -162,6 +162,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <a
                   key={item.id}
                   href={item.href}
+                  aria-current={isActive ? 'page' : undefined}
                   onClick={(e) => {
                     e.preventDefault();
                     onSelectView(item.id);
@@ -247,6 +248,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <a
                   key={item.id}
                   href={item.href}
+                  aria-current={isActive ? 'page' : undefined}
                   onClick={(e) => {
                     e.preventDefault();
                     onSelectView(item.id);

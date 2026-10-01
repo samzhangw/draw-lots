@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { ProjectItem, DomainStats, DomainConfig } from '../types';
 import { parseExcelFile, preserveImportedProjectIds, exportToExcel, downloadInputTemplate, REQUIRED_INPUT_HEADERS, REQUIRED_OUTPUT_HEADERS } from '../lib/excel';
 import { isAdvisorConflict, normalizeProfessorName } from '../lib/lottery';
+import { useModalFocus } from '../lib/useModalFocus';
 import {
   Upload,
   Download,
@@ -496,6 +497,21 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     setIsAddModalOpen(false);
   });
 
+  const activeModalKey = sharedAction ? 'shared-action' : generatedPassword ? 'shared-password'
+    : isEvaluatorModalOpen ? 'evaluators' : isDomainModalOpen ? 'domain'
+    : domainToDelete ? 'delete-domain' : pendingImportProjects ? 'import'
+    : projectToDelete ? 'delete-project' : (isAddModalOpen || editingProject) ? 'project' : null;
+  useModalFocus(activeModalKey, () => {
+    if (sharedAction) { if (!sharedSaving) setSharedAction(null); }
+    else if (generatedPassword) { setGeneratedPassword(null); setPasswordCopied(false); }
+    else if (isEvaluatorModalOpen) setIsEvaluatorModalOpen(false);
+    else if (isDomainModalOpen) setIsDomainModalOpen(false);
+    else if (domainToDelete) setDomainToDelete(null);
+    else if (pendingImportProjects) setPendingImportProjects(null);
+    else if (projectToDelete) setProjectToDelete(null);
+    else { setEditingProject(null); setIsAddModalOpen(false); }
+  });
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 space-y-6">
       {draftIsStale && <div role="alert" className="fixed top-3 left-3 right-3 z-[60] mx-auto max-w-xl rounded-xl border border-amber-400 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950 shadow-lg">
@@ -534,6 +550,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
             <input
               type="file"
+              aria-label="選擇專題名冊檔案"
               ref={fileInputRef}
               onChange={handleFileUpload}
               accept=".xlsx, .xls, .csv"
@@ -600,6 +617,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       {/* Feedback Alert */}
       {uploadFeedback && (
         <div
+          role={uploadFeedback.type === 'error' ? 'alert' : 'status'}
           className={`p-3.5 rounded-2xl border flex items-start gap-2.5 text-xs sm:text-sm ${
             uploadFeedback.type === 'success'
               ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
@@ -614,6 +632,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
           <div className="flex-1 whitespace-pre-line">{uploadFeedback.message}</div>
           <button
             onClick={() => setUploadFeedback(null)}
+            aria-label="關閉提示"
             className="text-slate-400 hover:text-slate-700 cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -699,6 +718,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                       </button>
                       <input
                         type="number"
+                        aria-label={`${stat.field}分組組數`}
                         min={1}
                         max={50}
                         value={groupCountInputs[stat.id] !== undefined ? groupCountInputs[stat.id] : stat.groupCount}
@@ -853,6 +873,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                         </button>
                         <input
                           type="number"
+                          aria-label={`${stat.field}分組組數`}
                           min={1}
                           max={50}
                           value={groupCountInputs[stat.id] !== undefined ? groupCountInputs[stat.id] : stat.groupCount}
@@ -1046,6 +1067,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             <div className="relative">
               <input
                 type="text"
+                aria-label="搜尋專題名稱、學號或老師"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜尋專題名稱、學號、老師..."
@@ -1057,6 +1079,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600">
               <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <select
+                aria-label="依領域篩選專題"
                 value={selectedFieldFilter}
                 onChange={(e) => setSelectedFieldFilter(e.target.value)}
                 className="bg-transparent text-slate-800 focus:outline-none cursor-pointer text-xs w-full sm:w-auto"
@@ -1383,7 +1406,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
       {/* Modal for Setting Evaluators / Reviewers with Conflict Avoidance */}
       {isEvaluatorModalOpen && domainForEvaluators && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="設定各組評審委員名單" className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-7 shadow-xl space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
@@ -1401,6 +1424,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </div>
               <button
                 onClick={() => setIsEvaluatorModalOpen(false)}
+                aria-label="關閉評審委員設定"
                 className="text-slate-400 hover:text-slate-700 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -1426,7 +1450,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                       className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2"
                     >
                       <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                        <label htmlFor={`evaluator-group-${g}`} className="text-xs font-bold text-slate-900 flex items-center gap-2">
                           <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center font-mono text-[10px]">
                             {g}
                           </span>
@@ -1438,6 +1462,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                       </div>
 
                       <input
+                        id={`evaluator-group-${g}`}
                         type="text"
                         value={currentValue}
                         onChange={(e) =>
@@ -1490,8 +1515,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
       {/* Modal for Adding or Editing a Domain and its Group Count */}
       {isDomainModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-xl space-y-4">
+        <div role="dialog" aria-modal="true" aria-label={editingDomain ? '編輯領域名稱與組數' : '新增專題展覽領域'} className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 sm:p-7 shadow-xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200">
@@ -1506,6 +1531,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </div>
               <button
                 onClick={() => setIsDomainModalOpen(false)}
+                aria-label="關閉領域設定"
                 className="text-slate-400 hover:text-slate-700 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -1513,7 +1539,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             </div>
 
             {domainFormError && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
                 <span>{domainFormError}</span>
               </div>
@@ -1521,10 +1547,11 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
             <form onSubmit={handleSaveDomain} className="space-y-4 text-xs sm:text-sm">
               <div>
-                <label className="block text-slate-700 mb-1 font-semibold">
+                <label htmlFor="domain-name" className="block text-slate-700 mb-1 font-semibold">
                   領域名稱 (Field Name) *
                 </label>
                 <input
+                  id="domain-name"
                   type="text"
                   required
                   value={domainFormName}
@@ -1538,11 +1565,12 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </div>
 
               <div>
-                <label className="block text-slate-700 mb-1 font-semibold">
+                <label htmlFor="domain-group-count" className="block text-slate-700 mb-1 font-semibold">
                   組數 (評審分組數量) *
                 </label>
                 <div className="relative">
                   <input
+                    id="domain-group-count"
                     type="number"
                     min={1}
                     max={50}
@@ -1589,7 +1617,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
       {/* Modal for Deleting Domain Confirmation */}
       {domainToDelete && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="確認刪除展覽領域" className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-xl space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
@@ -1628,7 +1656,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
       {/* In-App Modal for Excel Import Decision */}
       {pendingImportProjects && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="選擇名冊匯入模式" className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-xl space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
@@ -1678,7 +1706,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
       {/* In-App Modal for Delete Project Confirmation */}
       {projectToDelete && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="確認刪除專題" className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-xl space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
@@ -1712,8 +1740,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
       {/* Add or Edit Project Modal */}
       {(isAddModalOpen || editingProject) && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-xl space-y-4">
+        <div role="dialog" aria-modal="true" aria-label={editingProject ? '編輯專題組別資料' : '手動新增專題組別'} className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-base sm:text-lg font-bold text-slate-900">
                 {editingProject ? '編輯專題組別資料' : '手動新增專題組別'}
@@ -1723,6 +1751,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   setEditingProject(null);
                   setIsAddModalOpen(false);
                 }}
+                aria-label="關閉專題編輯"
                 className="text-slate-400 hover:text-slate-700 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -1730,7 +1759,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             </div>
 
             {formValidationNotice && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
                 <span>{formValidationNotice}</span>
               </div>
@@ -1738,8 +1767,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
             <form onSubmit={handleSaveModal} className="space-y-4 text-xs sm:text-sm">
               <div>
-                <label className="block text-slate-700 mb-1 font-semibold">專題名稱 *</label>
+                <label htmlFor="project-title" className="block text-slate-700 mb-1 font-semibold">專題名稱 *</label>
                 <input
+                  id="project-title"
                   type="text"
                   required
                   value={formData.project_title || ''}
@@ -1751,8 +1781,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 mb-1 font-semibold">組長學號 *</label>
+                  <label htmlFor="project-leader-id" className="block text-slate-700 mb-1 font-semibold">組長學號 *</label>
                   <input
+                    id="project-leader-id"
                     type="text"
                     required
                     value={formData.leader_id || ''}
@@ -1762,11 +1793,12 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 mb-1 font-semibold flex items-center justify-between">
+                  <label htmlFor="project-password" className="block text-slate-700 mb-1 font-semibold flex items-center justify-between">
                     <span>設定／重設組長密碼</span>
                     <span className="text-[10px] text-slate-400 font-normal">{sharedPasswordEnabled ? '共用密碼模式中無法個別設定' : '留空保留現有密碼'}</span>
                   </label>
                   <input
+                    id="project-password"
                     type="password"
                     disabled={sharedPasswordEnabled}
                     value={formData.password || ''}
@@ -1781,8 +1813,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </div>
 
               <div>
-                <label className="block text-slate-700 mb-1 font-semibold">領域 *</label>
+                <label htmlFor="project-field" className="block text-slate-700 mb-1 font-semibold">領域 *</label>
                 <select
+                  id="project-field"
                   value={formData.field || domainList[0]}
                   onChange={(e) => setFormData({ ...formData, field: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
@@ -1795,8 +1828,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 mb-1 font-semibold">專題編號</label>
+                  <label htmlFor="project-original-code" className="block text-slate-700 mb-1 font-semibold">專題編號</label>
                   <input
+                    id="project-original-code"
                     type="text"
                     value={formData.original_code || ''}
                     onChange={(e) => setFormData({ ...formData, original_code: e.target.value })}
@@ -1805,8 +1839,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 mb-1 font-semibold">指導老師</label>
+                  <label htmlFor="project-advisor" className="block text-slate-700 mb-1 font-semibold">指導老師</label>
                   <input
+                    id="project-advisor"
                     type="text"
                     value={formData.advisor || ''}
                     onChange={(e) => setFormData({ ...formData, advisor: e.target.value })}
@@ -1818,8 +1853,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-slate-700 mb-1 font-semibold">學制</label>
+                  <label htmlFor="project-education-system" className="block text-slate-700 mb-1 font-semibold">學制</label>
                   <input
+                    id="project-education-system"
                     type="text"
                     value={formData.education_system || ''}
                     onChange={(e) => setFormData({ ...formData, education_system: e.target.value })}
@@ -1827,8 +1863,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 mb-1 font-semibold">系所</label>
+                  <label htmlFor="project-department" className="block text-slate-700 mb-1 font-semibold">系所</label>
                   <input
+                    id="project-department"
                     type="text"
                     value={formData.department || ''}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
@@ -1836,8 +1873,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 mb-1 font-semibold">班級</label>
+                  <label htmlFor="project-class-name" className="block text-slate-700 mb-1 font-semibold">班級</label>
                   <input
+                    id="project-class-name"
                     type="text"
                     value={formData.class_name || ''}
                     onChange={(e) => setFormData({ ...formData, class_name: e.target.value })}
@@ -1847,8 +1885,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </div>
 
               <div>
-                <label className="block text-slate-700 mb-1 font-semibold">+編號(抽籤後)</label>
+                <label htmlFor="project-draw-code" className="block text-slate-700 mb-1 font-semibold">+編號(抽籤後)</label>
                 <input
+                  id="project-draw-code"
                   type="text"
                   value={formData.draw_code || ''}
                   onChange={(e) => setFormData({ ...formData, draw_code: e.target.value })}

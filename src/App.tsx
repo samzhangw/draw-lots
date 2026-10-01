@@ -99,6 +99,7 @@ export default function App() {
         document.title = '管理後台 | 國立臺中科技大學專題成果展';
       }
     }
+    requestAnimationFrame(() => document.getElementById('main-content')?.focus());
   }, []);
 
   // Listen to browser URL changes (back/forward and hash changes)
@@ -218,6 +219,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-rose-100 selection:text-rose-900">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-xl focus:bg-white focus:px-4 focus:py-3 focus:font-bold focus:text-blue-800 focus:shadow-lg">跳至主要內容</a>
       {/* Top Navigation */}
       <Navbar
         currentView={currentView}
@@ -229,7 +231,8 @@ export default function App() {
       />
 
       {/* Main Content Viewport */}
-      <main className="flex-1 pb-16">
+      <main id="main-content" tabIndex={-1} className="flex-1 pb-16">
+        <span className="sr-only" aria-live="polite">{currentView === 'student' ? '各組報告順序查詢' : currentView === 'stage' ? '台上抽籤展演' : '管理後台'}</span>
         {dataError && (
           <div role="alert" className="max-w-7xl mx-auto m-4 p-4 rounded-xl border border-red-200 bg-red-50 text-red-800">
             {dataError}

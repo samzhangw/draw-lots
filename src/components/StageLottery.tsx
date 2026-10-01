@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ProjectItem, DomainConfig } from '../types';
 import { apiRequest, StoreState } from '../lib/api';
+import { useModalFocus } from '../lib/useModalFocus';
 import confetti from 'canvas-confetti';
 import './StageLottery.css';
 import {
@@ -96,6 +97,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
 
   // Multi-cannon celebratory confetti
   const triggerCelebration = () => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     try {
       // Left cannon
       confetti({
@@ -196,6 +198,11 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
     }
   };
 
+  useModalFocus(
+    isBatchModalOpen ? 'draw' : isResetModalOpen ? 'reset' : noticeMessage ? 'notice' : null,
+    () => { setIsBatchModalOpen(false); setIsResetModalOpen(false); setNoticeMessage(null); }
+  );
+
   return (
     <div
       ref={stageContainerRef}
@@ -257,14 +264,14 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
         </div>
       </section>
 
-      <div className="grid grid-cols-3 gap-2 sm:gap-4" aria-label="抽籤數量統計">
+      <div role="group" className="grid grid-cols-3 gap-2 sm:gap-4" aria-label="抽籤數量統計">
         <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-5 shadow-sm"><div className="text-[11px] sm:text-sm font-semibold text-slate-500">專題總數</div><div className="mt-1 text-2xl sm:text-4xl font-black text-slate-900 tabular-nums">{currentPool.length}<span className="ml-1 text-xs sm:text-base font-semibold text-slate-500">件</span></div></div>
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 sm:p-5 shadow-sm"><div className="text-[11px] sm:text-sm font-semibold text-emerald-700">已完成</div><div className="mt-1 text-2xl sm:text-4xl font-black text-emerald-800 tabular-nums">{drawnPool.length}<span className="ml-1 text-xs sm:text-base font-semibold text-emerald-700">件</span></div></div>
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:p-5 shadow-sm"><div className="text-[11px] sm:text-sm font-semibold text-amber-700">尚待抽籤</div><div className="mt-1 text-2xl sm:text-4xl font-black text-amber-900 tabular-nums">{undrawnPool.length}<span className="ml-1 text-xs sm:text-base font-semibold text-amber-700">件</span></div></div>
       </div>
 
       {/* Main Big Stage Presentation Card */}
-      <section className="relative overflow-hidden rounded-[1.75rem] bg-white border border-blue-100 border-t-4 border-t-blue-500 shadow-lg shadow-blue-100/70 p-5 sm:p-8 lg:p-10 text-center" aria-label="抽籤主舞台">
+      <section className="relative overflow-hidden rounded-[1.75rem] bg-white border border-blue-100 border-t-4 border-t-blue-500 shadow-lg shadow-blue-100/70 p-5 sm:p-8 lg:p-10 text-center" aria-label="抽籤主舞台" aria-busy={isAnimating}>
         {isAnimating && <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(219,234,254,0.75),transparent_70%)] pointer-events-none" />}
 
         <div className="relative z-10 max-w-5xl mx-auto min-h-[300px] sm:min-h-[350px] flex flex-col items-center justify-center" aria-live="polite">
@@ -419,6 +426,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
+                aria-label="搜尋專題名稱或抽籤編號"
                 value={boardSearchQuery}
                 onChange={(e) => setBoardSearchQuery(e.target.value)}
                 placeholder="搜尋專題名稱或抽籤編號"
@@ -427,6 +435,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               {boardSearchQuery && (
                 <button
                   onClick={() => setBoardSearchQuery('')}
+                  aria-label="清除搜尋"
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -438,6 +447,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
             <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 text-xs">
               <button
                 onClick={() => setBoardDisplayMode('lanes')}
+                aria-pressed={boardDisplayMode === 'lanes'}
                 className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
                   boardDisplayMode === 'lanes'
                     ? 'bg-white text-rose-700 shadow-xs font-bold'
@@ -449,6 +459,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               </button>
               <button
                 onClick={() => setBoardDisplayMode('table')}
+                aria-pressed={boardDisplayMode === 'table'}
                 className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
                   boardDisplayMode === 'table'
                     ? 'bg-white text-rose-700 shadow-xs font-bold'
@@ -467,6 +478,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-2 px-2">
             <button
               onClick={() => setBoardDomainFilter('ALL')}
+              aria-pressed={boardDomainFilter === 'ALL'}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer border ${
                 boardDomainFilter === 'ALL'
                   ? 'bg-blue-700 text-white border-blue-700 shadow-xs'
@@ -482,6 +494,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                 <button
                   key={cfg.id}
                   onClick={() => setBoardDomainFilter(cfg.field)}
+                  aria-pressed={boardDomainFilter === cfg.field}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer border flex items-center gap-1.5 ${
                     boardDomainFilter === cfg.field
                       ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
@@ -712,7 +725,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
 
       {/* In-App Confirmation Modal for Batch Draw */}
       {isBatchModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="確認開始抽籤" className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-xl space-y-5">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
@@ -730,6 +743,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               </div>
               <button
                 onClick={() => setIsBatchModalOpen(false)}
+                aria-label="關閉抽籤確認視窗"
                 className="text-slate-400 hover:text-slate-700 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -769,7 +783,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
 
       {/* Reset Modal */}
       {isResetModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="確認重設抽籤結果" className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-xl space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
@@ -805,7 +819,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
 
       {/* Notice Modal */}
       {noticeMessage && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="系統提示" className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 text-center shadow-xl space-y-3">
             <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-100">
               <Sparkles className="w-5 h-5" />
