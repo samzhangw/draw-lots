@@ -55,6 +55,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   // In-app modal states
   const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState<boolean>(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
 
   const stageContainerRef = useRef<HTMLDivElement>(null);
@@ -195,20 +196,24 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   };
 
   const handleConfirmReset = async () => {
-    setIsResetModalOpen(false);
+    if (isResetting) return;
     if (dataVersion === null) { setNoticeMessage('資料尚未載入，請重新整理後再試。'); return; }
+    setIsResetting(true);
     try {
       const data = await apiRequest('/api/lottery/reset', { field: selectedField, version: dataVersion });
       onApplyState(data);
       setBatchDrawSummary(null);
+      setIsResetModalOpen(false);
     } catch (error) {
       setNoticeMessage(error instanceof Error ? error.message : '重設失敗，請稍後再試。');
+    } finally {
+      setIsResetting(false);
     }
   };
 
   useModalFocus(
     isBatchModalOpen ? 'draw' : isResetModalOpen ? 'reset' : null,
-    () => { setIsBatchModalOpen(false); setIsResetModalOpen(false); }
+    () => { if (!isResetting) { setIsBatchModalOpen(false); setIsResetModalOpen(false); } }
   );
   useModalFocus(isBoardPresentation ? 'board-presentation' : null, () => setIsBoardPresentation(false));
 
@@ -868,15 +873,18 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 onClick={() => setIsResetModalOpen(false)}
+                disabled={isResetting}
                 className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium cursor-pointer"
               >
                 取消保留
               </button>
               <button
                 onClick={handleConfirmReset}
-                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm cursor-pointer"
+                disabled={isResetting}
+                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60 cursor-pointer"
               >
-                確定重設清空
+                {isResetting && <RotateCcw className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                {isResetting ? '重設中…' : '確定重設清空'}
               </button>
             </div>
           </div>

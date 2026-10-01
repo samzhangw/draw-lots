@@ -26,7 +26,8 @@ import {
   Users,
   ArrowUp,
   ArrowDown,
-  ArrowUpDown
+  ArrowUpDown,
+  LoaderCircle
 } from 'lucide-react';
 
 interface AdminManagementProps {
@@ -60,6 +61,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   const [sharedAction, setSharedAction] = useState<'generate' | 'clear' | null>(null);
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
   const [sharedSaving, setSharedSaving] = useState(false);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const pendingActionRef = useRef<string | null>(null);
   const [passwordCopied, setPasswordCopied] = useState(false);
   const draftVersionRef = useRef<number | null>(dataVersion);
 
@@ -77,15 +80,26 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     } finally { setSharedSaving(false); }
   };
 
-  const withSaveFeedback = <Args extends unknown[]>(action: (...args: Args) => Promise<void>) =>
+  const withSaveFeedback = <Args extends unknown[]>(key: string | ((...args: Args) => string), action: (...args: Args) => Promise<void>) =>
     async (...args: Args) => {
+      if (pendingActionRef.current) {
+        (args[0] as { preventDefault?: () => void } | undefined)?.preventDefault?.();
+        return;
+      }
       if (draftIsStale) {
+        (args[0] as { preventDefault?: () => void } | undefined)?.preventDefault?.();
         setUploadFeedback({ type: 'error', message: '其他裝置或操作已更新資料。請先關閉舊編輯視窗，再從最新資料重新開啟。' });
         return;
       }
+      const actionKey = typeof key === 'function' ? key(...args) : key;
+      pendingActionRef.current = actionKey;
+      setPendingAction(actionKey);
       try { await action(...args); }
       catch (error) {
         setUploadFeedback({ type: 'error', message: error instanceof Error ? error.message : '儲存失敗' });
+      } finally {
+        pendingActionRef.current = null;
+        setPendingAction(null);
       }
     };
 
@@ -223,7 +237,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   };
 
   // Save Evaluators for Domain
-  const handleSaveEvaluators = withSaveFeedback(async (e: React.FormEvent) => {
+  const handleSaveEvaluators = withSaveFeedback('evaluators', async (e: React.FormEvent) => {
     e.preventDefault();
     if (!domainForEvaluators) return;
 
@@ -254,7 +268,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   });
 
   // Save Domain (Add or Edit)
-  const handleSaveDomain = withSaveFeedback(async (e: React.FormEvent) => {
+  const handleSaveDomain = withSaveFeedback('domain', async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName = domainFormName.trim();
     if (!cleanName) {
@@ -324,7 +338,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   });
 
   // Delete Domain
-  const handleConfirmDeleteDomain = withSaveFeedback(async () => {
+  const handleConfirmDeleteDomain = withSaveFeedback('delete-domain', async () => {
     if (!domainToDelete) return;
 
     const remainingConfigs = domainConfigs.filter((c) => c.id !== domainToDelete.id);
@@ -368,7 +382,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   };
 
   // Confirm import mode (Overwrite or Append)
-  const handleApplyImport = withSaveFeedback(async (mode: 'overwrite' | 'append') => {
+  const handleApplyImport = withSaveFeedback((mode: 'overwrite' | 'append') => `import-${mode}`, async (mode: 'overwrite' | 'append') => {
     if (!pendingImportProjects) return;
 
     let finalProjects: ProjectItem[] = [];
@@ -402,7 +416,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   };
 
   // Confirm project deletion
-  const handleConfirmDelete = withSaveFeedback(async () => {
+  const handleConfirmDelete = withSaveFeedback('delete-project', async () => {
     if (!projectToDelete) return;
     const updated = projects.filter((p) => p.id !== projectToDelete.id);
     await onSaveProjects(updated);
@@ -447,7 +461,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   };
 
   // Submit edit or add project
-  const handleSaveModal = withSaveFeedback(async (e: React.FormEvent) => {
+  const handleSaveModal = withSaveFeedback('project', async (e: React.FormEvent) => {
     e.preventDefault();
     if (projectSaving) return;
     if (!formData.project_title?.trim() || !formData.leader_id?.trim()) {
@@ -514,6 +528,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     : domainToDelete ? 'delete-domain' : pendingImportProjects ? 'import'
     : projectToDelete ? 'delete-project' : (isAddModalOpen || editingProject) ? 'project' : null;
   useModalFocus(activeModalKey, () => {
+    if (pendingAction) return;
     if (sharedAction) { if (!sharedSaving) setSharedAction(null); }
     else if (generatedPassword) { setGeneratedPassword(null); setPasswordCopied(false); }
     else if (isEvaluatorModalOpen) setIsEvaluatorModalOpen(false);
@@ -644,7 +659,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
         <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl">
           <h2 className="text-lg font-bold">{sharedAction === 'generate' ? '產生全體共用密碼？' : '停用全體共用密碼？'}</h2>
           <p className="text-sm text-slate-700">{sharedAction === 'generate' ? '系統會產生一組 8 碼隨機英數密碼，取代所有學生目前的密碼並讓現有登入失效。新密碼只會顯示一次。知道其他組長學號的人也能用共用密碼查詢該組的專題名稱與抽籤結果；班級、指導老師等其他名冊資料不會顯示。' : '停用後所有學生都無法登入，直到管理員分別設定個別密碼。'}</p>
-          <div className="flex justify-end gap-2"><button onClick={() => setSharedAction(null)} disabled={sharedSaving} className="px-4 py-2 rounded-lg border">取消</button><button onClick={() => void submitSharedAction()} disabled={sharedSaving} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold disabled:opacity-50">{sharedSaving ? '處理中…' : '確認'}</button></div>
+          <div className="flex justify-end gap-2"><button onClick={() => setSharedAction(null)} disabled={sharedSaving} className="px-4 py-2 rounded-lg border">取消</button><button onClick={() => void submitSharedAction()} disabled={sharedSaving} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white disabled:opacity-50">{sharedSaving && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}{sharedSaving ? '處理中…' : '確認'}</button></div>
         </div>
       </div>}
       {generatedPassword && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="新共用密碼">
@@ -1387,16 +1402,18 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsEvaluatorModalOpen(false)}
+                  disabled={pendingAction === 'evaluators'}
                   className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium cursor-pointer"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
+                  disabled={pendingAction === 'evaluators'}
                   className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm cursor-pointer flex items-center gap-1.5"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>儲存評審名單</span>
+                  {pendingAction === 'evaluators' ? <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  <span>{pendingAction === 'evaluators' ? '儲存中…' : '儲存評審名單'}</span>
                 </button>
               </div>
             </form>
@@ -1490,15 +1507,18 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsDomainModalOpen(false)}
+                  disabled={pendingAction === 'domain'}
                   className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium cursor-pointer"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm cursor-pointer"
+                  disabled={pendingAction === 'domain'}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 cursor-pointer"
                 >
-                  {editingDomain ? '儲存變更' : '確定新增領域'}
+                  {pendingAction === 'domain' && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                  {pendingAction === 'domain' ? '儲存中…' : editingDomain ? '儲存變更' : '確定新增領域'}
                 </button>
               </div>
             </form>
@@ -1530,15 +1550,18 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 onClick={() => setDomainToDelete(null)}
+                disabled={pendingAction === 'delete-domain'}
                 className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs cursor-pointer"
               >
                 取消
               </button>
               <button
                 onClick={handleConfirmDeleteDomain}
-                className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm cursor-pointer"
+                disabled={pendingAction === 'delete-domain'}
+                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60 cursor-pointer"
               >
-                確定刪除領域
+                {pendingAction === 'delete-domain' && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                {pendingAction === 'delete-domain' ? '刪除中…' : '確定刪除領域'}
               </button>
             </div>
           </div>
@@ -1571,21 +1594,25 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             <div className="pt-2 flex flex-col gap-2">
               <button
                 onClick={() => handleApplyImport('overwrite')}
-                disabled={projects.some(p => p.draw_order) && !overwriteAcknowledged}
+                disabled={pendingAction?.startsWith('import-') || (projects.some(p => p.draw_order) && !overwriteAcknowledged)}
                 className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span>完全覆蓋並替換現有名單</span>
+                {pendingAction === 'import-overwrite' && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                <span>{pendingAction === 'import-overwrite' ? '匯入中…' : '完全覆蓋並替換現有名單'}</span>
               </button>
 
               <button
                 onClick={() => handleApplyImport('append')}
+                disabled={pendingAction?.startsWith('import-')}
                 className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs border border-slate-200 transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
-                <span>追加至現有名冊 (保留現有資料)</span>
+                {pendingAction === 'import-append' && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                <span>{pendingAction === 'import-append' ? '匯入中…' : '追加至現有名冊 (保留現有資料)'}</span>
               </button>
 
               <button
                 onClick={() => setPendingImportProjects(null)}
+                disabled={pendingAction?.startsWith('import-')}
                 className="w-full py-2 text-slate-400 hover:text-slate-600 text-xs transition-colors cursor-pointer"
               >
                 取消匯入
@@ -1614,15 +1641,18 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 onClick={() => setProjectToDelete(null)}
+                disabled={pendingAction === 'delete-project'}
                 className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs cursor-pointer"
               >
                 取消
               </button>
               <button
                 onClick={handleConfirmDelete}
-                className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm cursor-pointer"
+                disabled={pendingAction === 'delete-project'}
+                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60 cursor-pointer"
               >
-                確認刪除
+                {pendingAction === 'delete-project' && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                {pendingAction === 'delete-project' ? '刪除中…' : '確認刪除'}
               </button>
             </div>
           </div>
@@ -1838,8 +1868,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <button
                   type="submit"
                   disabled={projectSaving}
-                  className="min-h-11 flex-1 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none cursor-pointer"
+                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none cursor-pointer"
                 >
+                  {projectSaving && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
                   {projectSaving ? '儲存中…' : editingProject ? '儲存變更' : '新增專題'}
                 </button>
                 </div>

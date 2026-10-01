@@ -16,6 +16,7 @@ import {
   LogIn,
   Layers,
   Users,
+  LoaderCircle,
 } from 'lucide-react';
 
 export const StudentPortal: React.FC = () => {
@@ -26,12 +27,14 @@ export const StudentPortal: React.FC = () => {
   const [sharedPasswordMode, setSharedPasswordMode] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<'login' | 'refresh' | 'logout' | null>(null);
   const requestEpoch = useRef(0);
 
   const onRefresh = async () => {
     if (isLoading) return;
     requestEpoch.current++;
     setIsLoading(true);
+    setLoadingAction('refresh');
     try {
       const data = await apiRequest<{ project: ProjectItem; sharedPasswordMode: boolean }>('/api/student/me');
       setMyProject(data.project);
@@ -41,7 +44,7 @@ export const StudentPortal: React.FC = () => {
       setMyProject(null);
       setSharedPasswordMode(false);
       setErrorMessage(error instanceof Error ? error.message : '查詢失敗');
-    } finally { setIsLoading(false); }
+    } finally { setIsLoading(false); setLoadingAction(null); }
   };
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +58,7 @@ export const StudentPortal: React.FC = () => {
     if (isLoading) return;
     requestEpoch.current++;
     setIsLoading(true);
+    setLoadingAction('logout');
     try {
       await apiRequest('/api/student/logout', {});
       setMyProject(null);
@@ -63,7 +67,7 @@ export const StudentPortal: React.FC = () => {
       setPasswordInput('');
       setErrorMessage('');
     } catch (error) { setErrorMessage(error instanceof Error ? error.message : '登出失敗'); }
-    finally { setIsLoading(false); }
+    finally { setIsLoading(false); setLoadingAction(null); }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -85,6 +89,7 @@ export const StudentPortal: React.FC = () => {
 
     requestEpoch.current++;
     setIsLoading(true);
+    setLoadingAction('login');
     try {
       const data = await apiRequest<{ project: ProjectItem; sharedPasswordMode: boolean }>('/api/student/verify', { leaderId: query, password: pwd });
       setMyProject(data.project);
@@ -92,7 +97,7 @@ export const StudentPortal: React.FC = () => {
       setPasswordInput('');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '登入失敗');
-    } finally { setIsLoading(false); }
+    } finally { setIsLoading(false); setLoadingAction(null); }
   };
 
   return (
@@ -149,7 +154,9 @@ export const StudentPortal: React.FC = () => {
               </div>
               {errorMessage && <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-700"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{errorMessage}</span></div>}
               <button type="submit" disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3.5 text-base font-bold text-white shadow-sm transition hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-wait disabled:opacity-60">
-                <LogIn className="h-5 w-5" /><span>{isLoading ? '查詢中…' : '登入並查詢順序'}</span><ChevronRight className="h-5 w-5" />
+                {loadingAction === 'login' ? <LoaderCircle className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <LogIn className="h-5 w-5" />}
+                <span>{loadingAction === 'login' ? '查詢中…' : '登入並查詢順序'}</span>
+                {loadingAction !== 'login' && <ChevronRight className="h-5 w-5" />}
               </button>
             </form>
           </section>
@@ -178,15 +185,16 @@ export const StudentPortal: React.FC = () => {
                 className="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-2 py-2.5 text-[13px] font-bold text-blue-800 transition hover:bg-blue-100 disabled:opacity-60 sm:w-auto sm:px-3.5 sm:text-sm"
                 title="重新整理以同步最新抽籤結果"
               >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                更新結果
+                <RefreshCw className={`h-4 w-4 ${loadingAction === 'refresh' ? 'animate-spin motion-reduce:animate-none' : ''}`} />
+                {loadingAction === 'refresh' ? '更新中…' : '更新結果'}
               </button>
               <button
                 onClick={handleLogout}
                 disabled={isLoading}
-                className="w-full min-w-0 rounded-xl border border-slate-200 bg-white px-2 py-2.5 text-[13px] font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60 sm:w-auto sm:px-3.5 sm:text-sm"
+                className="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2.5 text-[13px] font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60 sm:w-auto sm:px-3.5 sm:text-sm"
               >
-                登出／切換學號
+                {loadingAction === 'logout' && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                {loadingAction === 'logout' ? '登出中…' : '登出／切換學號'}
               </button>
             </div>
           </div>

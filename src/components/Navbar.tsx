@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   Lock,
   LogOut,
+  LoaderCircle,
   ChevronDown,
 } from 'lucide-react';
 
@@ -59,7 +60,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           type="button"
           className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-rose-700 transition-colors hover:bg-rose-50 disabled:cursor-wait disabled:opacity-50 cursor-pointer"
         >
-          <LogOut className="h-4 w-4" />
+          {isLoggingOut ? <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <LogOut className="h-4 w-4" />}
           {isLoggingOut ? '登出中…' : isAdmin ? '登出後台' : '登出'}
         </button>
       </div>
