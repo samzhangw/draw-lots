@@ -12,6 +12,7 @@ import { StageLottery } from './components/StageLottery';
 import { AdminManagement } from './components/AdminManagement';
 import { AuthGate } from './components/AuthGate';
 import { FloatingNotice } from './components/FloatingNotice';
+import { NetworkActivity } from './components/NetworkActivity';
 import {
   getAuthSession,
   clearAuthSession,
@@ -220,6 +221,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-rose-100 selection:text-rose-900">
+      <NetworkActivity />
       <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-xl focus:bg-white focus:px-4 focus:py-3 focus:font-bold focus:text-blue-800 focus:shadow-lg">跳至主要內容</a>
       {/* Top Navigation */}
       <Navbar
