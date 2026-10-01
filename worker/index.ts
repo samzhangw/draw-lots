@@ -9,10 +9,27 @@ interface Env extends RuntimeEnvironment { ASSETS: Fetcher; LOGIN_LIMITER: Durab
 createServer(app).listen(8080);
 export default {
   async fetch(request: Request, env: Env) {
-    const path = new URL(request.url).pathname;
-    if (path !== '/api' && !path.startsWith('/api/')) return env.ASSETS.fetch(request.url, { method: request.method, headers: Object.fromEntries(request.headers) });
-    const shard = parseInt(fingerprint(request.headers.get('cf-connecting-ip') || 'local').slice(0, 2), 16) % 32;
-    return env.API_BACKEND.get(env.API_BACKEND.idFromName(`api-${shard}`)).fetch(request.url, { method: request.method, headers: Object.fromEntries(request.headers), body: request.body });
+    const url = new URL(request.url);
+    const isApi = url.pathname === '/api' || url.pathname.startsWith('/api/');
+    if (url.protocol !== 'https:') {
+      if (isApi) return new Response('HTTPS required', { status: 403 });
+      url.protocol = 'https:';
+      return Response.redirect(url.toString(), 308);
+    }
+
+    const forward = { method: request.method, headers: Object.fromEntries(request.headers) };
+    let response;
+    if (!isApi) {
+      response = await env.ASSETS.fetch(request.url, forward);
+    } else {
+      const shard = parseInt(fingerprint(request.headers.get('cf-connecting-ip') || 'local').slice(0, 2), 16) % 32;
+      response = await env.API_BACKEND.get(env.API_BACKEND.idFromName(`api-${shard}`)).fetch(request.url, { ...forward, body: request.body });
+    }
+    const secureResponse = new Response(response.body as unknown as ReadableStream<Uint8Array> | null, response as unknown as Response);
+    secureResponse.headers.set('Strict-Transport-Security', 'max-age=31536000');
+    secureResponse.headers.set('X-Content-Type-Options', 'nosniff');
+    secureResponse.headers.set('X-Frame-Options', 'DENY');
+    return secureResponse;
   },
 };
 
