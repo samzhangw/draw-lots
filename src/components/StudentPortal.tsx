@@ -273,6 +273,10 @@ export const StudentPortal: React.FC = () => {
                         抽籤完成·順序已確認
                       </span>
                     </div>
+                    <p className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                      <FileText className="w-4 h-4" />
+                      專題名稱
+                    </p>
                     <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 leading-tight">
                       {myProject.project_title}
                     </h2>
