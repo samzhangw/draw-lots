@@ -1078,7 +1078,10 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                           <div>
                             <span className="text-slate-400">組長學號：</span>
                             <span className="font-mono text-blue-700 font-semibold">{p.leader_id}</span>
-                            <span className="ml-1 text-[10px] text-slate-400 font-mono">
+                          </div>
+                          <div className="col-span-2 flex items-center gap-2 border-t border-slate-200/60 pt-2">
+                            <span className="text-slate-500">登入密碼：</span>
+                            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold ${p.password_set ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
                               {p.password_set ? '密碼已設定' : '需設定登入密碼'}
                             </span>
                           </div>
@@ -1105,10 +1108,10 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
           <div>
             <div className="sm:hidden text-[10px] text-slate-400 flex items-center gap-1 mb-2">
               <Info className="w-3 h-3 text-slate-400" />
-              <span>可橫向滑動查看完整 10 項欄位與操作</span>
+              <span>可橫向滑動查看完整名冊欄位與操作</span>
             </div>
             <div className="overflow-x-auto max-h-[550px] overflow-y-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-              <table className="w-full text-left text-xs sm:text-sm min-w-[700px]">
+              <table className="w-full text-left text-xs sm:text-sm min-w-[820px]">
                 <thead className="sticky top-0 bg-slate-100/90 text-slate-700 z-10 border-b border-slate-200">
                   <tr className="text-xs font-semibold">
                     <th className="py-2.5 px-3">序號</th>
@@ -1119,6 +1122,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     <th className="py-2.5 px-3">編號</th>
                     <th className="py-2.5 px-3">專題名稱</th>
                     <th className="py-2.5 px-3">組長學號</th>
+                    <th className="py-2.5 px-3">登入密碼</th>
                     <th className="py-2.5 px-3">指導老師</th>
                     <th className="py-2.5 px-3 text-right">操作</th>
                   </tr>
@@ -1126,7 +1130,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {filteredProjects.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="py-12 text-center text-slate-400">
+                      <td colSpan={11} className="py-12 text-center text-slate-400">
                         <div className="space-y-1">
                           <p className="font-medium text-slate-600 text-sm">
                             {projects.length === 0
@@ -1204,8 +1208,10 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                             {p.project_title}
                           </td>
                           <td className="py-2.5 px-3 font-mono whitespace-nowrap">
-                            <span className="font-semibold text-blue-600 block">{p.leader_id}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">
+                            <span className="font-semibold text-blue-600">{p.leader_id}</span>
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <span className={`inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-bold ${p.password_set ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
                               {p.password_set ? '密碼已設定' : '需設定登入密碼'}
                             </span>
                           </td>
