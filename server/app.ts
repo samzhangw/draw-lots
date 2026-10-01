@@ -65,7 +65,7 @@ app.get('/api/health', route(async (_req, res) => {
   if (studentSessions.error || staffSessions.error) throw new ApiError(503, '登入資料表尚未就緒。');
   res.json({ status: 'ok', engine: 'supabase', projectCount: state.projects.length, lastUpdated: state.lastUpdated });
 }));
-app.post('/api/auth/verify', loginLimiter(), route(async (req, res) => {
+app.post('/api/auth/verify', loginLimiter('staff'), route(async (req, res) => {
   const { username, password, targetView } = req.body;
   if (typeof username !== 'string' || username.length > 256 || typeof password !== 'string' || password.length > 128 || !['admin', 'stage'].includes(targetView)) throw new ApiError(400, '請輸入 Email、密碼與有效的登入頁面。');
   // Separate auth client: signing in must never replace the database client's privileged token.
@@ -87,7 +87,7 @@ app.post('/api/auth/logout', route(async (req, res) => {
   await clearStaffSession(req, res);
   res.json({ success: true });
 }));
-app.post('/api/student/verify', loginLimiter(), route(async (req, res) => {
+app.post('/api/student/verify', loginLimiter('student', 10, 600), route(async (req, res) => {
   const { leaderId, password } = req.body;
   if (typeof leaderId !== 'string' || leaderId.length > 128 || typeof password !== 'string' || password.length > 128) throw new ApiError(400, '請輸入有效的組長學號與密碼。');
   const state = await createStore().load();

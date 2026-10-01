@@ -3,7 +3,7 @@ import { fingerprint } from './credentials';
 import { runtimeEnv } from './runtime';
 import { ApiError } from './errors';
 
-export function loginLimiter(accountLimit = 10, ipLimit = 100, windowMs = 15 * 60 * 1000) {
+export function loginLimiter(scope: 'staff' | 'student', accountLimit = 10, ipLimit = 100, windowMs = 15 * 60 * 1000) {
   const buckets = new Map<string, { count: number; resetAt: number }>();
   return (req: Request, res: Response, next: NextFunction) => {
     const run = async () => {
@@ -11,10 +11,11 @@ export function loginLimiter(accountLimit = 10, ipLimit = 100, windowMs = 15 * 6
       const shared = runtimeEnv().LOGIN_LIMITER;
       // Cloudflare sets this header at its edge; Node mode uses the socket IP.
       const ip = shared ? req.get('cf-connecting-ip') || req.ip || 'unknown' : req.ip || 'unknown';
-      const ipKey = `ip:${fingerprint(ip)}`;
+      const ipKey = `${scope}:ip:${fingerprint(ip)}`;
       const rawAccount = req.body?.leaderId ?? req.body?.username;
-      const accountKey = typeof rawAccount === 'string' ? `account:${fingerprint(rawAccount.trim().toLowerCase())}` : ipKey;
-      for (const key of new Set([ipKey, accountKey])) {
+      const accountKey = typeof rawAccount === 'string' ? `${scope}:account:${fingerprint(rawAccount.trim().toLowerCase())}` : ipKey;
+      // Reject repeated guesses for one account before they consume the campus IP pool.
+      for (const key of new Set([accountKey, ipKey])) {
         const limit = key === ipKey ? ipLimit : accountLimit;
         if (shared) {
           const result = await shared.get(shared.idFromName(key)).fetch('https://limiter/check', {

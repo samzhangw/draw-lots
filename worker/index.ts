@@ -1,7 +1,6 @@
 import { createServer } from 'node:http';
 import { handleAsNodeRequest } from 'cloudflare:node';
 import type { DurableObjectNamespace, DurableObjectState, Fetcher } from '@cloudflare/workers-types/index.ts';
-import { fingerprint } from '../server/credentials';
 import { app } from '../server/app';
 import { withRuntime, type RuntimeEnvironment } from '../server/runtime';
 
@@ -22,7 +21,9 @@ export default {
     if (!isApi) {
       response = await env.ASSETS.fetch(request.url, forward);
     } else {
-      const shard = parseInt(fingerprint(request.headers.get('cf-connecting-ip') || 'local').slice(0, 2), 16) % 32;
+      // Keep users behind one campus NAT from queuing on a single API object.
+      // These objects are stateless; the shared login counter lives in LOGIN_LIMITER.
+      const shard = crypto.getRandomValues(new Uint8Array(1))[0];
       response = await env.API_BACKEND.get(env.API_BACKEND.idFromName(`api-${shard}`)).fetch(request.url, { ...forward, body: request.body });
     }
     const secureResponse = new Response(response.body as unknown as ReadableStream<Uint8Array> | null, response as unknown as Response);
@@ -35,11 +36,19 @@ export default {
 
 // Give password hashing the DO CPU budget; all business data still stays in Supabase.
 export class ApiBackend {
-  constructor(private ctx: DurableObjectState, private env: Env) {}
+  private studentLoginQueue: Promise<void> = Promise.resolve();
+  constructor(_ctx: DurableObjectState, private env: Env) {}
   async fetch(request: Request) {
-    return this.ctx.blockConcurrencyWhile(() => withRuntime(
+    const run = () => withRuntime(
       { ...this.env, NODE_ENV: 'production' }, () => handleAsNodeRequest(8080, request),
-    ));
+    );
+    if (new URL(request.url).pathname !== '/api/student/verify') return run();
+    // Bound concurrent scrypt memory within each object without blocking unrelated reads.
+    const previous = this.studentLoginQueue;
+    let release!: () => void;
+    this.studentLoginQueue = new Promise<void>(resolve => { release = resolve; });
+    await previous;
+    try { return await run(); } finally { release(); }
   }
 }
 

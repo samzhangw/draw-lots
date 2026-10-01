@@ -11,6 +11,8 @@ import { projectDto, hashPassword, verifyPassword, type StoredProject } from '..
 import type { ProjectItem } from '../src/types';
 
 const cloudflareTest = process.env.CLOUDFLARE_TEST === '1';
+// Wrangler's local HTTPS certificate is self-signed; only this test process trusts it.
+if (cloudflareTest) process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const project: ProjectItem = {
   id: 'p1', seq_no: '1', education_system: '四技', department: '資管', class_name: '四甲',
@@ -29,7 +31,7 @@ test('input validation rejects malformed rosters and domain settings', () => {
   assert.throws(() => validateDomains([{ ...domains[0], evaluatorsPerGroup: { 1: 'bad' } }]));
 });
 
-test(`API persists through Supabase, enforces roles and detects concurrent writes (${cloudflareTest ? 'Workers' : 'Node'})`, { timeout: 180000 }, async () => {
+test(`API persists through Supabase, enforces roles and detects concurrent writes (${cloudflareTest ? 'Workers' : 'Node'})`, { timeout: 300000 }, async () => {
   let state = { id: 1, projects: [] as StoredProject[], domain_configs: domains, version: 0, updated_at: new Date().toISOString() };
   let unavailable = false;
   let malformedState = false;
@@ -83,14 +85,14 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   const reservation = http.createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');
   const appPort = (reservation.address() as { port: number }).port;
   await new Promise<void>(resolve => reservation.close(() => resolve()));
-  const base = `http://127.0.0.1:${appPort}`;
+  const base = `${cloudflareTest ? 'https' : 'http'}://127.0.0.1:${appPort}`;
   const env = { ...process.env, NODE_ENV: 'production', PORT: String(appPort), SUPABASE_URL: `http://127.0.0.1:${mockPort}`, SUPABASE_SECRET_KEY: 'sb_secret_test', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test' };
   const persistence = await mkdtemp(join(tmpdir(), 'lottery-worker-test-'));
   let child: ChildProcess;
   let output = '';
   const launch = async () => {
     const args = cloudflareTest ? [
-      'node_modules/wrangler/bin/wrangler.js', 'dev', '--ip', '127.0.0.1', '--port', String(appPort), '--persist-to', persistence,
+      'node_modules/wrangler/bin/wrangler.js', 'dev', '--ip', '127.0.0.1', '--port', String(appPort), '--local-protocol', 'https', '--persist-to', persistence,
       '--var', `SUPABASE_URL:${env.SUPABASE_URL}`, '--var', `SUPABASE_SECRET_KEY:${env.SUPABASE_SECRET_KEY}`,
       '--var', `SUPABASE_PUBLISHABLE_KEY:${env.SUPABASE_PUBLISHABLE_KEY}`,
     ] : ['--import', 'tsx', 'server.ts'];
@@ -185,6 +187,10 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const studentCookie = student.cookie!.split(';')[0];
     const sessionToken = studentCookie.split('=')[1];
     assert.equal(sessions.has(sessionToken), false); // Supabase only holds token digests.
+    if (cloudflareTest) {
+      const results = await Promise.all(Array.from({ length: 300 }, () => request('/api/student/me', undefined, undefined, studentCookie)));
+      assert.equal(results.filter(result => result.status === 200).length, 300);
+    }
     const blockedLogout = await fetch(`${base}/api/student/logout`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: studentCookie, Origin: 'https://attacker.invalid' }, body: '{}' });
     assert.equal(blockedLogout.status, 403);
     assert.equal((await request('/api/student/me?projectId=p2', undefined, undefined, studentCookie)).data.project.id, project.id);
