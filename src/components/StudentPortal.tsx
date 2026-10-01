@@ -273,11 +273,9 @@ export const StudentPortal: React.FC = () => {
                         抽籤完成·順序已確認
                       </span>
                     </div>
-                    {!sharedPasswordMode && <>
                     <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 leading-tight">
                       {myProject.project_title}
                     </h2>
-                    </>}
                   </div>
 
                   {!sharedPasswordMode &&
@@ -336,7 +334,7 @@ export const StudentPortal: React.FC = () => {
                     目前尚未抽籤或抽籤進行中
                   </h3>
                   <p className="text-slate-600 text-xs sm:text-sm max-w-md mx-auto mb-4 leading-relaxed">
-                    {sharedPasswordMode ? '抽籤完成後即可在此查驗公開的分組場次與出場順序。' : <>貴組專題「<span className="text-slate-900 font-semibold">{myProject.project_title}</span>」已登記在名冊中，抽籤完成後即可在此即時查驗分組場次與出場順序。</>}
+                    貴組專題「<span className="text-slate-900 font-semibold">{myProject.project_title}</span>」已登記在名冊中，抽籤完成後即可在此查驗分組場次與出場順序。
                   </p>
                   <button
                     onClick={onRefresh}

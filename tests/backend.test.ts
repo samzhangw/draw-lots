@@ -327,12 +327,12 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const commonLogin = await request('/api/student/verify', { leaderId: project.leader_id, password: generated.data.password });
     assert.equal(commonLogin.status, 200);
     assert.equal(commonLogin.data.sharedPasswordMode, true);
-    assert.equal(commonLogin.data.project.project_title, '');
+    assert.equal(commonLogin.data.project.project_title, project.project_title);
     assert.equal(commonLogin.data.project.leader_id, project.leader_id);
     assert.equal(commonLogin.data.project.advisor, '');
     const commonCookie = commonLogin.cookie!.split(';')[0];
     const commonMe = await request('/api/student/me', undefined, undefined, commonCookie);
-    assert.equal(commonMe.data.project.project_title, '');
+    assert.equal(commonMe.data.project.project_title, project.project_title);
     assert.equal(commonMe.data.project.leader_id, project.leader_id);
     assert.equal((await request('/api/projects', { projects: [{ ...projectDto(project), password: 'Another-password-123' }], version: state.version }, adminAgain)).status, 400);
     const appended = await request('/api/projects', { projects: [projectDto(project), { ...projectDto(project), id: 'new', leader_id: 'new-student', project_title: '私人新專題' }], version: state.version }, adminAgain);
