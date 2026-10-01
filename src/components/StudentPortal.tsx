@@ -310,13 +310,6 @@ export const StudentPortal: React.FC = () => {
                       <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                         {myProject.field}
                       </div>
-                      {myProject.original_code && <div className="text-xs text-slate-500 mt-1">
-                        原始登記編號：<span className="font-mono font-semibold text-slate-700">{myProject.original_code}</span>
-                      </div>}
-                    </div>
-
-                    <div className="pt-2 border-t border-blue-100 text-[11px] text-blue-700/80 font-medium">
-                      各領域獨立抽籤與專屬場次評審
                     </div>
                   </div>
 
@@ -336,13 +329,9 @@ export const StudentPortal: React.FC = () => {
                       <div className="text-3xl sm:text-4xl font-black text-indigo-700 tracking-tight font-mono">
                         第 {myProject.assigned_group || 1} 組
                       </div>
-                      <div className="text-xs text-slate-500 mt-1">
-                        {!sharedPasswordMode && myProject.evaluators && myProject.evaluators.length > 0 ? (
-                          <span>評審委員：<span className="font-medium text-slate-800">{myProject.evaluators.join('、')}</span></span>
-                        ) : (
-                          <span>本場次獨立評審小組</span>
-                        )}
-                      </div>
+                      {!sharedPasswordMode && !!myProject.evaluators?.length && <div className="text-xs text-slate-500 mt-1">
+                        評審委員：<span className="font-medium text-slate-800">{myProject.evaluators.join('、')}</span>
+                      </div>}
                     </div>
 
                   </div>
@@ -423,7 +412,6 @@ export const StudentPortal: React.FC = () => {
                     <div className="text-lg sm:text-xl font-bold text-slate-900">
                       {myProject.field}
                     </div>
-                    {myProject.original_code && <div className="text-[11px] text-slate-400 font-mono">編號: {myProject.original_code}</div>}
                   </div>}
 
                   <div className="rounded-2xl p-4 sm:p-5 bg-slate-50 border border-slate-200 space-y-1.5">
