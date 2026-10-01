@@ -26,6 +26,8 @@ import {
 interface AdminManagementProps {
   projects: ProjectItem[];
   onSaveProjects: (updated: ProjectItem[]) => Promise<void>;
+  sharedPasswordEnabled: boolean;
+  onSharedPassword: (action: 'generate' | 'clear') => Promise<string | undefined>;
   domainList: string[];
   domainConfigs: DomainConfig[];
   onUpdateDomainConfigs: (configs: DomainConfig[], renamedField?: { oldName: string; newName: string }) => Promise<void>;
@@ -34,6 +36,8 @@ interface AdminManagementProps {
 export const AdminManagement: React.FC<AdminManagementProps> = ({
   projects,
   onSaveProjects,
+  sharedPasswordEnabled,
+  onSharedPassword,
   domainList,
   domainConfigs,
   onUpdateDomainConfigs,
@@ -44,6 +48,24 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadFeedback, setUploadFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [adminProjectDisplayMode, setAdminProjectDisplayMode] = useState<'table' | 'cards'>('table');
+  const [sharedAction, setSharedAction] = useState<'generate' | 'clear' | null>(null);
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+  const [sharedSaving, setSharedSaving] = useState(false);
+  const [passwordCopied, setPasswordCopied] = useState(false);
+
+  const submitSharedAction = async () => {
+    if (!sharedAction || sharedSaving) return;
+    setSharedSaving(true);
+    try {
+      const password = await onSharedPassword(sharedAction);
+      setSharedAction(null);
+      setGeneratedPassword(password || null);
+      setPasswordCopied(false);
+      setUploadFeedback({ type: 'success', message: password ? '全體共用密碼已更新。請複製並安全發送給學生。' : '共用密碼已停用，請為學生重新設定個別密碼。' });
+    } catch (error) {
+      setUploadFeedback({ type: 'error', message: error instanceof Error ? error.message : '共用密碼設定失敗' });
+    } finally { setSharedSaving(false); }
+  };
 
   const withSaveFeedback = <Args extends unknown[]>(action: (...args: Args) => Promise<void>) =>
     async (...args: Args) => {
@@ -344,6 +366,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       finalProjects = [...projects, ...newAdditions];
     }
 
+    if (sharedPasswordEnabled) finalProjects = finalProjects.map(({ password: _password, ...p }) => p as ProjectItem);
     await onSaveProjects(finalProjects);
     setUploadFeedback({
       type: 'success',
@@ -402,7 +425,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     }
 
     const cleanLeaderId = formData.leader_id.trim();
-    const finalPassword = formData.password || '';
+    const finalPassword = sharedPasswordEnabled ? '' : formData.password || '';
     if (finalPassword && (finalPassword.trim().length < 12 || finalPassword.length > 128 || finalPassword === cleanLeaderId)) {
       setFormValidationNotice('新密碼須為 12 至 128 字元，且不可使用學號。');
       return;
@@ -519,8 +542,33 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             <Plus className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
             <span>手動新增專題</span>
           </button>
+          <button
+            onClick={() => setSharedAction('generate')}
+            disabled={!projects.length || sharedSaving}
+            className="px-3.5 py-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            {sharedPasswordEnabled ? '重新產生共用密碼' : '產生全體共用密碼'}
+          </button>
+          {sharedPasswordEnabled && <button onClick={() => setSharedAction('clear')} className="px-3.5 py-2 rounded-2xl border border-slate-300 text-slate-700 text-xs font-bold cursor-pointer">停用共用密碼</button>}
         </div>
       </div>
+
+      {sharedAction && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="確認共用密碼操作">
+        <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl">
+          <h2 className="text-lg font-bold">{sharedAction === 'generate' ? '產生全體共用密碼？' : '停用全體共用密碼？'}</h2>
+          <p className="text-sm text-slate-700">{sharedAction === 'generate' ? '系統會產生一組隨機密碼，取代所有學生目前的密碼並讓現有登入失效。新密碼只會顯示一次。知道其他組長學號的人也能用共用密碼查詢該組的公開抽籤資訊，私人名冊資料不會顯示。' : '停用後所有學生都無法登入，直到管理員分別設定個別密碼。'}</p>
+          <div className="flex justify-end gap-2"><button onClick={() => setSharedAction(null)} disabled={sharedSaving} className="px-4 py-2 rounded-lg border">取消</button><button onClick={() => void submitSharedAction()} disabled={sharedSaving} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold disabled:opacity-50">{sharedSaving ? '處理中…' : '確認'}</button></div>
+        </div>
+      </div>}
+      {generatedPassword && <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="新共用密碼">
+        <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl">
+          <h2 className="text-lg font-bold">全體共用密碼已產生</h2>
+          <p className="text-sm text-slate-700">請立即複製並安全發送給學生。關閉後無法再次查看；重新產生會讓舊密碼失效。</p>
+          <output className="block p-3 rounded-lg bg-slate-100 font-mono break-all select-all" aria-label="共用密碼">{generatedPassword}</output>
+          <div className="flex justify-end gap-2"><button onClick={() => { setGeneratedPassword(null); setPasswordCopied(false); }} className="px-4 py-2 rounded-lg border">關閉</button><button onClick={() => { void navigator.clipboard.writeText(generatedPassword).then(() => setPasswordCopied(true)).catch(() => setUploadFeedback({ type: 'error', message: '複製失敗，請手動選取密碼。' })); }} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">{passwordCopied ? '已複製' : '複製密碼'}</button></div>
+        </div>
+      </div>}
 
       {/* Feedback Alert */}
       {uploadFeedback && (
@@ -1566,6 +1614,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                   請選擇匯入模式：您可以選擇完全覆蓋現有名單，或是將新名單追加至現有名單之後。
                 </p>
+                {sharedPasswordEnabled && <p className="text-xs text-indigo-700 mt-2">共用密碼啟用中，匯入檔案內的個別密碼欄位會略過；新專題沿用目前共用密碼。</p>}
               </div>
             </div>
 
@@ -1683,10 +1732,11 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <div>
                   <label className="block text-slate-700 mb-1 font-semibold flex items-center justify-between">
                     <span>設定／重設組長密碼</span>
-                    <span className="text-[10px] text-slate-400 font-normal">留空保留現有密碼</span>
+                    <span className="text-[10px] text-slate-400 font-normal">{sharedPasswordEnabled ? '共用密碼模式中無法個別設定' : '留空保留現有密碼'}</span>
                   </label>
                   <input
                     type="password"
+                    disabled={sharedPasswordEnabled}
                     value={formData.password || ''}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="輸入至少 12 字元的新密碼"

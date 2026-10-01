@@ -25,6 +25,7 @@ export const StudentPortal: React.FC = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [myProject, setMyProject] = useState<ProjectItem | null>(null);
+  const [sharedPasswordMode, setSharedPasswordMode] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const requestEpoch = useRef(0);
@@ -34,19 +35,21 @@ export const StudentPortal: React.FC = () => {
     requestEpoch.current++;
     setIsLoading(true);
     try {
-      const data = await apiRequest<{ project: ProjectItem }>('/api/student/me');
+      const data = await apiRequest<{ project: ProjectItem; sharedPasswordMode: boolean }>('/api/student/me');
       setMyProject(data.project);
+      setSharedPasswordMode(data.sharedPasswordMode);
       setErrorMessage('');
     } catch (error) {
       setMyProject(null);
+      setSharedPasswordMode(false);
       setErrorMessage(error instanceof Error ? error.message : '查詢失敗');
     } finally { setIsLoading(false); }
   };
   useEffect(() => {
     let cancelled = false;
     const epoch = requestEpoch.current;
-    apiRequest<{ project: ProjectItem }>('/api/student/me')
-      .then(data => { if (!cancelled && requestEpoch.current === epoch) setMyProject(data.project); })
+    apiRequest<{ project: ProjectItem; sharedPasswordMode: boolean }>('/api/student/me')
+      .then(data => { if (!cancelled && requestEpoch.current === epoch) { setMyProject(data.project); setSharedPasswordMode(data.sharedPasswordMode); } })
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -57,6 +60,7 @@ export const StudentPortal: React.FC = () => {
     try {
       await apiRequest('/api/student/logout', {});
       setMyProject(null);
+      setSharedPasswordMode(false);
       setStudentIdInput('');
       setPasswordInput('');
       setErrorMessage('');
@@ -84,8 +88,9 @@ export const StudentPortal: React.FC = () => {
     requestEpoch.current++;
     setIsLoading(true);
     try {
-      const data = await apiRequest<{ project: ProjectItem }>('/api/student/verify', { leaderId: query, password: pwd });
+      const data = await apiRequest<{ project: ProjectItem; sharedPasswordMode: boolean }>('/api/student/verify', { leaderId: query, password: pwd });
       setMyProject(data.project);
+      setSharedPasswordMode(data.sharedPasswordMode);
       setPasswordInput('');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '登入失敗');
@@ -230,10 +235,10 @@ export const StudentPortal: React.FC = () => {
               <div>
                 <div className="text-[11px] sm:text-xs text-slate-500">目前登入組長</div>
                 <div className="text-sm sm:text-base font-bold text-slate-900 font-mono flex items-center gap-1.5">
-                  {myProject.leader_id}
-                  <span className="text-[11px] sm:text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-sans font-normal border border-slate-200">
+                  {sharedPasswordMode ? studentIdInput.trim() || '共用密碼查詢' : myProject.leader_id}
+                  {!sharedPasswordMode && <span className="text-[11px] sm:text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-sans font-normal border border-slate-200">
                     {myProject.class_name}
-                  </span>
+                  </span>}
                 </div>
               </div>
             </div>
@@ -271,10 +276,11 @@ export const StudentPortal: React.FC = () => {
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         抽籤完成·順序已確認
                       </span>
-                      <span className="text-xs text-slate-400 font-mono">
+                      {!sharedPasswordMode && <span className="text-xs text-slate-400 font-mono">
                         序號 #{myProject.seq_no}
-                      </span>
+                      </span>}
                     </div>
+                    {!sharedPasswordMode && <>
                     <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 leading-tight">
                       {myProject.project_title}
                     </h2>
@@ -285,8 +291,10 @@ export const StudentPortal: React.FC = () => {
                       <span>·</span>
                       <span>指導老師：<strong className="text-slate-800">{myProject.advisor}</strong></span>
                     </div>
+                    </>}
                   </div>
 
+                  {!sharedPasswordMode &&
                   <div className="text-right sm:text-right shrink-0">
                     <div className="text-[11px] text-slate-400">現場抽籤時間</div>
                     <div className="text-xs font-mono font-medium text-slate-600">
@@ -294,7 +302,7 @@ export const StudentPortal: React.FC = () => {
                         ? new Date(myProject.draw_time).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
                         : '現場即時同步'}
                     </div>
-                  </div>
+                  </div>}
                 </div>
 
                 {/* 3大關鍵報告資訊卡片 (領域名稱 · 分組場次 · 發表順序) */}
@@ -342,7 +350,7 @@ export const StudentPortal: React.FC = () => {
                         第 {myProject.assigned_group || 1} 組
                       </div>
                       <div className="text-xs text-slate-500 mt-1">
-                        {myProject.evaluators && myProject.evaluators.length > 0 ? (
+                        {!sharedPasswordMode && myProject.evaluators && myProject.evaluators.length > 0 ? (
                           <span>評審委員：<span className="font-medium text-slate-800">{myProject.evaluators.join('、')}</span></span>
                         ) : (
                           <span>本場次獨立評審小組</span>
@@ -410,7 +418,7 @@ export const StudentPortal: React.FC = () => {
                     目前尚未抽籤或抽籤進行中
                   </h3>
                   <p className="text-slate-600 text-xs sm:text-sm max-w-md mx-auto mb-4 leading-relaxed">
-                    貴組專題「<span className="text-slate-900 font-semibold">{myProject.project_title}</span>」已登記在名冊中，抽籤完成後即可在此即時查驗分組場次與出場順序。
+                    {sharedPasswordMode ? '抽籤完成後即可在此查驗公開的分組場次與出場順序。' : <>貴組專題「<span className="text-slate-900 font-semibold">{myProject.project_title}</span>」已登記在名冊中，抽籤完成後即可在此即時查驗分組場次與出場順序。</>}
                   </p>
                   <button
                     onClick={onRefresh}
@@ -423,7 +431,7 @@ export const StudentPortal: React.FC = () => {
 
                 {/* 3大關鍵報告卡片 (待抽籤預覽) */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
-                  <div className="rounded-2xl p-4 sm:p-5 bg-slate-50 border border-slate-200 space-y-1.5">
+                  {!sharedPasswordMode && <div className="rounded-2xl p-4 sm:p-5 bg-slate-50 border border-slate-200 space-y-1.5">
                     <div className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
                       <Layers className="w-3.5 h-3.5 text-blue-600" />
                       領域名稱 (已登記)
@@ -432,7 +440,7 @@ export const StudentPortal: React.FC = () => {
                       {myProject.field}
                     </div>
                     <div className="text-[11px] text-slate-400 font-mono">編號: {myProject.original_code || `#${myProject.seq_no}`}</div>
-                  </div>
+                  </div>}
 
                   <div className="rounded-2xl p-4 sm:p-5 bg-slate-50 border border-slate-200 space-y-1.5">
                     <div className="text-xs font-bold text-slate-500 flex items-center gap-1.5">

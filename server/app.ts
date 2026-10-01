@@ -1,8 +1,8 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomBytes } from 'node:crypto';
 import { createStore, ApiError, validateProjects, validateDomains, type DatabaseState } from './store';
-import { projectDto, prepareProjects, verifyPassword } from './credentials';
+import { projectDto, publicStudentProjectDto, prepareProjects, verifyPassword, hashPassword, sharedPasswordHash } from './credentials';
 import { createStudentSession, getStudentProject, clearStudentSession } from './studentSessions';
 import { createStaffSession, getStaffSession, clearStaffSession } from './staffSessions';
 import { loginLimiter } from './rateLimit';
@@ -45,7 +45,7 @@ async function authorize(req: Request, adminOnly = false) {
   return role;
 }
 function staffState(state: DatabaseState, role: string | null) {
-  return { ...state, success: true, projects: state.projects.map(p => ({
+  return { ...state, success: true, sharedPasswordEnabled: !!sharedPasswordHash(state.projects), projects: state.projects.map(p => ({
     ...projectDto(p), ...(role === 'admin' ? { password_set: !!p.password_hash && !p.password } : {}),
   })) };
 }
@@ -90,14 +90,16 @@ app.post('/api/student/verify', loginLimiter(), route(async (req, res) => {
   const { leaderId, password } = req.body;
   if (typeof leaderId !== 'string' || leaderId.length > 128 || typeof password !== 'string' || password.length > 128) throw new ApiError(400, '請輸入有效的組長學號與密碼。');
   const state = await createStore().load();
+  sharedPasswordHash(state.projects);
   const project = state.projects.find(p => p.leader_id.trim().toLowerCase() === leaderId.trim().toLowerCase());
   const valid = await verifyPassword(password, project?.password ? undefined : project?.password_hash);
   if (!valid || !project) throw new ApiError(401, '學號或密碼不正確，尚未設定密碼者請洽大會管理員。');
   await createStudentSession(req, res, project);
-  res.json({ success: true, project: projectDto(project) });
+  res.json({ success: true, sharedPasswordMode: project.shared_password_mode === true, project: project.shared_password_mode ? publicStudentProjectDto(project) : projectDto(project) });
 }));
 app.get('/api/student/me', route(async (req, res) => {
-  res.json({ success: true, project: projectDto(await getStudentProject(req)) });
+  const project = await getStudentProject(req);
+  res.json({ success: true, sharedPasswordMode: project.shared_password_mode === true, project: project.shared_password_mode ? publicStudentProjectDto(project) : projectDto(project) });
 }));
 app.post('/api/student/logout', route(async (req, res) => {
   await clearStudentSession(req, res);
@@ -137,6 +139,24 @@ app.post('/api/projects', route(async (req, res) => {
     if (!state.domainConfigs.some(c => c.field === p.field)) state.domainConfigs.push({ id: `domain-${crypto.randomUUID()}`, field: p.field, groupCount: 2, evaluatorsPerGroup: {} });
   }
   res.json(staffState(await store.save(state, state.version), 'admin'));
+}));
+app.post('/api/student/shared-password', route(async (req, res) => {
+  await authorize(req, true);
+  if (req.body.action !== 'generate' && req.body.action !== 'clear') throw new ApiError(400, '共用密碼操作無效。');
+  const store = createStore();
+  const state = await store.load();
+  checkVersion(req, state);
+  sharedPasswordHash(state.projects);
+  if (!state.projects.length) throw new ApiError(400, '請先匯入學生名冊。');
+  if (req.body.action === 'clear') {
+    state.projects = state.projects.map(p => ({ ...projectDto(p) }));
+    res.json(staffState(await store.save(state, state.version), 'admin'));
+    return;
+  }
+  const password = randomBytes(24).toString('base64url');
+  const password_hash = await hashPassword(password);
+  state.projects = state.projects.map(p => ({ ...projectDto(p), password_hash, shared_password_mode: true }));
+  res.json({ ...staffState(await store.save(state, state.version), 'admin'), password });
 }));
 app.post('/api/domain-configs', route(async (req, res) => {
   await authorize(req, true);
@@ -194,4 +214,3 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   });
   res.status(status).json(body);
 });
-

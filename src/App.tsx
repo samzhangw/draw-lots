@@ -48,6 +48,7 @@ export default function App() {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [domainConfigs, setDomainConfigs] = useState<DomainConfig[]>([]);
+  const [sharedPasswordEnabled, setSharedPasswordEnabled] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
   const [authSession, setAuthSession] = useState<AuthSession | null>(() => getAuthSession());
 
@@ -68,6 +69,7 @@ export default function App() {
     setAuthSession(null);
     setProjects([]);
     setDomainConfigs([]);
+    setSharedPasswordEnabled(false);
     handleSelectView('student');
   }, []);
 
@@ -128,6 +130,7 @@ export default function App() {
   const applyState = (state: StoreState) => {
     setProjects(state.projects);
     setDomainConfigs(state.domainConfigs);
+    setSharedPasswordEnabled(state.sharedPasswordEnabled);
     setDataError(null);
   };
 
@@ -135,6 +138,7 @@ export default function App() {
     if (!getAuthSession()) {
       setProjects([]);
       setDomainConfigs([]);
+      setSharedPasswordEnabled(false);
       setDataError(null);
       setIsLoading(false);
       return;
@@ -151,7 +155,7 @@ export default function App() {
 
   useEffect(() => { void loadData(); }, [loadData, authSession]);
   useEffect(() => {
-    const expired = () => { setAuthSession(null); setProjects([]); setDomainConfigs([]); };
+    const expired = () => { setAuthSession(null); setProjects([]); setDomainConfigs([]); setSharedPasswordEnabled(false); };
     window.addEventListener('auth-expired', expired);
     return () => window.removeEventListener('auth-expired', expired);
   }, []);
@@ -163,6 +167,12 @@ export default function App() {
       setDataError(error instanceof Error ? error.message : '儲存失敗');
       throw error;
     }
+  };
+
+  const handleSharedPassword = async (action: 'generate' | 'clear') => {
+    const state = await apiRequest<StoreState & { password?: string }>('/api/student/shared-password', { action });
+    applyState(state);
+    return state.password;
   };
 
   const handleUpdateDomainConfigs = async (
@@ -251,6 +261,8 @@ export default function App() {
                 <AdminManagement
                   projects={projects}
                   onSaveProjects={handleSaveProjects}
+                  sharedPasswordEnabled={sharedPasswordEnabled}
+                  onSharedPassword={handleSharedPassword}
                   domainList={domainList}
                   domainConfigs={domainConfigs}
                   onUpdateDomainConfigs={handleUpdateDomainConfigs}

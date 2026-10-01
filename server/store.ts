@@ -47,7 +47,7 @@ export function validateProjects(value: unknown): asserts value is ProjectItem[]
   const leaders = new Set<string>();
   const textFields = ['id', 'seq_no', 'education_system', 'department', 'class_name', 'advisor', 'field', 'original_code', 'project_title', 'leader_id'];
   for (const p of value) {
-    if (!p || typeof p !== 'object' || 'password_hash' in p || textFields.some(key => typeof p[key] !== 'string') || !p.id.trim() || !p.project_title.trim() || !p.leader_id.trim() || ids.has(p.id)) {
+    if (!p || typeof p !== 'object' || 'password_hash' in p || 'shared_password_mode' in p || textFields.some(key => typeof p[key] !== 'string') || !p.id.trim() || !p.project_title.trim() || !p.leader_id.trim() || ids.has(p.id)) {
       throw new ApiError(400, '專題欄位不完整或 ID 重複。');
     }
     for (const key of ['draw_order', 'assigned_group']) {

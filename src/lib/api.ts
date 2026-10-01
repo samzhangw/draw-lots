@@ -6,6 +6,7 @@ export interface StoreState {
   domainConfigs: DomainConfig[];
   version: number;
   lastUpdated: string;
+  sharedPasswordEnabled: boolean;
 }
 let version: number | undefined;
 

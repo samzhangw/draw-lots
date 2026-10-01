@@ -2,7 +2,7 @@ import { randomBytes, scrypt, timingSafeEqual, createHash } from 'node:crypto';
 import type { ProjectItem } from '../src/types';
 import { ApiError } from './errors';
 
-export type StoredProject = ProjectItem & { password_hash?: string };
+export type StoredProject = ProjectItem & { password_hash?: string; shared_password_mode?: boolean };
 const COST = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };
 const HASH_FORMAT = /^scrypt-v1\$([a-f0-9]{32})\$([a-f0-9]{64})$/;
 const derive = (password: string, salt: string) => new Promise<Buffer>((resolve, reject) => {
@@ -39,20 +39,50 @@ export function projectDto(p: ProjectItem): ProjectItem {
   };
 }
 
+export function publicStudentProjectDto(p: ProjectItem): ProjectItem {
+  const drawn = !!p.draw_order;
+  return {
+    id: '', seq_no: '', education_system: '', department: '', class_name: '', advisor: '',
+    field: drawn ? p.field : '', original_code: drawn ? p.original_code : '',
+    project_title: '', leader_id: '', assigned_group: drawn ? p.assigned_group ?? null : null,
+    draw_order: drawn ? p.draw_order ?? null : null, draw_code: drawn ? p.draw_code ?? null : null,
+    draw_time: null, evaluators: [],
+  };
+}
+
+export function sharedPasswordHash(projects: StoredProject[]): string | undefined {
+  const shared = projects.filter(p => p.shared_password_mode === true);
+  if (!shared.length) return undefined;
+  const hash = shared[0].password_hash;
+  if (shared.length !== projects.length || !hash || !HASH_FORMAT.test(hash) || projects.some(p => p.password_hash !== hash || p.password)) {
+    throw new ApiError(503, '共用密碼設定不一致，請聯絡管理員。');
+  }
+  return hash;
+}
+
 // Existing plaintext credentials are considered compromised and must be reset.
 export function removeLegacyCredentials(projects: StoredProject[]): StoredProject[] {
   return projects.map(p => ({
     ...projectDto(p),
-    ...(!p.password && typeof p.password_hash === 'string' && HASH_FORMAT.test(p.password_hash) ? { password_hash: p.password_hash } : {}),
+    ...(!p.password && typeof p.password_hash === 'string' && HASH_FORMAT.test(p.password_hash) ? {
+      password_hash: p.password_hash,
+      ...(p.shared_password_mode === true ? { shared_password_mode: true } : {}),
+    } : {}),
   }));
 }
 
 export async function prepareProjects(input: ProjectItem[], existing: StoredProject[]): Promise<StoredProject[]> {
+  const sharedHash = sharedPasswordHash(existing);
+  if (sharedHash && input.some(p => p.password)) throw new ApiError(400, '共用密碼啟用中，無法設定個別學生密碼。');
   const oldById = new Map(removeLegacyCredentials(existing).map(p => [p.id, p]));
   // Validate the whole batch before spending CPU on password hashing.
   for (const p of input) if (p.password) validatePassword(p.password, p.leader_id);
   const result: StoredProject[] = [];
   for (const p of input) {
+    if (sharedHash) {
+      result.push({ ...projectDto(p), password_hash: sharedHash, shared_password_mode: true });
+      continue;
+    }
     const old = oldById.get(p.id);
     const hash = p.password ? await hashPassword(p.password)
       : old?.leader_id === p.leader_id ? old.password_hash : undefined;
