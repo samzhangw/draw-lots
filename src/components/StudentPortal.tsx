@@ -97,195 +97,119 @@ export const StudentPortal: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
-      {/* Top Banner (Pure Light Academic Style, zero pills) */}
-      <div className="rounded-3xl bg-gradient-to-r from-blue-50/90 via-slate-50 to-indigo-50/70 p-6 sm:p-8 md:p-9 text-slate-900 shadow-xs border border-slate-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-        <div className="max-w-2xl space-y-2">
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-blue-700 font-semibold tracking-wide">
-            <img
-              src="https://cidsexhibition.nutc.edu.tw/images/logo.png"
-              alt="國立臺中科技大學 資訊與流通學院"
-              className="h-5 sm:h-6 w-auto object-contain"
-            />
-            <span>國立臺中科技大學</span>
-            <span className="text-slate-400" aria-hidden="true">·</span>
-            <span>資訊與流通學院專題成果發表會</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-slate-900">
-            各組報告順序查詢
-          </h1>
-        </div>
-        <div className="hidden sm:flex shrink-0 p-3 bg-white/90 rounded-2xl border border-slate-200/80 shadow-xs">
-          <img
-            src="https://cidsexhibition.nutc.edu.tw/images/logo.png"
-            alt="國立臺中科技大學 資訊與流通學院"
-            className="h-12 md:h-14 w-auto object-contain"
-          />
-        </div>
-      </div>
-
-      {!myProject ? (
-        /* Focused Clean Login Card */
-        <div className="max-w-lg mx-auto">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs">
-            <div>
-              <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-100">
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                    組長帳號驗證
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    請在下方輸入組長學號與密碼
-                  </p>
-                </div>
-                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
-                  <UserCheck className="w-5 h-5" />
-                </div>
-              </div>
-
-                <form onSubmit={handleLogin} className="space-y-4">
-                  {/* Student ID */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      組長學號
-                    </label>
-                    <div className="relative">
-                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                        <User className="w-4 h-4" />
-                      </div>
-                      <input
-                        type="text"
-                        value={studentIdInput}
-                        onChange={(e) => setStudentIdInput(e.target.value)}
-                        placeholder="請輸入組長學號，例如 110214101"
-                        className="w-full bg-slate-50/80 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 text-sm sm:text-base font-mono tracking-wide transition-all"
-                        autoComplete="username"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Password */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                        <Lock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>登入密碼</span>
-                      </label>
-                    </div>
-                    <div className="relative">
-                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                        <Lock className="w-4 h-4" />
-                      </div>
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={passwordInput}
-                        onChange={(e) => setPasswordInput(e.target.value)}
-                        placeholder="請輸入大會提供的密碼"
-                        className="w-full bg-slate-50/80 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-xl pl-10 pr-10 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 text-sm sm:text-base font-mono tracking-wide transition-all"
-                        autoComplete="current-password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer transition-colors"
-                        title={showPassword ? '隱藏密碼' : '顯示密碼'}
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1.5">
-                      <span>尚未取得密碼或忘記密碼，請洽大會管理員重新設定。</span>
-                    </div>
-                  </div>
-
-                  {/* Error Notification */}
-                  {errorMessage && (
-                    <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm animate-in fade-in">
-                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
-                      <span className="leading-snug">{errorMessage}</span>
-                    </div>
-                  )}
-
-                  {/* Submit Button */}
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full py-3.5 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm sm:text-base shadow-sm hover:shadow-md transition-all hover:scale-[1.005] active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer mt-2"
-                  >
-                    <LogIn className="w-4 h-4" />
-                    <span>立即驗證登入並查詢順序</span>
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </button>
-                </form>
-              </div>
-
-
+    <div className="min-h-[calc(100vh-5rem)] bg-gradient-to-b from-blue-50/70 via-white to-slate-50">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-6 sm:space-y-8">
+        <header className="relative overflow-hidden rounded-[2rem] border border-blue-100 bg-white px-6 py-7 sm:px-9 sm:py-9 shadow-sm">
+          <div className="absolute -right-12 -top-20 h-56 w-56 rounded-full bg-blue-100/70 blur-2xl pointer-events-none" />
+          <div className="absolute right-36 bottom-0 h-28 w-28 rounded-full bg-amber-100/70 blur-2xl pointer-events-none" />
+          <div className="relative flex items-start gap-4 sm:gap-6">
+            <div className="hidden sm:flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-slate-100 bg-white p-2 shadow-sm">
+              <img src="https://cidsexhibition.nutc.edu.tw/images/logo.png" alt="國立臺中科技大學 資訊與流通學院" className="max-h-full max-w-full object-contain" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-semibold text-blue-700">國立臺中科技大學 · 資訊與流通學院</p>
+              <h1 className="mt-2 text-2xl sm:text-4xl font-black tracking-tight text-slate-900">各組報告順序查詢</h1>
+              <p className="mt-2 max-w-2xl text-sm sm:text-base leading-relaxed text-slate-600">登入後即可查看您的專題名稱、分組場次與上台順序。</p>
             </div>
           </div>
+        </header>
+
+      {!myProject ? (
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-stretch">
+          <section className="order-2 rounded-[1.75rem] border border-blue-100 bg-blue-50/80 p-6 sm:p-8 lg:order-1">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-blue-700 shadow-sm"><UserCheck className="h-6 w-6" /></div>
+            <h2 className="mt-6 text-xl sm:text-2xl font-black text-slate-900">查詢您的報告資訊</h2>
+            <p className="mt-3 text-sm leading-7 text-slate-600">使用組長學號與大會提供的密碼登入，即可確認專題的報告場次與上台順位。</p>
+            <div className="mt-7 space-y-4 border-t border-blue-200/70 pt-6">
+              <div className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-700 text-xs font-bold text-white">1</span><p className="text-sm leading-7 text-slate-700">輸入<span className="font-bold">組長學號</span>與登入密碼</p></div>
+              <div className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-700 text-xs font-bold text-white">2</span><p className="text-sm leading-7 text-slate-700">查看分組場次與報告順序</p></div>
+            </div>
+          </section>
+
+          <section className="order-1 rounded-[1.75rem] border border-slate-200 bg-white p-6 sm:p-8 shadow-sm lg:order-2" aria-labelledby="student-login-title">
+            <div className="mb-6 border-b border-slate-100 pb-5">
+              <h2 id="student-login-title" className="text-xl sm:text-2xl font-black text-slate-900">組長登入</h2>
+              <p className="mt-1 text-sm text-slate-500">請填寫以下資料，查詢您的專題報告順序。</p>
+            </div>
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div>
+                <label htmlFor="student-leader-id" className="mb-2 block text-sm font-bold text-slate-700">組長學號</label>
+                <div className="relative">
+                  <User className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  <input id="student-leader-id" type="text" value={studentIdInput} onChange={(e) => setStudentIdInput(e.target.value)} placeholder="請輸入組長學號" className="w-full rounded-xl border border-slate-300 bg-white py-3.5 pl-12 pr-4 text-base text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-100" autoComplete="username" />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="student-password" className="mb-2 block text-sm font-bold text-slate-700">登入密碼</label>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  <input id="student-password" type={showPassword ? 'text' : 'password'} value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} placeholder="請輸入大會提供的密碼" className="w-full rounded-xl border border-slate-300 bg-white py-3.5 pl-12 pr-12 text-base text-slate-900 placeholder-slate-400 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-100" autoComplete="current-password" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800" aria-label={showPassword ? '隱藏密碼' : '顯示密碼'}>{showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-slate-500">尚未取得密碼或忘記密碼，請洽大會管理員。</p>
+              </div>
+              {errorMessage && <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-700"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{errorMessage}</span></div>}
+              <button type="submit" disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3.5 text-base font-bold text-white shadow-sm transition hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-wait disabled:opacity-60">
+                <LogIn className="h-5 w-5" /><span>{isLoading ? '查詢中…' : '登入並查詢順序'}</span><ChevronRight className="h-5 w-5" />
+              </button>
+            </form>
+          </section>
+        </div>
       ) : (
         /* Logged In View */
         <div className="space-y-5 sm:space-y-6">
           {/* Top Status Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 shrink-0">
-                <User className="w-4 h-4 sm:w-5 sm:h-5" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-700">
+                <User className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-[11px] sm:text-xs text-slate-500">目前登入學號</div>
-                <div className="text-sm sm:text-base font-bold text-slate-900 font-mono flex items-center gap-1.5">
+                <div className="text-xs text-slate-500">目前登入的組長學號</div>
+                <div className="text-base font-bold text-slate-900 font-mono">
                   {myProject.leader_id}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={onRefresh}
                 disabled={isLoading}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-xs font-medium text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-sm font-bold text-blue-800 transition hover:bg-blue-100 disabled:opacity-60"
                 title="重新整理以同步最新抽籤結果"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
-                <span className="hidden sm:inline">即時重新整理</span>
-                <span className="sm:hidden">更新</span>
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                更新結果
               </button>
               <button
                 onClick={handleLogout}
                 disabled={isLoading}
-                className="text-xs text-slate-500 hover:text-rose-600 underline underline-offset-4 cursor-pointer"
+                className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60"
               >
-                登出 / 切換學號
+                登出／切換學號
               </button>
             </div>
           </div>
 
           {/* Main Showcase Card */}
-          <div className="rounded-3xl bg-white border border-slate-200 p-5 sm:p-7 md:p-8 shadow-sm space-y-6">
+          <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 sm:p-8 shadow-sm">
             {myProject.draw_order ? (
               <div className="space-y-6">
                 {/* Project Header Info */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-100">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200 text-xs">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        抽籤完成·順序已確認
-                      </span>
-                    </div>
-                    <p className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-                      <FileText className="w-4 h-4" />
-                      專題名稱
-                    </p>
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 leading-tight">
+                <div className="flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-3">
+                    <div className="inline-flex items-center gap-2 text-sm font-bold text-emerald-700"><CheckCircle2 className="h-5 w-5" />抽籤完成，報告順序已確認</div>
+                    <p className="flex items-center gap-2 text-sm font-bold text-slate-500"><FileText className="h-4 w-4" />專題名稱</p>
+                    <h2 className="break-words text-xl font-black leading-snug text-slate-900 sm:text-3xl">
                       {myProject.project_title}
                     </h2>
                   </div>
 
                   {!sharedPasswordMode &&
-                  <div className="text-right sm:text-right shrink-0">
-                    <div className="text-[11px] text-slate-400">現場抽籤時間</div>
-                    <div className="text-xs font-mono font-medium text-slate-600">
+                  <div className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 sm:text-right">
+                    <div className="text-xs text-slate-500">現場抽籤時間</div>
+                    <div className="mt-1 text-sm font-medium text-slate-800">
                       {myProject.draw_time
                         ? new Date(myProject.draw_time).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
                         : '現場即時同步'}
@@ -293,112 +217,77 @@ export const StudentPortal: React.FC = () => {
                   </div>}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-label="抽籤結果">
-                  <section className="rounded-3xl bg-indigo-950 p-6 sm:p-8 text-white shadow-sm min-h-44 flex flex-col justify-between gap-5">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-indigo-200">
-                      <Users className="w-5 h-5" />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2" aria-label="抽籤結果">
+                  <section className="flex min-h-44 flex-col justify-between gap-5 rounded-2xl border border-blue-200 bg-blue-50 p-6 sm:p-8">
+                    <div className="flex items-center gap-2 text-sm font-bold text-blue-800">
+                      <Users className="h-5 w-5" />
                       分組場次
                     </div>
-                    <div className="text-5xl sm:text-6xl font-black tracking-tight">第 {myProject.assigned_group ?? '—'} 組</div>
+                    <div className="text-5xl sm:text-6xl font-black tracking-tight text-blue-950">第 {myProject.assigned_group ?? '—'} 組</div>
                   </section>
-                  <section className="rounded-3xl border-2 border-rose-200 bg-rose-50 p-6 sm:p-8 text-rose-950 min-h-44 flex flex-col justify-between gap-5">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-rose-700">
-                      <Award className="w-5 h-5" />
-                      上台順序
+                  <section className="flex min-h-44 flex-col justify-between gap-5 rounded-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8">
+                    <div className="flex items-center gap-2 text-sm font-bold text-amber-800">
+                      <Award className="h-5 w-5" />
+                      報告出場順序
                     </div>
-                    <div className="text-5xl sm:text-6xl font-black tracking-tight text-rose-700">第 {myProject.draw_order} 位</div>
+                    <div className="text-5xl sm:text-6xl font-black tracking-tight text-amber-950">第 {myProject.draw_order} 位</div>
                   </section>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                       <Layers className="w-4 h-4" />
                       領域名稱
                     </div>
                     <div className="mt-1 text-lg sm:text-xl font-bold text-slate-900 break-words">{myProject.field}</div>
                   </div>
                 </div>
-                {!sharedPasswordMode && !!myProject.evaluators?.length && <p className="text-xs text-slate-600 px-1">
+                {!sharedPasswordMode && !!myProject.evaluators?.length && <p className="text-sm text-slate-600 px-1">
                   評審委員：{myProject.evaluators.join('、')}
                 </p>}
               </div>
             ) : (
               /* Undrawn Waiting State */
               <div className="space-y-6">
-                <div className="text-center py-6 sm:py-8 px-4">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3 border border-amber-200">
-                    <Clock className="w-6 h-6 sm:w-7 sm:h-7" />
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:p-7">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-amber-700 shadow-sm"><Clock className="h-6 w-6" /></div>
+                    <div>
+                      <h2 className="text-lg sm:text-2xl font-black text-slate-900">尚待現場抽籤</h2>
+                      <p className="mt-2 text-sm leading-relaxed text-slate-700">您的專題已登記。抽籤完成後，請按「更新結果」查看分組場次與報告順序。</p>
+                    </div>
                   </div>
-                  <h3 className="text-base sm:text-xl font-bold text-slate-900 mb-1.5">
-                    目前尚未抽籤或抽籤進行中
-                  </h3>
-                  <p className="text-slate-600 text-xs sm:text-sm max-w-md mx-auto mb-4 leading-relaxed">
-                    貴組專題「<span className="text-slate-900 font-semibold">{myProject.project_title}</span>」已登記在名冊中，抽籤完成後即可在此查驗分組場次與出場順序。
-                  </p>
-                  <button
-                    onClick={onRefresh}
-                    className="px-4 sm:px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold inline-flex items-center gap-2 border border-slate-200 transition-colors cursor-pointer"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5 text-amber-600" />
-                    <span>重新整理抓取最新狀態</span>
-                  </button>
                 </div>
 
-                {/* 3大關鍵報告卡片 (待抽籤預覽) */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
-                  {!sharedPasswordMode && <div className="rounded-2xl p-4 sm:p-5 bg-slate-50 border border-slate-200 space-y-1.5">
-                    <div className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5 text-blue-600" />
-                      領域名稱 (已登記)
-                    </div>
-                    <div className="text-lg sm:text-xl font-bold text-slate-900">
-                      {myProject.field}
-                    </div>
-                  </div>}
-
-                  <div className="rounded-2xl p-4 sm:p-5 bg-slate-50 border border-slate-200 space-y-1.5">
-                    <div className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-indigo-600" />
-                      分組場次
-                    </div>
-                    <div className="text-lg sm:text-xl font-bold text-amber-600 flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 animate-spin text-amber-500" />
-                      待現場抽籤分組
-                    </div>
-                    <div className="text-[11px] text-slate-400">現場抽出後即刻更新</div>
-                  </div>
-
-                  <div className="rounded-2xl p-4 sm:p-5 bg-slate-50 border border-slate-200 space-y-1.5">
-                    <div className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
-                      <Award className="w-3.5 h-3.5 text-rose-600" />
-                      報告出場順序
-                    </div>
-                    <div className="text-lg sm:text-xl font-bold text-amber-600 flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 animate-spin text-amber-500" />
-                      待現場抽籤決定
-                    </div>
-                    <div className="text-[11px] text-slate-400">抽籤後顯示順序編號</div>
-                  </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 sm:p-6">
+                  <p className="flex items-center gap-2 text-sm font-bold text-slate-600"><FileText className="h-4 w-4" />專題名稱</p>
+                  <h3 className="mt-2 break-words text-lg sm:text-xl font-bold text-slate-900">{myProject.project_title}</h3>
+                  {!sharedPasswordMode && <p className="mt-3 text-sm text-slate-600">所屬領域：{myProject.field}</p>}
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:p-6"><p className="flex items-center gap-2 text-sm font-bold text-blue-800"><Users className="h-5 w-5" />分組場次</p><p className="mt-5 text-xl font-bold text-blue-950">等待抽籤</p></div>
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:p-6"><p className="flex items-center gap-2 text-sm font-bold text-amber-800"><Award className="h-5 w-5" />報告出場順序</p><p className="mt-5 text-xl font-bold text-amber-950">等待抽籤</p></div>
                 </div>
               </div>
             )}
           </div>
 
           {/* Presentation Notes */}
-          <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 sm:p-5 text-xs text-slate-600 space-y-1.5">
-            <h4 className="font-bold text-slate-800 flex items-center gap-1.5">
-              <FileText className="w-4 h-4 text-amber-600" />
-              專題展報告注意事項提醒
-            </h4>
-            <ul className="list-disc list-inside space-y-1 text-slate-600">
+          <aside className="rounded-[1.5rem] border border-slate-200 bg-white p-5 sm:p-6 text-sm text-slate-600 shadow-sm">
+            <h3 className="flex items-center gap-2 font-bold text-slate-900">
+              <FileText className="h-5 w-5 text-blue-700" />
+              報告注意事項
+            </h3>
+            <ul className="mt-3 list-disc space-y-2 pl-5 leading-relaxed">
               <li>報告時間：每組發表 7 分鐘，評審委員提問答詢 3 分鐘，共計 10 分鐘（按鈴提醒）。</li>
               <li>請於發表前 2 組至指定分組場次候席區就座，並攜帶備份簡報隨身碟。</li>
               <li>發表順序以本系統現場抽出之分組與順位為準。</li>
             </ul>
-          </div>
+          </aside>
         </div>
       )}
+      </div>
     </div>
   );
 };
