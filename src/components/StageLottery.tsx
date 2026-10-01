@@ -283,7 +283,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       <section className="relative overflow-hidden rounded-[1.75rem] bg-white border border-blue-100 border-t-4 border-t-blue-500 shadow-lg shadow-blue-100/70 p-5 sm:p-8 lg:p-10 text-center" aria-label="抽籤主舞台" aria-busy={isAnimating}>
         {isAnimating && <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(219,234,254,0.75),transparent_70%)] pointer-events-none" />}
 
-        <div className="relative z-10 max-w-5xl mx-auto min-h-[300px] sm:min-h-[350px] flex flex-col items-center justify-center" aria-live="polite">
+        <div className="relative z-10 max-w-7xl mx-auto min-h-[300px] sm:min-h-[350px] flex flex-col items-center justify-center" aria-live="polite">
           {isAnimating ? (
             <div className="w-full py-3 sm:py-5">
               <p className="text-sm font-bold tracking-wide text-blue-700">{selectedField === 'ALL' ? '全校各領域' : selectedField} · 現場抽籤中</p>
@@ -315,43 +315,59 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
             /* ========================================================
              * Completed Screen
              * ======================================================== */
-            <div className="space-y-4 sm:space-y-5 animate-in fade-in zoom-in duration-300 w-full">
-              <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 shadow-sm">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>{selectedField === 'ALL' ? '全校各領域抽籤完成' : `「${selectedField}」領域抽籤完成`}</span>
+            <div className="w-full animate-in fade-in zoom-in duration-300 text-left">
+              <div className="flex flex-col gap-5 rounded-3xl border border-blue-100 bg-gradient-to-r from-blue-50 via-white to-emerald-50 p-5 sm:p-7 lg:flex-row lg:items-center lg:justify-between lg:p-8">
+                <div className="flex items-start gap-4 sm:gap-5">
+                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md shadow-emerald-200 sm:h-16 sm:w-16" aria-hidden="true">
+                    <CheckCircle2 className="h-8 w-8 sm:h-9 sm:w-9" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-emerald-800 sm:text-base">
+                      {selectedField === 'ALL' ? '全校各領域抽籤完成' : `「${selectedField}」領域抽籤完成`}
+                    </p>
+                    <h2 className="mt-1 text-2xl font-black leading-tight tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">
+                      報告場次與順位已排定
+                    </h2>
+                    <p className="mt-3 text-sm font-medium text-slate-600 sm:text-base">{batchDrawSummary}</p>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-baseline gap-2 rounded-2xl border border-blue-200 bg-white/90 px-5 py-3 shadow-sm lg:flex-col lg:items-start lg:gap-0 lg:px-7 lg:py-4" aria-label={`已排定 ${drawnPool.length} 件專題`}>
+                  <span className="text-xs font-bold text-blue-700 sm:text-sm">已排定專題</span>
+                  <span className="text-3xl font-black tabular-nums text-slate-950 sm:text-4xl">{drawnPool.length}<span className="ml-1 text-base font-bold text-slate-600">件</span></span>
+                </div>
               </div>
 
-              <div className="text-2xl sm:text-4xl md:text-5xl font-black text-slate-900 tracking-tight">
-                報告場次與順位已排定
+              <div className="mb-4 mt-7 flex flex-wrap items-end justify-between gap-2">
+                <h3 className="text-lg font-black text-slate-900 sm:text-2xl">各領域排定結果</h3>
+                <span className="text-xs font-semibold text-slate-500 sm:text-sm">分組場次與專題件數</span>
               </div>
 
-              <p className="text-xs sm:text-sm text-slate-600 max-w-2xl mx-auto leading-relaxed">
-                {batchDrawSummary}
-              </p>
-
-              {/* Completed Domain Summary Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-w-3xl mx-auto w-full pt-2">
-                {(selectedField === 'ALL' ? domainConfigs : domainConfigs.filter((cfg) => cfg.field === selectedField)).map((cfg) => {
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-4">
+                {(selectedField === 'ALL' ? domainConfigs : domainConfigs.filter((cfg) => cfg.field === selectedField)).filter((cfg) => projects.some((p) => p.field === cfg.field)).map((cfg) => {
                   const teams = projects.filter((p) => p.field === cfg.field);
                   return (
-                    <div
+                    <article
                       key={cfg.id}
-                      className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-left hover:border-slate-300 transition-colors"
+                      className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
                     >
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-800 truncate">
-                        <span className="truncate">{cfg.field}</span>
-                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-mono">
-                          {cfg.groupCount} 組
-                        </span>
+                      <div className="flex items-start justify-between gap-3">
+                        <h4 className="min-w-0 text-base font-black leading-snug break-words text-slate-900 sm:text-lg">{cfg.field}</h4>
+                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-1 font-mono">
-                        共 {teams.length} 件專題
+                      <div className="mt-5 grid grid-cols-2 gap-3">
+                        <div className="rounded-xl bg-blue-50 px-3 py-2.5">
+                          <span className="block text-xs font-semibold text-blue-800">分組場次</span>
+                          <span className="mt-1 block text-2xl font-black tabular-nums text-blue-950">{cfg.groupCount}<span className="ml-1 text-sm font-semibold">組</span></span>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+                          <span className="block text-xs font-semibold text-slate-600">專題件數</span>
+                          <span className="mt-1 block text-2xl font-black tabular-nums text-slate-950">{teams.length}<span className="ml-1 text-sm font-semibold">件</span></span>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>已完成排定</span>
+                      <div className="mt-4 border-t border-slate-100 pt-3 text-sm font-bold text-emerald-700">
+                        已完成排定
                       </div>
-                    </div>
+                    </article>
                   );
                 })}
               </div>
