@@ -1,3 +1,4 @@
+import { runtimeEnv } from './runtime';
 import { randomBytes } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { createStore } from './store';
@@ -6,7 +7,7 @@ import { ApiError } from './errors';
 
 const COOKIE = 'ntcust_student_session';
 const MAX_AGE = 60 * 60 * 1000;
-const options = () => ({ httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' as const, path: '/api/student' });
+const options = () => ({ httpOnly: true, secure: runtimeEnv().NODE_ENV === 'production', sameSite: 'strict' as const, path: '/api/student' });
 function readToken(req: Request): string | null {
   const raw = req.headers.cookie?.split(';').map(x => x.trim()).find(x => x.startsWith(`${COOKIE}=`))?.slice(COOKIE.length + 1);
   return raw && /^[a-f0-9]{64}$/.test(raw) ? raw : null;

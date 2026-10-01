@@ -1,6 +1,6 @@
 # 國立臺中科技大學專題展報告抽籤系統
 
-React + Vite 前端，Express API 統一使用 Supabase Database 與 Supabase Auth。
+React + Vite 前端，Express API 統一使用 Supabase Database 與 Supabase Auth。支援 Cloudflare Workers（含 Static Assets 與 SQLite Durable Objects）及本機 Node.js。
 
 ## 啟動
 
@@ -41,7 +41,7 @@ React + Vite 前端，Express API 統一使用 Supabase Database 與 Supabase Au
 - 學生密碼使用 scrypt（N=32768、r=8、p=3）及每筆隨機 salt 保存雜湊；API 不回傳密碼或雜湊，管理員只能設定／重設密碼與查看設定狀態。新密碼須為 12 至 128 字元，不可使用學號。留空不建立預設密碼：既有帳號保留其雜湊，新帳號須由管理員設定密碼後才能登入；變更學號時也需重新設定密碼。
 - **所有舊明文密碼視為已暴露並停用**，即使未執行第二份 migration，後端也不再接受它們。執行 migration 後，管理員在專題編輯畫面重新設定並私下提供新密碼。歷史 JSON／Excel 備份仍需由管理員妥善控管，不要提交至版本控制。
 - 學生 session 期限為一小時，資料庫僅保存 token 的 SHA-256；重設密碼或刪除專題會使相關 session 無效。學生登出會刪除後端 session，移除 cookie。可用 privileged 排程定期清除 `ntcust_student_sessions` 的過期資料列。
-- 登入有每帳號 10 次／15 分鐘、每 IP 100 次／15 分鐘的應用層限制，跨站 JSON 操作會被拒絕。限流目前為每個 Node 行程獨立；多副本部署需另加共享限流。
+- 登入有每帳號 10 次／15 分鐘、每 IP 100 次／15 分鐘的限制，跨站 JSON 操作會被拒絕。Cloudflare 使用 Durable Object 原子計數，跨地區／重啟共用相同限制，僅保存帳號與 IP 的雜湊索引及短期計數；本機 Node.js 使用行程內限流。
 - Excel 套件固定使用官方來源 `xlsx@0.20.3`，鎖定檔保存完整性；匯入上限 5 MB／2000 筆。密碼欄位可留空，後續於後台設定；有填密碼時須符合新規則，匯出結果不包含憑證。
 - 管理員／展演人員的登入 session 與 Supabase access token 存在 `ntcust_staff_sessions`，不再回傳 token 或寫入 localStorage／sessionStorage。瀏覽器只持有 HttpOnly 隨機 cookie；每次操作均查驗後端 session、到期時間與 Supabase 身分。登出刪除 session，舊 cookie 立即失效。勾選「記住我」只決定 cookie 是否保留至 token 到期，不延長登入期限。
 - 音效開關只保留在前端記憶體，重新整理後恢復預設開啟，不呼叫後端 API。未提交表單、搜尋／篩選、彈窗、載入狀態與動畫亦留在前端。第四份 migration 會移除第三份曾建立的音效偏好資料表；保留既有 migration 以支援已部署的資料庫。
@@ -70,7 +70,48 @@ npm run build
 NODE_ENV=production npm start
 ```
 
-部署需要可執行 Node.js 的服務，並設定相同的 Supabase 環境變數。前端與 `/api` 由同一個 Express 服務提供；`vite preview` 僅供靜態預覽，不提供 API。
+### Cloudflare Workers 部署
+
+目前部署網址：[學生查榜](https://nutc.cc.cd/student)、[管理後台](https://nutc.cc.cd/admin)、[台上抽籤](https://nutc.cc.cd/stage)。備用網域：`special-exhibition-lottery.ymhs0208.workers.dev`。
+
+使用 Workers，並在 Workers & Pages 建立 Worker、連接本 GitHub 儲存庫。不要選擇只部署 `dist` 的純靜態 Pages。
+
+- 儲存庫：`ymhs0208/Special-Exhibition-Lottery`，分支：`main`，根目錄：`/`。
+- 建置命令：`npm run build`；部署命令：`npx wrangler deploy`。
+- 在 Worker 的 Settings → Variables and Secrets 設定 `SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY`；`SUPABASE_SECRET_KEY` 必須選 **Secret**。這些是執行階段設定，不只是在 Builds 裡的建置變數。
+- `wrangler.jsonc` 配置 API、前端 SPA 路由、自訂網域與 Durable Object migration；不含任何實際金鑰。`keep_vars` 保留 Dashboard 中已設定的執行階段變數，避免後續部署移除連線設定。`/api/*` 優先執行後端，即使直接從網址列開啟也不會回傳前端 HTML。
+- 管理員與學生 cookie 在 Workers 正式環境一律使用 Secure / HttpOnly / SameSite=Strict；前端與 API 共用網域，不需開放跨站 CORS。
+
+本機 CLI 部署：
+
+```sh
+npx wrangler login
+npx wrangler secret put SUPABASE_URL
+npx wrangler secret put SUPABASE_PUBLISHABLE_KEY
+npx wrangler secret put SUPABASE_SECRET_KEY
+npm run deploy
+```
+
+若使用私人的 `.env.local` 一次上傳三個執行階段設定，可用 `npm run build` 後執行 `npx wrangler deploy --secrets-file .env.local`；該檔案不得提交 Git。線上不需要 `PORT`。
+
+API 在 `ApiBackend` Durable Object 執行，提供密碼雜湊所需的 CPU 時間；正式名冊、登入 session 與抽籤結果仍保存於 Supabase。`LoginLimiter` Durable Object 只保存短期限流計數。SQLite Durable Objects 支援 Workers Free；請留意實際用量配額。參考 [Workers CPU 限制](https://developers.cloudflare.com/workers/platform/limits/) 與 [Durable Objects 限制](https://developers.cloudflare.com/durable-objects/platform/limits/)。
+
+Cloudflare 單次最多設定 100 組學生密碼，請分批設定；不設定新密碼的名冊仍可匯入 2000 筆。後端逐筆雜湊並限制同一 API shard 的並行操作，避免記憶體與執行時間超額。已有雜湊可留空保留。
+
+部署後檢查 `https://你的網域/api/health` 應回傳 `status: ok`，此檢查包含業務資料表與兩種登入 session 資料表。若回傳 503，確認 Supabase URL、Secret key 及 SQL migrations／資料表權限；Secret key 不可誤填 Publishable key。
+
+### 本機 Workers 驗證
+
+```sh
+npm run build
+npm run test:cloudflare
+npm run deploy:check
+npm run dev:cloudflare
+```
+
+`test:cloudflare` 使用真正的 workerd 引擎與模擬 Supabase，驗證前端路由、API 權限、scrypt 雜湊、cookie、抽籤、資料庫版本衝突、登入限流及 Workers 重啟；不會寫入正式 Supabase。
+
+一般 Node.js 部署仍可用 `NODE_ENV=production npm start`。`vite preview` 僅供靜態預覽，不提供 API。
 
 測試使用本機模擬 Supabase HTTP 服務，涵蓋工作人員 cookie／登出撤銷／重啟恢復、匿名讀取限制、學生專題存取、cookie、密碼雜湊／重設／舊密碼停用、API 權限、完整欄位儲存、刪除／清空、抽籤／重設、版本衝突、登入限流與連線失敗，另測試 Excel 匯入匯出。實際 Supabase migration 與雲端連線需填入專案資訊後驗證。
 

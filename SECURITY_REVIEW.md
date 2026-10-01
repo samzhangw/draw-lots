@@ -13,11 +13,11 @@
 
 學生使用 HttpOnly / Secure（正式環境）/ SameSite=Strict cookie；後端僅保存 token 雜湊，登出、密碼重設及刪除專題會使學生 session 無效。另加入登入限流及跨站操作檢查，修復特殊領域名稱導致抽籤失敗、內部錯誤直接回傳，以及初始 SQL 第一行的語法錯誤。
 
-**部署前需執行 `supabase/migrations/202610010002_student_security.sql`**，並在後台重新設定學生密碼。現有 Supabase 尚無連線資訊，本次未操作雲端；歷史備份也未刪除。測試涵蓋程式行為與本機模擬服務，不等於線上滲透測試。
+**部署前需執行 `supabase/migrations/202610010002_student_security.sql`**，並在後台重新設定學生密碼。Supabase 線上資料表權限需另外驗證；歷史備份未提交 Git，也未刪除。測試涵蓋程式行為與本機模擬服務，不等於線上滲透測試。
 
 原項目 5 已修復：工作人員登入憑證移至 Supabase 後端 session，瀏覽器僅保存 HttpOnly 隨機 cookie；API 不接受前端 Bearer token，登出刪除 session 後立即失效。音效偏好為暫時介面狀態，已取消後端 API 與儲存。需依序執行 `supabase/migrations/202610010003_staff_sessions_and_preferences.sql` 與 `supabase/migrations/202610010004_remove_staff_preferences.sql`；後者移除不必要的音效偏好資料表。
 
-尚未處理：多副本部署需共享限流、公開查詢的資源限流，正式 HTTPS / CSP / MFA / 線上 RLS 仍須部署時驗證。本次已處理使用者指定的三項高風險問題及原始項目 6、7。
+尚未處理：Cloudflare 已採 Durable Object 共享登入限流；一般 Node 多副本部署仍需共享限流。公開查詢的資源限流，正式 HTTPS / CSP / MFA / 線上 RLS 仍須部署時驗證。本次已處理使用者指定的三項高風險問題及原始項目 6、7。
 
 驗證結果：8 項本機測試通過；PGlite PostgreSQL 實際執行 migration 並驗證明文約束、RLS 權限與重複執行；270 個套件名稱的鎖定／啟用版本 advisory 查詢未回報已知漏洞。
 

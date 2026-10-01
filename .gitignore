@@ -10,3 +10,5 @@ coverage/
 # Local data and Cloudflare development secrets
 /data/
 .dev.vars*
+
+.wrangler/

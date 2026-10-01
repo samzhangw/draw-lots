@@ -3,9 +3,14 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createStore, validateDomains, validateProjects } from '../server/store';
 import { projectDto, hashPassword, verifyPassword, type StoredProject } from '../server/credentials';
 import type { ProjectItem } from '../src/types';
+
+const cloudflareTest = process.env.CLOUDFLARE_TEST === '1';
 
 const project: ProjectItem = {
   id: 'p1', seq_no: '1', education_system: '四技', department: '資管', class_name: '四甲',
@@ -23,7 +28,7 @@ test('input validation rejects malformed rosters and domain settings', () => {
   assert.throws(() => validateDomains([{ ...domains[0], evaluatorsPerGroup: { 1: 'bad' } }]));
 });
 
-test('API persists through Supabase, enforces roles and detects concurrent writes', { timeout: 60000 }, async () => {
+test(`API persists through Supabase, enforces roles and detects concurrent writes (${cloudflareTest ? 'Workers' : 'Node'})`, { timeout: 180000 }, async () => {
   let state = { id: 1, projects: [] as StoredProject[], domain_configs: domains, version: 0, updated_at: new Date().toISOString() };
   let unavailable = false;
   let malformedState = false;
@@ -79,12 +84,18 @@ test('API persists through Supabase, enforces roles and detects concurrent write
   await new Promise<void>(resolve => reservation.close(() => resolve()));
   const base = `http://127.0.0.1:${appPort}`;
   const env = { ...process.env, NODE_ENV: 'production', PORT: String(appPort), SUPABASE_URL: `http://127.0.0.1:${mockPort}`, SUPABASE_SECRET_KEY: 'sb_secret_test', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test' };
+  const persistence = await mkdtemp(join(tmpdir(), 'lottery-worker-test-'));
   let child: ChildProcess;
   let output = '';
   const launch = async () => {
-    child = spawn(process.execPath, ['--import', 'tsx', 'server.ts'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const args = cloudflareTest ? [
+      'node_modules/wrangler/bin/wrangler.js', 'dev', '--ip', '127.0.0.1', '--port', String(appPort), '--persist-to', persistence,
+      '--var', `SUPABASE_URL:${env.SUPABASE_URL}`, '--var', `SUPABASE_SECRET_KEY:${env.SUPABASE_SECRET_KEY}`,
+      '--var', `SUPABASE_PUBLISHABLE_KEY:${env.SUPABASE_PUBLISHABLE_KEY}`,
+    ] : ['--import', 'tsx', 'server.ts'];
+    child = spawn(process.execPath, args, { env: { ...env, CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: 'false', WRANGLER_SEND_METRICS: 'false' }, stdio: ['ignore', 'pipe', 'pipe'] });
     output = ''; child.stdout!.on('data', data => output += data); child.stderr!.on('data', data => output += data);
-    for (let n = 0; n < 100; n++) {
+    for (let n = 0; n < 400; n++) {
       if (child.exitCode != null) throw new Error(output);
       try { if ((await fetch(`${base}/api/health`)).ok) return; } catch {}
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -98,6 +109,15 @@ test('API persists through Supabase, enforces roles and detects concurrent write
   };
   try {
     await launch();
+    if (cloudflareTest) {
+      for (const page of ['/', '/admin', '/stage', '/student']) {
+        const response = await fetch(`${base}${page}`, { headers: { 'Sec-Fetch-Mode': 'navigate' } });
+        assert.equal(response.status, 200);
+        assert.match(await response.text(), /<div id="root">/);
+      }
+      const healthNavigation = await fetch(`${base}/api/health`, { headers: { 'Sec-Fetch-Mode': 'navigate' } });
+      assert.equal((await healthNavigation.json() as any).status, 'ok');
+    }
     const invalidJson = await fetch(`${base}/api/student/verify`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: '{"password":"do-not-echo-this"',
@@ -128,6 +148,10 @@ test('API persists through Supabase, enforces roles and detects concurrent write
     const blockedStaffLogout = await fetch(`${base}/api/auth/logout`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: admin, Origin: 'https://attacker.invalid' }, body: '{}' });
     assert.equal(blockedStaffLogout.status, 403);
     assert.equal((await request('/api/auth/me', undefined, admin)).status, 200);
+    if (cloudflareTest) {
+      const oversizedPasswordBatch = Array.from({ length: 101 }, (_, n) => ({ ...project, id: `batch-${n}`, leader_id: `batch-student-${n}` }));
+      assert.equal((await request('/api/projects', { projects: oversizedPasswordBatch, version: 0 }, admin)).status, 400);
+    }
     const stageLogin = await request('/api/auth/verify', { username: 'stage@test.local', password: 'valid-password', targetView: 'stage', remember: true });
     assert.match(stageLogin.cookie!, /Max-Age/i);
     const stage = stageLogin.cookie!.split(';')[0];
@@ -190,7 +214,14 @@ test('API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(reset.status, 200); assert.equal(reset.data.projects[0].assigned_group, null); assert.deepEqual(reset.data.projects[0].evaluators, []);
     const renamed = await request('/api/domain-configs', { domainConfigs: [{ ...domains[0], field: '更名領域' }], renamedField: { oldName: '測試領域', newName: '更名領域' }, version: reset.data.version }, admin);
     assert.equal(renamed.status, 200); assert.equal(renamed.data.projects[0].field, '更名領域');
+    if (cloudflareTest) for (let n = 0; n < 3; n++) {
+      assert.equal((await request('/api/student/verify', { leaderId: 'restart-limit', password: 'incorrect' })).status, 401);
+    }
     await stop(); await launch();
+    if (cloudflareTest) {
+      for (let n = 0; n < 7; n++) assert.equal((await request('/api/student/verify', { leaderId: 'restart-limit', password: 'incorrect' })).status, 401);
+      assert.equal((await request('/api/student/verify', { leaderId: 'restart-limit', password: 'incorrect' })).status, 429);
+    }
     assert.equal((await request('/api/state', undefined, admin)).data.projects[0].field, '更名領域');
     assert.equal((await request('/api/student/me', undefined, undefined, studentCookie)).status, 200);
     assert.equal((await request('/api/auth/me', undefined, admin)).status, 200);
@@ -275,6 +306,7 @@ test('API persists through Supabase, enforces roles and detects concurrent write
     assert.equal((await request('/api/auth/me', undefined, relogin.cookie!.split(';')[0])).status, 200);
   } finally {
     await stop();
+    await rm(persistence, { recursive: true, force: true });
     await new Promise<void>(resolve => mock.close(() => resolve()));
   }
 });
