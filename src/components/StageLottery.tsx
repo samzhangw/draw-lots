@@ -49,6 +49,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   const [boardSearchQuery, setBoardSearchQuery] = useState<string>('');
   const [boardDisplayMode, setBoardDisplayMode] = useState<'lanes' | 'table'>('lanes');
   const [boardDomainFilter, setBoardDomainFilter] = useState<string>('ALL');
+  const [isBoardPresentation, setIsBoardPresentation] = useState(false);
 
   // In-app modal states
   const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
@@ -56,6 +57,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
 
   const stageContainerRef = useRef<HTMLDivElement>(null);
+  const boardRef = useRef<HTMLElement>(null);
 
   // Get current active domain config
   const currentDomainConfig = domainConfigs.find((c) => c.field === selectedField);
@@ -94,6 +96,11 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
     document.addEventListener('fullscreenchange', handleFsChange);
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
+
+  useEffect(() => {
+    if (!isBoardPresentation) return;
+    boardRef.current?.scrollTo({ top: 0 });
+  }, [isBoardPresentation]);
 
   // Multi-cannon celebratory confetti
   const triggerCelebration = () => {
@@ -202,6 +209,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
     isBatchModalOpen ? 'draw' : isResetModalOpen ? 'reset' : noticeMessage ? 'notice' : null,
     () => { setIsBatchModalOpen(false); setIsResetModalOpen(false); setNoticeMessage(null); }
   );
+  useModalFocus(isBoardPresentation ? 'board-presentation' : null, () => setIsBoardPresentation(false));
 
   return (
     <div
@@ -407,20 +415,35 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       {/* ========================================================
        * Redesigned Order Board (清晰分組與順序時間軸看板)
        * ======================================================== */}
-      <section className="bg-white rounded-[1.75rem] border border-slate-200 p-4 sm:p-7 lg:p-8 shadow-sm space-y-5" aria-label="已抽出順序看板">
+      <section
+        ref={boardRef}
+        className={`${isBoardPresentation ? 'fixed inset-0 z-[60] overflow-y-auto rounded-none p-5 sm:p-8 lg:p-10' : 'rounded-[1.75rem] p-4 sm:p-7 lg:p-8'} bg-white border border-slate-200 shadow-sm space-y-6`}
+        role={isBoardPresentation ? 'dialog' : undefined}
+        aria-modal={isBoardPresentation ? true : undefined}
+        aria-label="已抽出順序看板"
+      >
         {/* Board Top Header & Controls */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-200">
+        <div className={`${isBoardPresentation ? 'sticky top-0 z-10 bg-white pt-2' : ''} flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-200`}>
           <div>
-            <h3 className="text-lg sm:text-2xl font-black text-slate-900 flex items-center gap-2.5">
+            <h3 className="text-xl sm:text-3xl font-black text-slate-900 flex items-center gap-2.5">
               <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0"><CheckCircle2 className="w-5 h-5" /></span>
               <span>分組與報告順序</span>
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-sm sm:text-base text-slate-600 mt-1">
               依領域與場次排列；各組報告順位由第一位起算
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setIsBoardPresentation((value) => !value)}
+              aria-pressed={isBoardPresentation}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-800 cursor-pointer"
+            >
+              {isBoardPresentation ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              {isBoardPresentation ? '返回抽籤畫面' : '放大看板'}
+            </button>
             {/* Quick Search Input */}
             <div className="relative min-w-[240px] sm:min-w-[280px]">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -540,13 +563,13 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               return (
                 <div key={cfg.id} className="space-y-3.5">
                   {/* Domain Header Banner */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 p-4 sm:p-5 rounded-2xl border border-blue-200 bg-blue-50 text-slate-900">
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-5 sm:p-6 rounded-2xl border border-blue-200 bg-blue-50 text-slate-900">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                      <h4 className="text-base sm:text-lg font-black text-blue-950 tracking-tight">
+                      <h4 className="text-xl sm:text-2xl font-black text-blue-950 tracking-tight">
                         {cfg.field}
                       </h4>
-                      <span className="text-xs text-slate-600 font-mono">
+                      <span className="text-sm sm:text-base text-slate-700 font-mono">
                         (劃分 {cfg.groupCount} 組 · 已抽 {domainDrawnProjects.length} 件)
                       </span>
                     </div>
@@ -558,14 +581,10 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                   {/* Lanes View (Columns per Subgroup) */}
                   {boardDisplayMode === 'lanes' ? (
                     <div
-                      className={`grid gap-4 ${
+                      className={`grid gap-5 ${
                         cfg.groupCount === 1
                           ? 'grid-cols-1'
-                          : cfg.groupCount === 2
-                          ? 'grid-cols-1 md:grid-cols-2'
-                          : cfg.groupCount === 3
-                          ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
-                          : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                          : 'grid-cols-1 lg:grid-cols-2'
                       }`}
                     >
                       {Array.from({ length: cfg.groupCount }, (_, i) => i + 1).map((g) => {
@@ -576,30 +595,30 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                         return (
                           <div
                             key={g}
-                            className="bg-slate-50/80 rounded-2xl border border-slate-200 p-4 sm:p-5 space-y-3 flex flex-col"
+                            className="bg-slate-50/80 rounded-2xl border border-slate-200 p-5 sm:p-6 space-y-4 flex flex-col"
                           >
                             {/* Subgroup Lane Header */}
                             <div className="flex items-center justify-between pb-2.5 border-b border-slate-200">
                               <div className="flex items-center gap-2">
-                                <span className="w-7 h-7 rounded-lg bg-blue-600 text-white font-black text-xs flex items-center justify-center font-mono shadow-xs">
+                                <span className="w-11 h-11 rounded-xl bg-blue-700 text-white font-black text-xl flex items-center justify-center font-mono shadow-xs">
                                   {g}
                                 </span>
                                 <div>
-                                  <div className="text-xs sm:text-sm font-black text-slate-900">
+                                  <div className="text-lg sm:text-xl font-black text-slate-900">
                                     第 {g} 組報告場次
                                   </div>
-                                  <div className="text-[10px] text-slate-500 font-mono">
+                                  <div className="text-sm text-slate-600 font-mono">
                                     發表順位 01 ~ {String(groupItems.length).padStart(2, '0')}
                                   </div>
                                 </div>
                               </div>
-                              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 font-mono">
+                              <span className="text-sm font-bold text-blue-800 bg-blue-50 px-3 py-1 rounded-md border border-blue-200 font-mono">
                                 共 {groupItems.length} 組
                               </span>
                             </div>
 
                             {/* Subgroup Items Ordered List */}
-                            <div className="space-y-2 flex-1">
+                            <div className="space-y-3 flex-1">
                               {groupItems.length === 0 ? (
                                 <div className="text-center py-6 text-slate-400 text-xs">
                                   該組尚無資料
@@ -611,26 +630,26 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                                   return (
                                     <div
                                       key={item.id}
-                                      className={`p-3.5 rounded-xl border transition-all text-left flex items-start gap-3 ${
+                                      className={`p-4 sm:p-5 rounded-xl border transition-all text-left flex items-start gap-4 ${
                                         matched
                                           ? 'bg-blue-50/90 border-blue-400 ring-2 ring-blue-300 shadow-md scale-[1.01]'
                                           : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-xs'
                                       }`}
                                     >
                                       {/* Large Unmistakable Sequence Badge */}
-                                      <div className="w-12 h-12 rounded-xl text-white flex flex-col items-center justify-center shrink-0 shadow-xs bg-gradient-to-br from-rose-500 to-rose-600 shadow-rose-200">
-                                        <span className="text-[8px] font-semibold tracking-wider opacity-90 leading-none">
+                                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl text-white flex flex-col items-center justify-center shrink-0 shadow-xs bg-rose-700">
+                                        <span className="text-xs font-semibold tracking-wider leading-none">
                                           順位
                                         </span>
-                                        <span className="text-base font-black font-mono leading-none mt-0.5">
+                                        <span className="text-2xl sm:text-3xl font-black font-mono leading-none mt-1">
                                           {String(item.draw_order).padStart(2, '0')}
                                         </span>
                                       </div>
 
                                       {/* Project Details */}
                                       <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                                          <span className="text-[10px] font-bold font-mono text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
+                                        <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                                          <span className="max-w-full break-all text-xs sm:text-sm font-bold font-mono text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
                                             {item.draw_code}
                                           </span>
                                           {matched && (
@@ -641,7 +660,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                                         </div>
 
                                         <h5
-                                          className="text-sm font-bold text-slate-900 line-clamp-2 leading-snug"
+                                          className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-950 leading-snug break-words"
                                           title={item.project_title}
                                         >
                                           {item.project_title}
