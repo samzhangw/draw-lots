@@ -283,13 +283,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] sm:text-xs font-semibold tracking-wide text-blue-700">國立臺中科技大學 · 資訊與流通學院</p>
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight">專題報告抽籤現場</h1>
-            <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] sm:text-xs font-bold border ${isAnimating ? 'bg-amber-50 border-amber-200 text-amber-800' : currentPool.length === 0 ? 'bg-slate-50 border-slate-200 text-slate-600' : undrawnPool.length ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`} aria-live="polite">
-              <span className={`h-1.5 w-1.5 rounded-full ${isAnimating ? 'bg-amber-500 animate-pulse' : currentPool.length === 0 ? 'bg-slate-400' : undrawnPool.length ? 'bg-blue-500' : 'bg-emerald-500'}`} />
-              {isAnimating ? '抽籤進行中' : currentPool.length === 0 ? '尚無專題' : undrawnPool.length ? '等待抽籤' : '抽籤已完成'}
-            </span>
-                </div>
+                <h1 className="mt-1 text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight">專題報告抽籤現場</h1>
                 <p className="mt-1 text-xs sm:text-sm text-slate-600">各領域獨立分組，現場同步公布發表順位</p>
               </div>
             </div>
