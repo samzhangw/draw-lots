@@ -3,6 +3,7 @@ import path from 'node:path';
 
 /** Hashed assets are versioned; HTML must always revalidate after deployment. */
 export function frontendCacheControl(pathname: string, contentType: string): string | null {
+  if (pathname === '/robots.txt') return 'no-cache';
   if (/text\/html/i.test(contentType)) return 'no-cache';
   if (pathname.startsWith('/assets/')) return 'public, max-age=31536000, immutable';
   return null;

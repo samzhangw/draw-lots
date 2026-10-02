@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { isPageAssetError, pageFailureMessage } from '../src/lib/pageRecovery';
 import { frontendCacheControl, serveFrontend } from '../server/frontendAssets';
 import express from 'express';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
@@ -31,6 +31,8 @@ test('production routes never replace missing modules with HTML and refresh deep
   const directory = await mkdtemp(join(tmpdir(), 'lottery-assets-'));
   await mkdir(join(directory, 'assets'));
   await writeFile(join(directory, 'index.html'), '<html>current-version</html>');
+  const robots = await readFile(new URL('../public/robots.txt', import.meta.url), 'utf8');
+  await writeFile(join(directory, 'robots.txt'), robots);
   await writeFile(join(directory, 'assets', 'app-hash.js'), 'export const version=1;');
   const app = express(); serveFrontend(app, directory);
   const server = app.listen(0, '127.0.0.1'); await once(server, 'listening');
@@ -43,6 +45,13 @@ test('production routes never replace missing modules with HTML and refresh deep
       assert.match(await response.text(), /current-version/);
     }
     const asset = await fetch(base + '/assets/app-hash.js');
+    const robotsResponse = await fetch(base + '/robots.txt');
+    assert.equal(robotsResponse.status, 200);
+    assert.match(robotsResponse.headers.get('content-type')!, /^text\/plain/);
+    assert.equal(robotsResponse.headers.get('cache-control'), 'no-cache');
+    assert.equal(await robotsResponse.text(), robots);
+    assert.match(robots, /^User-agent: \*\nAllow: \/\n/);
+    assert.doesNotMatch(robots, /<html|<!doctype/i);
     assert.equal(asset.status, 200); assert.match(asset.headers.get('cache-control')!, /immutable/);
     const missing = await fetch(base + '/assets/old-version.js');
     assert.equal(missing.status, 404); assert.equal(missing.headers.get('cache-control'), 'no-store');

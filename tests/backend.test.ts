@@ -222,6 +222,14 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     }
     assert.equal(databaseRequests, beforeForgedCookies, 'unsigned and forged cookies must never query/delete database sessions');
     if (cloudflareTest) {
+      const robots = await fetch(`${base}/robots.txt`);
+      assert.equal(robots.status, 200);
+      assert.match(robots.headers.get('content-type')!, /^text\/plain/);
+      assert.equal(robots.headers.get('cache-control'), 'no-cache');
+      const robotsText = await robots.text();
+      assert.match(robotsText, /^User-agent: \*\nAllow: \/\n/);
+      assert.match(robotsText, /Disallow: \/admin/);
+      assert.doesNotMatch(robotsText, /<html|<!doctype/i);
       for (const page of ['/', '/admin', '/stage', '/student']) {
         const response = await fetch(`${base}${page}`, { headers: { 'Sec-Fetch-Mode': 'navigate' } });
         assert.equal(response.status, 200);
