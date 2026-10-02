@@ -5,6 +5,7 @@ import { isAdvisorConflict, normalizeProfessorName } from '../lib/lottery';
 import { sortProjects, type ProjectSortKey, type ProjectSortDirection } from '../lib/projectSort';
 import { useModalFocus } from '../lib/useModalFocus';
 import { FloatingNotice } from './FloatingNotice';
+import { ProjectRosterCard } from './ProjectRosterCard';
 import { getDomainCode } from '../lib/domainCodes';
 import { normalizeOriginalCodes } from '../lib/originalCodes';
 import { useDomainDragSort } from '../lib/useDomainDragSort';
@@ -62,7 +63,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   const [selectedFieldFilter, setSelectedFieldFilter] = useState<string>('ALL');
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadFeedback, setUploadFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [adminProjectDisplayMode, setAdminProjectDisplayMode] = useState<'table' | 'cards'>('cards');
+  const [adminProjectDisplayMode, setAdminProjectDisplayMode] = useState<'table' | 'cards'>('table');
   const [projectSort, setProjectSort] = useState<{ key: ProjectSortKey; direction: ProjectSortDirection } | null>(null);
   const [sharedAction, setSharedAction] = useState<'generate' | 'clear' | null>(null);
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
@@ -1181,104 +1182,16 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                {displayedProjects.map((p) => {
-                  const hasConflict = p.assigned_group && isAdvisorConflict(p.advisor, p.evaluators || []);
-                  return (
-                    <div
-                      key={p.id}
-                      className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300 transition-all flex flex-col justify-between"
-                    >
-                      <div>
-                        {/* Top Badges */}
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-mono text-xs text-slate-500 font-semibold bg-white px-2 py-0.5 rounded border border-slate-200">
-                              #{p.seq_no}
-                            </span>
-                            {p.draw_code ? (
-                              <span className="font-mono text-xs text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                {p.draw_code}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200 italic">
-                                未抽籤
-                              </span>
-                            )}
-                            {p.assigned_group && (
-                              <span className="font-mono text-xs text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                                第 {p.assigned_group} 組
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              onClick={() => handleStartEdit(p)}
-                              className="p-1.5 rounded-lg hover:bg-white text-slate-600 hover:text-slate-900 border border-transparent hover:border-slate-200 transition-colors cursor-pointer"
-                              title="編輯專題"
-                            >
-                              <Edit className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => { beginDraft(); setProjectToDelete({ id: p.id, title: p.project_title }); }}
-                              className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                              title="刪除"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Title */}
-                        <h4 className="text-sm font-bold text-slate-900 mb-2 leading-snug" title={p.project_title}>
-                          {p.project_title}
-                        </h4>
-
-                        {/* Details */}
-                        <div className="grid grid-cols-2 gap-1.5 text-[11px] text-slate-600 pt-2 border-t border-slate-200/60">
-                          <div>
-                            <span className="text-slate-400">領域：</span>
-                            <span className="font-medium text-slate-800">{p.field}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-400">班級：</span>
-                            <span className="text-slate-700">{p.class_name}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-400">指導老師：</span>
-                            <span className="font-semibold text-slate-800">{p.advisor}</span>
-                            {hasConflict && (
-                              <span className="ml-1 text-[10px] text-rose-600 font-bold bg-rose-50 px-1 rounded">
-                                衝突!
-                              </span>
-                            )}
-                          </div>
-                          <div>
-                            <span className="text-slate-400">組長學號：</span>
-                            <span className="font-mono text-blue-700 font-semibold">{p.leader_id}</span>
-                          </div>
-                          <div className="col-span-2 flex items-center gap-2 border-t border-slate-200/60 pt-2">
-                            <span className="text-slate-500">登入密碼：</span>
-                            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold ${p.password_set ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
-                              {p.password_set ? '密碼已設定' : '需設定登入密碼'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Evaluator Footer */}
-                      {p.evaluators && p.evaluators.length > 0 && (
-                        <div className="mt-3 text-[10px] text-slate-700 bg-white p-2 rounded-xl border border-slate-200 flex items-center justify-between">
-                          <span className="truncate">
-                            <strong>評審：</strong>
-                            {p.evaluators.join('、')}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {displayedProjects.map(p => (
+                  <ProjectRosterCard
+                    key={p.id}
+                    project={p}
+                    sharedPasswordEnabled={sharedPasswordEnabled}
+                    onEdit={() => handleStartEdit(p)}
+                    onDelete={() => { beginDraft(); setProjectToDelete({ id: p.id, title: p.project_title }); }}
+                  />
+                ))}
               </div>
             )}
           </div>
