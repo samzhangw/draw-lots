@@ -1359,7 +1359,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     設定各組評審委員名單
                   </h3>
                   <p className="text-xs text-slate-500">
-                    領域：「<strong className="text-slate-800">{domainForEvaluators.field}</strong>」（共 {domainForEvaluators.groupCount} 個分組場次）
+                    領域：「<strong className="text-slate-800">{domainForEvaluators.field}</strong>」
+                    <span className="block mt-1">（共 {domainForEvaluators.groupCount} 個分組場次）</span>
                   </p>
                 </div>
               </div>
