@@ -620,7 +620,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       {/* Page title */}
       <div className="flex items-center gap-3 pb-1">
         <img
-          src="https://cidsexhibition.nutc.edu.tw/images/logo.png"
+          src="/android-chrome-512x512.png"
           alt="國立臺中科技大學 資訊與流通學院"
           className="h-10 sm:h-11 w-auto object-contain shrink-0"
         />

@@ -222,6 +222,15 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     }
     assert.equal(databaseRequests, beforeForgedCookies, 'unsigned and forged cookies must never query/delete database sessions');
     if (cloudflareTest) {
+      for (const iconPath of ['/favicon.ico', '/favicon-16x16.png', '/favicon-32x32.png', '/apple-touch-icon.png', '/android-chrome-192x192.png', '/android-chrome-512x512.png']) {
+        const icon = await fetch(`${base}${iconPath}`);
+        assert.equal(icon.status, 200);
+        assert.match(icon.headers.get('content-type')!, /^image\//);
+        assert.ok((await icon.arrayBuffer()).byteLength > 0);
+      }
+      const manifest = await fetch(`${base}/site.webmanifest`);
+      assert.equal(manifest.status, 200);
+      assert.equal((await manifest.json() as any).short_name, '專題成果展');
       const robots = await fetch(`${base}/robots.txt`);
       assert.equal(robots.status, 200);
       assert.match(robots.headers.get('content-type')!, /^text\/plain/);

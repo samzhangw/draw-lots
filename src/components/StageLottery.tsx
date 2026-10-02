@@ -279,7 +279,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
             <div className="flex items-center gap-4 min-w-0">
               <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl border border-slate-100 bg-white flex items-center justify-center shrink-0 p-2 shadow-sm">
-                <img src="https://cidsexhibition.nutc.edu.tw/images/logo.png" alt="國立臺中科技大學 資訊與流通學院" className="max-h-full max-w-full object-contain" />
+                <img src="/android-chrome-512x512.png" alt="國立臺中科技大學 資訊與流通學院" className="max-h-full max-w-full object-contain" />
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] sm:text-xs font-semibold tracking-wide text-blue-700">國立臺中科技大學 · 資訊與流通學院</p>
@@ -333,7 +333,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
             <div className="stage-presentation-ready">
               <div className="stage-presentation-hero">
                 <div className="stage-presentation-intro">
-                  <span className="stage-presentation-emblem" aria-hidden="true"><img src="https://cidsexhibition.nutc.edu.tw/images/logo.png" alt="" /></span>
+                  <span className="stage-presentation-emblem" aria-hidden="true"><img src="/android-chrome-512x512.png" alt="" /></span>
                   <div className="stage-presentation-title">
                     <p className="stage-presentation-scope">{selectedField === 'ALL' ? '全校各領域' : selectedFields?.length === 0 ? '尚未選擇領域' : selectedFields?.length === 1 ? selectedField : `本次已選 ${selectedFields?.length} 個領域`}</p>
                     <h2>{currentPool.length === 0 ? selectedFields?.length === 0 ? '請勾選抽籤領域' : '尚無專題資料' : undrawnPool.length ? '準備開始抽籤' : '報告場次與順位已排定'}</h2>
@@ -419,7 +419,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               <div className="flex flex-col gap-5 rounded-3xl border border-blue-100 bg-gradient-to-r from-blue-50 via-white to-slate-50 p-5 sm:p-7 lg:flex-row lg:items-center lg:justify-between lg:p-8">
                 <div className="flex items-start gap-4 sm:gap-5">
                   <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-white p-2 shadow-md shadow-blue-100 sm:h-16 sm:w-16" aria-hidden="true">
-                    <img src="https://cidsexhibition.nutc.edu.tw/images/logo.png" alt="" className="h-full w-full object-contain" />
+                    <img src="/android-chrome-512x512.png" alt="" className="h-full w-full object-contain" />
                   </span>
                   <div>
                     <p className="text-sm font-bold text-blue-800 sm:text-base">專題報告抽籤</p>

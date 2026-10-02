@@ -55,7 +55,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({
         <div className="text-center space-y-3 pb-4 border-b border-slate-100">
           <div className="flex justify-center">
             <img
-              src="https://cidsexhibition.nutc.edu.tw/images/logo.png"
+              src="/android-chrome-512x512.png"
               alt="國立臺中科技大學 資訊與流通學院"
               className="h-12 w-auto object-contain"
             />
