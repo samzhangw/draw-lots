@@ -197,6 +197,20 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const stage = stageLogin.cookie!.split(';')[0];
     assert.equal((await request('/api/auth/verify', { username: 'stage@test.local', password: 'valid-password', targetView: 'admin' })).status, 403);
     assert.equal((await request('/api/auth/verify', { username: 'admin', password: 'admin888', targetView: 'admin' })).status, 401);
+    for (let attempt = 0; attempt < 10; attempt++) {
+      assert.equal((await request('/api/auth/verify', {
+        username: attempt % 2 ? 'admin-limit@test.local' : ' ADMIN-LIMIT@test.local ',
+        password: 'wrong-password', targetView: 'admin', leaderId: `ignored-${attempt}`,
+      })).status, 401);
+    }
+    const blockedExtraField = await request('/api/auth/verify', {
+      username: 'admin-limit@test.local', password: 'wrong-password', targetView: 'admin', leaderId: {},
+    });
+    assert.equal(blockedExtraField.status, 429);
+    assert.equal((await request('/api/auth/verify', {
+      username: {}, password: 'wrong-password', targetView: 'admin', leaderId: 'valid-extra',
+    })).status, 400);
+
     assert.equal((await request('/api/projects', { projects: [project], version: 0 })).status, 401);
     assert.equal((await request('/api/lottery/draw', { field: 'ALL', version: 0 })).status, 401);
     assert.equal((await request('/api/projects', { projects: [project], version: 0 }, stage)).status, 403);

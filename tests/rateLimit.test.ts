@@ -49,3 +49,55 @@ test('campus IP permits 300 distinct student logins while each account and staff
   assert.ok([...names].some(name => name.startsWith('student:ip:')));
   assert.ok([...names].some(name => name.startsWith('staff:ip:')));
 });
+
+
+for (const mode of ['Node', 'Workers'] as const) {
+  test(`${mode}: account limits ignore extra fields and follow the actual login account across IPs`, async () => {
+    const counts = new Map<string, number>();
+    const shared = {
+      idFromName(name: string) { return name; },
+      get(name: string) { return { async fetch(_url: string, init: { body: string }) {
+        const { limit } = JSON.parse(init.body);
+        const count = counts.get(name) || 0;
+        if (count >= limit) return Response.json({ success: false, retryAfter: 60 });
+        counts.set(name, count + 1);
+        return Response.json({ success: true, retryAfter: 0 });
+      } }; },
+    };
+    const attempt = (limiter: ReturnType<typeof loginLimiter>, body: unknown, ip: string) => withRuntime(
+      mode === 'Workers' ? { LOGIN_LIMITER: shared as any } : {},
+      () => new Promise<number>((resolve, reject) => {
+        const req = { ip, body, get: (header: string) => header === 'cf-connecting-ip' ? ip : undefined } as unknown as Request;
+        let status = 200;
+        const res = { setHeader() {}, status(code: number) { status = code; return this; }, json() { resolve(status); return this; } } as unknown as Response;
+        limiter(req, res, ((error?: unknown) => {
+          if (!error) resolve(200);
+          else if (typeof error === 'object' && error && 'status' in error) resolve(Number(error.status));
+          else reject(error);
+        }) as NextFunction);
+      }),
+    );
+    const extraValues = [null, {}, [], 123, false, 'rotating-1', 'rotating-2', 'rotating-3', 'rotating-4', 'rotating-5'];
+    for (const scope of ['staff', 'student'] as const) {
+      const limiter = loginLimiter(scope);
+      const accountField = scope === 'staff' ? 'username' : 'leaderId';
+      const extraField = scope === 'staff' ? 'leaderId' : 'username';
+      for (let n = 0; n < 10; n++) {
+        const account = n % 2 ? 'victim@example.test' : ' VICTIM@example.test ';
+        assert.equal(await attempt(limiter, { [accountField]: account, [extraField]: extraValues[n] }, `203.0.113.${n + 1}`), 200);
+      }
+      assert.equal(await attempt(limiter, { [accountField]: 'victim@example.test', [extraField]: 'another-rotation' }, '198.51.100.1'), 429);
+      assert.equal(await attempt(limiter, { [accountField]: 'different@example.test', [extraField]: 'victim@example.test' }, '198.51.100.1'), 200);
+    }
+    const before = counts.size;
+    for (const scope of ['staff', 'student'] as const) {
+      const limiter = loginLimiter(scope);
+      const accountField = scope === 'staff' ? 'username' : 'leaderId';
+      const extraField = scope === 'staff' ? 'leaderId' : 'username';
+      for (const invalid of [undefined, null, {}, [], 123, '', '   ', 'x'.repeat(scope === 'staff' ? 257 : 129)]) {
+        assert.equal(await attempt(limiter, { [accountField]: invalid, [extraField]: 'apparently-valid' }, '198.51.100.2'), 400);
+      }
+    }
+    assert.equal(counts.size, before, 'invalid account fields must be rejected before creating shared buckets');
+  });
+}

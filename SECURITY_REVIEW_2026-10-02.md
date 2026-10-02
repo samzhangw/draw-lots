@@ -44,7 +44,7 @@ Workers 測試中的 `NODE_TLS_REJECT_UNAUTHORIZED=0` 只作用在信任本機�
 
 官方公告指出 Prototype Pollution 修復於 0.19.3、ReDoS 修復於 0.20.2，0.20.3 高於兩者修復版本。本次未將兩者列為適用漏洞，也不以此聲稱不存在其他未知漏洞。參考：[CVE-2023-30533 官方公告](https://cdn.sheetjs.com/advisories/CVE-2023-30533)、[CVE-2024-22363 官方公告](https://cdn.sheetjs.com/advisories/CVE-2024-22363)。
 
-## S01 — 中：額外 leaderId 欄位可繞過工作人員帳號限流（已重現）
+## S01 — 中：額外 leaderId 欄位可繞過工作人員帳號限流（已修復；保留歷史重現）
 
 位置：`server/rateLimit.ts:15`、`server/app.ts:75`。
 
@@ -55,6 +55,8 @@ Workers 測試中的 `NODE_TLS_REJECT_UNAUTHORIZED=0` 只作用在信任本機�
 IP 限制仍有效（staff 每 IP 100 次／15 分鐘），Supabase 自身防護也可能限制攻擊，因此不是無條件無限猜密碼或登入繞過。但多 IP 可以對同一帳號繞過原先跨 IP 的 10 次限制。
 
 修正：依 scope 明確選取 `staff → username`、`student → leaderId`；驗證登入 payload 白名單，並新增不同 IP／額外欄位仍共用同帳號計數的回歸測試。應先驗證帳號型別與長度再建立限流索引。
+
+2026-10-02 修復：限流依 scope 固定取實際認證欄位，額外欄位不再影響帳號桶。缺少、空白、非字串或超長帳號在建立桶前回 400；大小寫與前後空白正規化保持一致。Node／Workers 模式回歸測試涵蓋跨 IP、額外字串／物件／null 等欄位；實際 API 測試確認第 11 次對同帳號的錯誤登入回 429。
 
 ## S02 — 高（條件式）：全體共用密碼無法證明學生身分
 

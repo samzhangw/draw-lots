@@ -47,6 +47,7 @@ React + Vite 前端，Express API 統一使用 Supabase Database 與 Supabase Au
 
 - `ntcust_lottery_state` 的單一資料列以 JSONB 儲存完整名冊、領域與評審設定，保留 `assigned_group`、`evaluators` 等所有欄位。整份名冊取代時，刪除與清空也會同步生效。
 - 每次修改以 `version` 比對更新，名冊與設定在同一個資料庫操作提交。其他裝置已更新時回傳 HTTP 409，請重新載入後再操作。
+- 登入限流固定以實際認證帳號計數：工作人員使用 Email、學生使用組長學號。額外欄位不能改變限流帳號；同帳號大小寫與前後空白統一，跨 IP 仍共用帳號次數。無效帳號在建立限流桶前拒絕。
 - RLS 與資料表權限禁止瀏覽器直接存取，由 API 查驗後端 session 與 Supabase Auth 身分後讀寫。`admin` 可修改名冊與設定；`stage` 可抽籤及重設。
 - 完整名冊與領域設定 API 僅限已登入的 admin / stage。匿名 `/api/public-results` 僅回傳領域、公開專題編號、分組及順位，移除學號、班級、專題名稱與評審等資料。
 - 學生頁不預先下載名冊。登入後透過 HttpOnly、SameSite=Strict cookie 查詢 `/api/student/me`，後端 session 綁定唯一專題 ID，不接受前端選擇其他專題。學生回應僅回傳目前登入的組長學號，不提供名冊序號、班級、學制、系所或指導老師；學生頁只在登入狀態列顯示該學號。正式環境 cookie 設為 Secure，必須使用 HTTPS。

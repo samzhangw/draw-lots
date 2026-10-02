@@ -7,13 +7,19 @@ export function loginLimiter(scope: 'staff' | 'student', accountLimit = 10, ipLi
   const buckets = new Map<string, { count: number; resetAt: number }>();
   return (req: Request, res: Response, next: NextFunction) => {
     const run = async () => {
+      // Use exactly the account field consumed by this scope's authentication.
+      // Extra fields must not select another bucket or disable account limiting.
+      const rawAccount = scope === 'staff' ? req.body?.username : req.body?.leaderId;
+      const maxLength = scope === 'staff' ? 256 : 128;
+      if (typeof rawAccount !== 'string' || !rawAccount.trim() || rawAccount.length > maxLength) {
+        throw new ApiError(400, scope === 'staff' ? '請輸入有效的登入 Email。' : '請輸入有效的組長學號。');
+      }
       const now = Date.now();
       const shared = runtimeEnv().LOGIN_LIMITER;
       // Cloudflare sets this header at its edge; Node mode uses the socket IP.
       const ip = shared ? req.get('cf-connecting-ip') || req.ip || 'unknown' : req.ip || 'unknown';
       const ipKey = `${scope}:ip:${fingerprint(ip)}`;
-      const rawAccount = req.body?.leaderId ?? req.body?.username;
-      const accountKey = typeof rawAccount === 'string' ? `${scope}:account:${fingerprint(rawAccount.trim().toLowerCase())}` : ipKey;
+      const accountKey = `${scope}:account:${fingerprint(rawAccount.trim().toLowerCase())}`;
       // Reject repeated guesses for one account before they consume the campus IP pool.
       for (const key of new Set([accountKey, ipKey])) {
         const limit = key === ipKey ? ipLimit : accountLimit;
