@@ -1,3 +1,5 @@
+import { SecureRandomUnavailableError } from '../src/lib/cryptoRandom';
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -6,7 +8,10 @@ export class ApiError extends Error {
 export function publicError(err: unknown, requestId: string) {
   let status = 500;
   let message = '伺服器發生錯誤，請稍後再試。';
-  if (err instanceof ApiError && Number.isInteger(err.status) && err.status >= 400 && err.status <= 599) {
+  if (err instanceof SecureRandomUnavailableError) {
+    status = 503;
+    message = '安全亂數服務暫時無法使用，抽籤已停止，請稍後再試。';
+  } else if (err instanceof ApiError && Number.isInteger(err.status) && err.status >= 400 && err.status <= 599) {
     status = err.status;
     if (status < 500) message = err.message;
     else if (status === 503) message = '服務暫時無法使用，請稍後再試。';

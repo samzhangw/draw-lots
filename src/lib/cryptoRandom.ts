@@ -2,7 +2,7 @@
  * Cryptographically Secure Pseudo-Random Number Generator (CSPRNG) & Fisher-Yates Uniform Shuffle
  * 
  * 核心演算法：
- * 1. 採用 window.crypto.getRandomValues() 取代標準 Math.random()，避免偽隨機週期與被預測漏洞。
+ * 1. 採用 globalThis.crypto.getRandomValues()；不可用時拒絕抽籤，不使用非安全亂數。
  * 2. 實作 Rejection Sampling (拒絕取樣) 機制，徹底消除 Modulo Bias (模運算偏差)。
  * 3. 採用標準 Fisher-Yates (Knuth) 洗牌演算法，確保每一種排列組合出現的機率嚴格均等 (1/n!)。
  */
@@ -16,47 +16,50 @@ export function isCSPRNGSupported(): boolean {
     typeof globalThis.crypto.getRandomValues === 'function';
 }
 
-/**
- * Generate a cryptographically secure random 32-bit unsigned integer uniformly in [0, max)
- * Employs Rejection Sampling to eliminate Modulo Bias.
- * 
- * @param max Upper bound (exclusive), must be a positive integer <= 2^32 - 1
- */
-export function getSecureRandomInt(max: number): number {
-  if (max <= 1) return 0;
-
-  if (isCSPRNGSupported()) {
-    const buffer = new Uint32Array(1);
-    // 2^32 = 4294967296
-    const limit = Math.floor(0x100000000 / max) * max;
-    let rand: number;
-
-    do {
-      globalThis.crypto.getRandomValues(buffer);
-      rand = buffer[0];
-    } while (rand >= limit); // Reject values in the biased upper slice
-
-    return rand % max;
+export class SecureRandomUnavailableError extends Error {
+  constructor(cause?: unknown) {
+    super('安全亂數服務暫時無法使用，抽籤已停止，請稍後再試。', { cause });
+    this.name = 'SecureRandomUnavailableError';
   }
-
-  // Graceful fallback for non-crypto environments (e.g. testing)
-  return Math.floor(Math.random() * max);
 }
 
-/**
- * Generate a cryptographically secure uniform floating point number in [0, 1)
- * with full 53-bit double precision.
- */
-export function getSecureRandomFloat(): number {
-  if (isCSPRNGSupported()) {
-    const buffer = new Uint32Array(2);
+function requireCSPRNG(): void {
+  if (!isCSPRNGSupported()) throw new SecureRandomUnavailableError();
+}
+
+function fillSecureRandom(buffer: Uint32Array<ArrayBuffer>): void {
+  requireCSPRNG();
+  try {
     globalThis.crypto.getRandomValues(buffer);
-    // Combine 21 bits from buffer[0] and 32 bits from buffer[1] to form 53 bits of entropy
-    const hi = buffer[0] >>> 11;
-    const lo = buffer[1];
-    return (hi * 4294967296 + lo) / 9007199254740992; // 2^53
+  } catch (error) {
+    throw new SecureRandomUnavailableError(error);
   }
-  return Math.random();
+}
+
+/** Uniform integer in [0, max), with rejection sampling to avoid modulo bias. */
+export function getSecureRandomInt(max: number): number {
+  if (!Number.isInteger(max) || max < 1 || max > 0x100000000) {
+    throw new RangeError('亂數上限須為 1 至 2^32 的整數。');
+  }
+  requireCSPRNG();
+  if (max === 1) return 0;
+  const buffer = new Uint32Array(1);
+  const limit = Math.floor(0x100000000 / max) * max;
+  let rand: number;
+  do {
+    fillSecureRandom(buffer);
+    rand = buffer[0];
+  } while (rand >= limit);
+  return rand % max;
+}
+
+/** Uniform floating point number in [0, 1), with 53 bits of precision. */
+export function getSecureRandomFloat(): number {
+  const buffer = new Uint32Array(2);
+  fillSecureRandom(buffer);
+  const hi = buffer[0] >>> 11;
+  const lo = buffer[1];
+  return (hi * 4294967296 + lo) / 9007199254740992;
 }
 
 /**
@@ -67,6 +70,7 @@ export function getSecureRandomFloat(): number {
  * Mathematical guarantee: Every one of the n! permutations has exact 1/n! probability.
  */
 export function secureFisherYatesShuffle<T>(array: readonly T[]): T[] {
+  requireCSPRNG();
   if (!array || array.length <= 1) {
     return array ? [...array] : [];
   }
@@ -88,6 +92,7 @@ export function secureFisherYatesShuffle<T>(array: readonly T[]): T[] {
  * Securely select a single random element from an array with uniform probability
  */
 export function securePickOne<T>(array: readonly T[]): T | undefined {
+  requireCSPRNG();
   if (!array || array.length === 0) return undefined;
   const index = getSecureRandomInt(array.length);
   return array[index];

@@ -96,13 +96,15 @@ Workers 對回應加入 HSTS、nosniff、DENY，但沒有 CSP。Node 的 nosniff
 
 修正：HTML 及 API 一致套用防護；依前端實際需求設定 CSP 的 script-src、connect-src、img-src、object-src、base-uri、frame-ancestors。先用 Report-Only 驗證動畫、inline style 與校方圖檔不被誤擋，再啟用強制規則。Node 正式服務須經 HTTPS 代理並明確設定 cookie／代理信任。參考：[Cloudflare Workers 安全標頭範例](https://developers.cloudflare.com/workers/examples/security-headers/)。
 
-## S06 — 低：安全亂數不存在時默默改用 Math.random
+## S06 — 低：安全亂數不存在時默默改用 Math.random（已修復）
 
 位置：`src/lib/cryptoRandom.ts:42`、`src/lib/cryptoRandom.ts:60`。
 
 抽籤亂數函式在 Web Crypto 不可用時回退 Math.random，削弱「使用密碼學亂數」承諾。目前要求的 Node 22.12+ 與 Workers 通常具備 Web Crypto，沒有證據表示正式抽籤正在使用 fallback。
 
 修正：正式抽籤在 CSPRNG 不可用時拒絕執行；測試需要的亂數改以顯式注入方式提供。
+
+2026-10-02 修復：移除整數與浮點亂數的 Math.random 備援。Web Crypto 缺少或 getRandomValues 執行失敗時拋出明確錯誤，API 回傳 503 並停止儲存抽籤結果；洗牌與隨機選取也檢查安全亂數支援。單元測試明確替換 Web Crypto 以模擬故障與拒絕取樣，不在正式程式提供不安全亂數路徑。
 
 ## S07 — 低：匿名健康檢查暴露名冊筆數與更新時間
 
