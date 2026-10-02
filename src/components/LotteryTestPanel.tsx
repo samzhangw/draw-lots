@@ -22,7 +22,7 @@ export function LotteryTestPanel({ version, configs, disabled }: { version: numb
     finally { running.current = false; setLoading(false); }
   };
   return <>
-    <button type="button" disabled={disabled || loading || version === null} onClick={() => { setField('ALL'); void run('ALL'); }}
+    <button type="button" disabled={disabled || loading || version === null} onClick={() => { setField('ALL'); setReport(null); setError(null); setOpen(true); }}
       className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-100 disabled:opacity-40">
       <FlaskConical className="h-4 w-4" />測試抽籤
     </button>
@@ -38,9 +38,10 @@ export function LotteryTestPanel({ version, configs, disabled }: { version: numb
               <option value="ALL">全校所有領域</option>{configs.map(c => <option key={c.id} value={c.field}>{c.field}</option>)}
             </select></div>
           <button type="button" disabled={loading || version === null} onClick={() => void run(field)} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white disabled:opacity-50">
-            {loading && <LoaderCircle className="h-4 w-4 animate-spin" />}{loading ? '測試中…' : '重新測試'}
+            {loading && <LoaderCircle className="h-4 w-4 animate-spin" />}{loading ? '測試中…' : report ? '重新測試' : '開始測試'}
           </button>
         </div>
+        {!loading && !report && !error && <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">請選擇測試範圍，再按「開始測試」執行一次抽籤試跑。</p>}
         {loading && <p role="status" className="rounded-xl bg-blue-50 p-4 text-sm text-blue-800">正在試跑抽籤與檢查分組設定…</p>}
         {error && <p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm text-rose-800">{error}</p>}
         {report && <div className="space-y-4">
