@@ -6,7 +6,7 @@ export interface ProjectItem {
   class_name: string; // 班級 (資管四甲...)
   advisor: string; // 指導老師
   field: string; // 領域 (企業智慧化/嵌入式系統與行動計算...)
-  original_code: string; // 編號
+  original_code: string; // 原始編號 e.g. A01，依領域自動編號
   project_title: string; // 專題名稱
   leader_id: string; // 組長學號
   password?: string; // 僅供設定新密碼的輸入，API 不回傳

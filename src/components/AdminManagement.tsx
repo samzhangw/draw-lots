@@ -5,6 +5,8 @@ import { isAdvisorConflict, normalizeProfessorName } from '../lib/lottery';
 import { sortProjects, type ProjectSortKey, type ProjectSortDirection } from '../lib/projectSort';
 import { useModalFocus } from '../lib/useModalFocus';
 import { FloatingNotice } from './FloatingNotice';
+import { getDomainCode } from '../lib/domainCodes';
+import { normalizeOriginalCodes } from '../lib/originalCodes';
 import {
   Upload,
   Download,
@@ -161,6 +163,15 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   });
 
   // Calculate live domain statistics dynamically
+  const automaticOriginalCode = React.useMemo(() => {
+    if (!getDomainCode(formData.field || '')) return undefined;
+    const candidate = { ...formData, original_code: formData.original_code || '', id: editingProject?.id || '__code_preview__' } as ProjectItem;
+    const roster = editingProject
+      ? projects.map(p => p.id === editingProject.id ? candidate : p)
+      : [...projects, candidate];
+    return normalizeOriginalCodes(roster).find(p => p.id === candidate.id)?.original_code;
+  }, [formData, editingProject, projects]);
+
   const statsMap: Record<string, number> = Object.create(null);
   projects.forEach((p) => {
     statsMap[p.field] = (statsMap[p.field] || 0) + 1;
@@ -1839,11 +1850,13 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   <input
                     id="project-original-code"
                     type="text"
-                    value={formData.original_code || ''}
+                    value={automaticOriginalCode ?? formData.original_code ?? ''}
+                    readOnly={automaticOriginalCode !== undefined}
                     onChange={(e) => setFormData({ ...formData, original_code: e.target.value })}
-                    placeholder="例如：AI-01"
+                    placeholder="例如：A01"
                     className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
+                  {automaticOriginalCode !== undefined && <p className="mt-1 text-xs text-slate-500">依領域自動編號，儲存時套用。</p>}
                 </div>
                 <div>
                   <label htmlFor="project-advisor" className="block text-slate-700 mb-1 font-semibold">指導老師</label>

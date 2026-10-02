@@ -13,12 +13,14 @@ test('patched SheetJS imports Chinese rosters and exports without credential fie
   const parsed = await parseExcelFile(makeFile([row]));
   assert.equal(parsed.success, true); assert.equal(parsed.projects![0].project_title, '中文測試');
   assert.equal(parsed.projects![0].password, row.組長密碼);
+  assert.equal(parsed.projects![0].original_code, 'A01');
   const wb = createExportWorkbook(parsed.projects!);
   const bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
   const readback = XLSX.read(bytes, { type: 'array' });
   const rows = XLSX.utils.sheet_to_json<Record<string, string>>(readback.Sheets[readback.SheetNames[0]]);
   assert.deepEqual(Object.keys(rows[0]), REQUIRED_OUTPUT_HEADERS);
   assert.equal(rows[0].專題名稱, '中文測試'); assert.equal(rows[0].組長密碼, undefined);
+  assert.equal(rows[0].編號, 'A01');
   assert.equal(rows[0].password_hash, undefined);
 });
 test('imports never invent predictable passwords and reject weak passwords or excessive files', async () => {

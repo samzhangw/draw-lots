@@ -2,6 +2,7 @@ import { runtimeEnv } from './runtime';
 import { createClient } from '@supabase/supabase-js';
 import type { DomainConfig, ProjectItem } from '../src/types';
 import { removeLegacyCredentials, type StoredProject } from './credentials';
+import { normalizeOriginalCodes } from '../src/lib/originalCodes';
 import { ApiError } from './errors';
 export { ApiError } from './errors';
 
@@ -24,11 +25,11 @@ export function createStore() {
     async load(): Promise<DatabaseState> {
       const { data, error } = await client.from('ntcust_lottery_state').select('*').eq('id', 1).single();
       if (error) throw new ApiError(503, '資料庫暫時無法讀取，請稍後再試。');
-      return { projects: data.projects, domainConfigs: data.domain_configs, version: data.version, lastUpdated: data.updated_at };
+      return { projects: normalizeOriginalCodes<StoredProject>(data.projects), domainConfigs: data.domain_configs, version: data.version, lastUpdated: data.updated_at };
     },
     async save(state: DatabaseState, expectedVersion: number): Promise<DatabaseState> {
       const { data, error } = await client.from('ntcust_lottery_state').update({
-        projects: removeLegacyCredentials(state.projects),
+        projects: normalizeOriginalCodes(removeLegacyCredentials(state.projects)),
         domain_configs: state.domainConfigs,
         version: expectedVersion + 1,
         updated_at: new Date().toISOString(),

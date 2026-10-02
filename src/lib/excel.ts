@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { ProjectItem } from '../types';
+import { normalizeOriginalCodes } from './originalCodes';
 
 export const REQUIRED_INPUT_HEADERS = [
   '序號',
@@ -144,7 +145,7 @@ export async function parseExcelFile(file: File): Promise<{
 
     return {
       success: true,
-      projects,
+      projects: normalizeOriginalCodes(projects),
       rowCount: projects.length,
     };
   } catch (err: unknown) {
@@ -225,7 +226,7 @@ export function downloadInputTemplate(): void {
       '班級': '資管四甲',
       '指導老師': '王教授',
       '領域': '智慧運算創新應用',
-      '編號': 'AI-01',
+      '編號': 'E01',
       '專題名稱': '基於生成式AI之智慧排程平台',
       '組長學號': '110214101',
       '組長密碼': '',
@@ -237,7 +238,7 @@ export function downloadInputTemplate(): void {
       '班級': '資工四乙',
       '指導老師': '李副教授',
       '領域': '企業智慧化',
-      '編號': 'BI-01',
+      '編號': 'A01',
       '專題名稱': '智慧倉儲即時物聯網監控與調度系統',
       '組長學號': '110211102',
       '組長密碼': '',

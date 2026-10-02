@@ -374,6 +374,22 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(disabled.data.sharedPasswordEnabled, false);
     assert.equal(state.projects[0].password_hash, undefined);
     assert.equal((await request('/api/student/verify', { leaderId: project.leader_id, password: rotated.data.password })).status, 401);
+    const originalCodeSave = await request('/api/projects', {
+      projects: [
+        { ...projectDto(project), field: '企業智慧化', original_code: 'P-1' },
+        { ...projectDto(project), id: 'code-2', leader_id: 'code-2', field: '企業智慧化', original_code: 'P-2' },
+        { ...projectDto(project), id: 'code-3', leader_id: 'code-3', field: '進修部', original_code: 'P-3' },
+      ], version: state.version,
+    }, adminAgain);
+    assert.equal(originalCodeSave.status, 200);
+    assert.deepEqual(originalCodeSave.data.projects.map((p: ProjectItem) => p.original_code), ['A01', 'A02', 'G01']);
+    assert.deepEqual(state.projects.map(p => p.original_code), ['A01', 'A02', 'G01']);
+    // Existing database rows get the same codes on read, without mutating their version.
+    state.projects[0].original_code = 'legacy';
+    const codeVersion = state.version;
+    assert.equal((await request('/api/state', undefined, adminAgain)).data.projects[0].original_code, 'A01');
+    assert.equal(state.version, codeVersion);
+    assert.equal(state.projects[0].original_code, 'legacy');
   } finally {
     await stop();
     await rm(persistence, { recursive: true, force: true });
