@@ -236,7 +236,7 @@ app.post('/api/lottery/draw', route(async (req, res) => {
     throw error;
   }
   const saved = await store.save(state, state.version);
-  res.json({ ...staffState(saved, role), summary: `抽籤完成，${pool.length} 件專題結果已儲存至 Supabase。` });
+  res.json({ ...staffState(saved, role), summary: `抽籤完成，${pool.length} 件專題結果已儲存。` });
 }));
 app.post('/api/lottery/reset', route(async (req, res) => {
   const role = await authorize(req);
