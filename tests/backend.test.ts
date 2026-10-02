@@ -48,6 +48,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   let indexedReads = 0;
   let studentLookupReads = 0;
   let missingLookup = false;
+  let changedSharedCredential: 'hash' | 'leader' | undefined;
   let publicReads = 0;
   let metadataReads = 0;
   let activeCapacityReads = 0;
@@ -154,7 +155,9 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       }
 
       const row = state.projects.find(p => id !== undefined ? p.id === id : p.leader_id.trim().toLowerCase() === leader);
-      res.end(JSON.stringify(row ? { document: row } : null)); return;
+      const currentRow = row && id !== undefined && changedSharedCredential
+        ? { ...row, ...(changedSharedCredential === 'hash' ? { password_hash: 'changed-credential-version' } : { leader_id: 'changed-leader' }) } : row;
+      res.end(JSON.stringify(currentRow ? { document: currentRow } : null)); return;
     }
     res.writeHead(404); res.end('{}');
   });
@@ -529,7 +532,14 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(generated.data.projects[0].shared_password_mode, undefined);
     assert.equal(state.projects[0].shared_password_mode, true);
     assert.equal(await verifyPassword(generated.data.password, state.projects[0].password_hash), true);
-    const commonLogin = await request('/api/student/verify', { leaderId: project.leader_id, password: generated.data.password });
+    const appended = await request('/api/projects', { projects: [projectDto(project), { ...projectDto(project), id: 'new', leader_id: 'new-student', project_title: '私人新專題' }], version: state.version }, adminAgain);
+    assert.equal(appended.status, 200);
+    assert.equal(state.projects[1].password_hash, state.projects[0].password_hash);
+    // Start distinct student logins together before the shared verification cache is warm.
+    const firstCommonLogins = await Promise.all(state.projects.map(p => request('/api/student/verify', { leaderId: p.leader_id, password: generated.data.password })));
+    assert.ok(firstCommonLogins.every(r => r.status === 200));
+    assert.equal(new Set(firstCommonLogins.map(r => r.cookie!.split(';')[0])).size, state.projects.length);
+    const commonLogin = firstCommonLogins.find(r => r.data.project.leader_id === project.leader_id)!;
     assert.equal(commonLogin.status, 200);
     assert.equal(commonLogin.data.sharedPasswordMode, true);
     assert.equal(commonLogin.data.project.project_title, project.project_title);
@@ -540,10 +550,23 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(commonMe.data.project.project_title, project.project_title);
     assert.equal(commonMe.data.project.leader_id, project.leader_id);
     assert.equal((await request('/api/projects', { projects: [{ ...projectDto(project), password: 'Another-password-123' }], version: state.version }, adminAgain)).status, 400);
-    const appended = await request('/api/projects', { projects: [projectDto(project), { ...projectDto(project), id: 'new', leader_id: 'new-student', project_title: '私人新專題' }], version: state.version }, adminAgain);
-    assert.equal(appended.status, 200);
-    assert.equal(state.projects[1].password_hash, state.projects[0].password_hash);
-    assert.equal((await request('/api/student/verify', { leaderId: 'new-student', password: generated.data.password })).status, 200);
+    const commonLogins = await Promise.all(state.projects.map(p => request('/api/student/verify', { leaderId: p.leader_id, password: generated.data.password })));
+    assert.ok(commonLogins.every(r => r.status === 200));
+    const separateCookies = commonLogins.map(r => r.cookie!.split(';')[0]);
+    assert.equal(new Set(separateCookies).size, state.projects.length, 'shared verification must still create independent student sessions');
+    for (let n = 0; n < separateCookies.length; n++) {
+      const lookup = await request('/api/student/me', undefined, undefined, separateCookies[n]);
+      assert.equal(lookup.status, 200);
+      assert.equal(lookup.data.project.leader_id, state.projects[n].leader_id);
+    }
+    for (const change of ['hash', 'leader'] as const) {
+      changedSharedCredential = change;
+      const sessionsBeforeChange = sessions.size;
+      const staleLogin = await request('/api/student/verify', { leaderId: 'new-student', password: generated.data.password });
+      assert.equal(staleLogin.status, 401, 'cached verification cannot bypass a concurrent credential/leader change');
+      assert.equal(sessions.size, sessionsBeforeChange);
+      changedSharedCredential = undefined;
+    }
     const rotated = await request('/api/student/shared-password', { action: 'generate', version: state.version }, adminAgain);
     assert.equal(rotated.status, 200);
     assert.notEqual(rotated.data.password, generated.data.password);

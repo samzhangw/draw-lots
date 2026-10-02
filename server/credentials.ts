@@ -1,6 +1,7 @@
 import { randomBytes, scrypt, timingSafeEqual, createHash } from 'node:crypto';
 import type { ProjectItem } from '../src/types';
 import { ApiError } from './errors';
+import { SharedPasswordVerifier } from './sharedPasswordVerifier';
 import { BoundedExecutor } from './resourceLimits';
 
 export type StoredProject = ProjectItem & { password_hash?: string; shared_password_mode?: boolean };
@@ -27,6 +28,16 @@ export async function verifyPassword(password: string, encoded?: string): Promis
   const actual = await derive(password, match?.[1] || '0'.repeat(32));
   return !!match && timingSafeEqual(actual, Buffer.from(match[2], 'hex'));
 }
+const sharedVerifier = new SharedPasswordVerifier(verifyPassword);
+export function invalidateSharedPasswordVerification(): void { sharedVerifier.invalidate(); }
+export function verifyStudentPassword(password: string, project?: StoredProject): Promise<boolean> {
+  const encoded = project?.password ? undefined : project?.password_hash;
+  if (project?.shared_password_mode === true && encoded && HASH_FORMAT.test(encoded)) {
+    return sharedVerifier.verify(password, encoded);
+  }
+  return verifyPassword(password, encoded);
+}
+
 export function fingerprint(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }

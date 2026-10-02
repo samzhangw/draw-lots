@@ -2,7 +2,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { createStore, ApiError, validateProjects, validateDomains, type DatabaseState } from './store';
-import { projectDto, stageProjectDto, studentProjectDto, publicStudentProjectDto, prepareProjects, verifyPassword, hashPassword, sharedPasswordHash } from './credentials';
+import { projectDto, stageProjectDto, studentProjectDto, publicStudentProjectDto, prepareProjects, verifyStudentPassword, invalidateSharedPasswordVerification, hashPassword, sharedPasswordHash } from './credentials';
 import { createStudentSession, getStudentProject, clearStudentSession } from './studentSessions';
 import { createStaffSession, getStaffSession, clearStaffSession } from './staffSessions';
 import { loginLimiter, anonymousLimiter, sessionLimiter } from './rateLimit';
@@ -127,9 +127,18 @@ app.post('/api/auth/logout', route(async (req, res) => {
 app.post('/api/student/verify', loginLimiter('student', 10, 600), loginRoute('student', async (req, res) => {
   const { leaderId, password } = req.body;
   if (typeof leaderId !== 'string' || leaderId.length > 128 || typeof password !== 'string' || password.length > 128) throw new ApiError(400, '請輸入有效的組長學號與密碼。');
-  const project = await createStore().findProject('leader_key', leaderId.trim().toLowerCase());
-  const valid = await verifyPassword(password, project?.password ? undefined : project?.password_hash);
+  const store = createStore();
+  let project = await store.findProject('leader_key', leaderId.trim().toLowerCase());
+  const valid = await verifyStudentPassword(password, project);
   if (!valid || !project) throw new ApiError(401, '學號或密碼不正確，尚未設定密碼者請洽大會管理員。');
+  if (project.shared_password_mode === true) {
+    // Other shards may rotate/disable credentials while this request waits.
+    const current = await store.findProject('id', project.id);
+    if (!current || current.password || current.shared_password_mode !== true || current.password_hash !== project.password_hash || current.leader_id.trim().toLowerCase() !== leaderId.trim().toLowerCase()) {
+      throw new ApiError(401, '共用密碼已更新或停用，請使用最新密碼重新登入。');
+    }
+    project = current;
+  }
   await createStudentSession(req, res, project);
   res.json({ success: true, sharedPasswordMode: project.shared_password_mode === true, project: project.shared_password_mode ? publicStudentProjectDto(project) : studentProjectDto(project) });
 }));
@@ -180,13 +189,17 @@ app.post('/api/student/shared-password', route(async (req, res) => {
   if (!state.projects.length) throw new ApiError(400, '請先匯入學生名冊。');
   if (req.body.action === 'clear') {
     state.projects = state.projects.map(p => ({ ...projectDto(p) }));
-    res.json(staffState(await store.save(state, state.version), 'admin'));
+    const saved = await store.save(state, state.version);
+    invalidateSharedPasswordVerification();
+    res.json(staffState(saved, 'admin'));
     return;
   }
   const password = Array.from(randomBytes(8), byte => SHARED_PASSWORD_ALPHABET[byte & 31]).join('');
   const password_hash = await hashPassword(password);
   state.projects = state.projects.map(p => ({ ...projectDto(p), password_hash, shared_password_mode: true }));
-  res.json({ ...staffState(await store.save(state, state.version), 'admin'), password });
+  const saved = await store.save(state, state.version);
+  invalidateSharedPasswordVerification();
+  res.json({ ...staffState(saved, 'admin'), password });
 }));
 app.post('/api/domain-configs', route(async (req, res) => {
   await authorize(req, true);

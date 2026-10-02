@@ -153,6 +153,8 @@ npm run dev:cloudflare
 
 一般 Node.js 部署仍可用 `NODE_ENV=production npm start`。`vite preview` 僅供靜態預覽，不提供 API。
 
+學生共用密碼驗證：同一 process／isolate 內，相同共用密碼與目前儲存 hash 的請求合併驗證，成功結果快取 30 秒，最多保留 32 個項目。快取鍵為程序隨機 key 的 HMAC，不儲存明文密碼；錯誤密碼與服務錯誤不保留。個別密碼及不存在的帳號維持原驗證流程。共用密碼更換／停用後清除本地快取，其他 shards 透過每次讀取的最新 hash 隔離舊快取；建立 Session 前另查核最新密碼版本。每位學生仍獨立查核學號、建立 Session，登入限流與排隊上限不變。此最佳化不代表已通過正式環境 300 人同時登入壓測。
+
 Session 負載防護（S09）：學生與工作人員 Cookie 使用綁定用途的 HMAC 簽章，簽章 key 從後端 `SUPABASE_SECRET_KEY`（或 `SUPABASE_SERVICE_ROLE_KEY`）以獨立標記派生，不需新增環境變數。假簽章、舊版無簽章 Cookie 不會查詢或刪除資料庫 session；上線後既有使用者需重新登入，輪替後端 secret 也會使既有 Cookie 失效。所有 Node instances／Workers shards 應使用相同後端 key；簽章有效仍需驗證資料庫到期、密碼版本與角色，不能代替權限驗證。
 
 需要驗證 session 的 API 在資料庫存取前限流：每個 token 每分鐘 600 次、每種 session 的 IP 每分鐘 3000 次、學生與工作人員合計全站每分鐘 12000 次，超出回 429 與 Retry-After。IP 額度保留校園多人共用出口的空間；反向代理環境仍需確認實際來源 IP，不能盲目信任任意 X-Forwarded-For。Node 計數為 process-local，Workers 計數透過既有 LOGIN_LIMITER 共享；Node 多程序部署需另外共用限流儲存。Session 查詢／建立／刪除在同一 process／isolate 共享最多 16 件並行、512 件等待，等待超過 5 秒或佇列滿載回 503 與 Retry-After；並行界限不是跨所有雲端 isolates 的全域上限。
