@@ -162,12 +162,11 @@ export async function parseExcelFile(file: File): Promise<{
  * 序號 學制 系所 班級 指導老師 領域 編號 專題名稱 組長學號 +編號(抽籤後)
  */
 export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
-  // Sort projects: drawn projects first by draw_order, then undrawn
+  // Export by original identifier (A01, A02, ... A100, B01), independent of draw order.
+  const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
   const sortedProjects = [...projects].sort((a, b) => {
-    if (a.draw_order && b.draw_order) return a.draw_order - b.draw_order;
-    if (a.draw_order && !b.draw_order) return -1;
-    if (!a.draw_order && b.draw_order) return 1;
-    return parseInt(a.seq_no, 10) - parseInt(b.seq_no, 10) || 0;
+    return collator.compare(a.original_code, b.original_code)
+      || collator.compare(a.seq_no, b.seq_no);
   });
 
   const rows = sortedProjects.map((p) => {

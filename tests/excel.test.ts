@@ -41,3 +41,18 @@ test('replacing a roster keeps stable IDs for matching student leaders', async (
   assert.equal(reconciled[0].project_title, '更新專題');
   assert.equal(reconciled[1].id, next[1].id);
 });
+
+test('exported file follows original codes across domains regardless of draw status or presentation order', async () => {
+  const base = (await parseExcelFile(makeFile([row]))).projects![0];
+  const codes = ['G01', 'B03', 'A100', 'B01', 'A03', 'A99', 'A01', 'A02', 'B02', 'C01', 'D01', 'E01', 'F01'];
+  const projects = codes.map((code, i) => ({
+    ...base, id: `export-${i}`, seq_no: String(codes.length - i), original_code: code,
+    draw_order: i % 2 ? 1 : null, draw_code: i % 2 ? 'G99' : null,
+  }));
+  const before = structuredClone(projects);
+  const bytes = XLSX.write(createExportWorkbook(projects), { type: 'array', bookType: 'xlsx' });
+  const workbook = XLSX.read(bytes, { type: 'array' });
+  const exported = XLSX.utils.sheet_to_json<Record<string, string>>(workbook.Sheets[workbook.SheetNames[0]]);
+  assert.deepEqual(exported.map(p => p.編號), ['A01', 'A02', 'A03', 'A99', 'A100', 'B01', 'B02', 'B03', 'C01', 'D01', 'E01', 'F01', 'G01']);
+  assert.deepEqual(projects, before);
+});
