@@ -44,6 +44,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   let unavailable = false;
   let malformedState = false;
   let rosterReads = 0;
+  let databaseRequests = 0;
   let indexedReads = 0;
   let studentLookupReads = 0;
   let missingLookup = false;
@@ -57,6 +58,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   const staffSessions = new Map<string, any>();
   const sessions = new Map<string, { token_hash: string; project_id: string; credential_version: string; expires_at: string }>();
   const mock = http.createServer(async (req, res) => {
+    if (req.url?.startsWith('/rest/v1/')) databaseRequests++;
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = raw ? JSON.parse(raw) : {};
     const url = new URL(req.url!, 'http://localhost');
@@ -193,6 +195,18 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   };
   try {
     await launch();
+    const beforeForgedCookies = databaseRequests;
+    for (const fake of ['1'.repeat(64), `${'2'.repeat(64)}.${'3'.repeat(64)}`]) {
+      for (const endpoint of ['/api/student/me', '/api/auth/me', '/api/state', '/api/projects', '/api/domain-configs']) {
+        const cookie = endpoint === '/api/student/me' ? `ntcust_student_session=${fake}` : `ntcust_staff_session=${fake}`;
+        assert.equal((await request(endpoint, undefined, undefined, cookie)).status, 401);
+      }
+      for (const scope of ['student', 'staff']) {
+        const endpoint = scope === 'student' ? '/api/student/logout' : '/api/auth/logout';
+        assert.equal((await request(endpoint, {}, undefined, `ntcust_${scope}_session=${fake}`)).status, 200);
+      }
+    }
+    assert.equal(databaseRequests, beforeForgedCookies, 'unsigned and forged cookies must never query/delete database sessions');
     if (cloudflareTest) {
       for (const page of ['/', '/admin', '/stage', '/student']) {
         const response = await fetch(`${base}${page}`, { headers: { 'Sec-Fetch-Mode': 'navigate' } });
@@ -223,6 +237,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.match(adminLogin.cookie!, /SameSite=Strict/i);
     assert.equal(adminLogin.cookie!.includes('Max-Age'), false);
     const admin = adminLogin.cookie!.split(';')[0];
+    assert.match(admin, /^ntcust_staff_session=[a-f0-9]{64}\.[a-f0-9]{64}$/);
     assert.equal(staffSessions.has(admin.split('=')[1]), false);
     assert.equal((await request('/api/auth/me', undefined, admin)).data.session.role, 'admin');
     assert.equal((await request('/api/preferences', undefined, admin)).status, 404);
@@ -302,13 +317,17 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     for (const field of ['seq_no', 'class_name', 'advisor', 'education_system', 'department']) assert.equal(student.data.project[field], '');
     assert.match(student.cookie!, /HttpOnly/i); assert.match(student.cookie!, /Secure/i); assert.match(student.cookie!, /SameSite=Strict/i);
     const studentCookie = student.cookie!.split(';')[0];
+    assert.match(studentCookie, /^ntcust_student_session=[a-f0-9]{64}\.[a-f0-9]{64}$/);
     const sessionToken = studentCookie.split('=')[1];
     assert.equal(sessions.has(sessionToken), false); // Supabase only holds token digests.
     const readsBeforeLookup = rosterReads;
     const indexedBeforeLookup = indexedReads;
     const rpcBeforeLookup = studentLookupReads;
     const lookupCount = cloudflareTest ? 300 : 20;
-    const results = await Promise.all(Array.from({ length: lookupCount }, () => request('/api/student/me', undefined, undefined, studentCookie)));
+    const settledLookups = await Promise.allSettled(Array.from({ length: lookupCount }, () => request('/api/student/me', undefined, undefined, studentCookie)));
+    const lookupFailures = settledLookups.filter(result => result.status === 'rejected');
+    assert.equal(lookupFailures.length, 0, `lookup failures: ${lookupFailures.map(result => String((result as PromiseRejectedResult).reason)).join('; ')}`);
+    const results = settledLookups.map(result => (result as PromiseFulfilledResult<Awaited<ReturnType<typeof request>>>).value);
     assert.equal(results.filter(result => result.status === 200).length, lookupCount);
     assert.equal(rosterReads, readsBeforeLookup, 'student lookup must not read the full roster');
     assert.equal(indexedReads, indexedBeforeLookup, 'lookup RPC must not trigger another project query');
@@ -647,6 +666,20 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(failedTest.status, 200); assert.equal(failedTest.data.errorCount, 1);
     assert.ok(failedTest.data.domains[0].issues.some((issue: any) => issue.level === 'error' && /共 4 件.*名冊有 3 件/.test(issue.message)));
     assert.deepEqual(state, beforeFailedTest);
+    // A legitimately signed but revoked cookie must still have a bounded DB budget.
+    let sessionLimited = false;
+    for (let n = 0; n < 610; n++) {
+      const before = databaseRequests;
+      const response = await request('/api/auth/me', undefined, admin);
+      if (response.status === 429) {
+        assert.equal(databaseRequests, before, 'session limit must reject before database access');
+        assert.ok(Number(response.retryAfter) > 0);
+        assert.match(response.data.error, /過於頻繁/);
+        sessionLimited = true; break;
+      }
+      assert.equal(response.status, 401);
+    }
+    assert.equal(sessionLimited, true, 'revoked signed cookies must not query the DB without a ceiling');
   } finally {
     releaseCapacity();
     await stop();

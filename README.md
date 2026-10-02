@@ -153,6 +153,10 @@ npm run dev:cloudflare
 
 一般 Node.js 部署仍可用 `NODE_ENV=production npm start`。`vite preview` 僅供靜態預覽，不提供 API。
 
+Session 負載防護（S09）：學生與工作人員 Cookie 使用綁定用途的 HMAC 簽章，簽章 key 從後端 `SUPABASE_SECRET_KEY`（或 `SUPABASE_SERVICE_ROLE_KEY`）以獨立標記派生，不需新增環境變數。假簽章、舊版無簽章 Cookie 不會查詢或刪除資料庫 session；上線後既有使用者需重新登入，輪替後端 secret 也會使既有 Cookie 失效。所有 Node instances／Workers shards 應使用相同後端 key；簽章有效仍需驗證資料庫到期、密碼版本與角色，不能代替權限驗證。
+
+需要驗證 session 的 API 在資料庫存取前限流：每個 token 每分鐘 600 次、每種 session 的 IP 每分鐘 3000 次、學生與工作人員合計全站每分鐘 12000 次，超出回 429 與 Retry-After。IP 額度保留校園多人共用出口的空間；反向代理環境仍需確認實際來源 IP，不能盲目信任任意 X-Forwarded-For。Node 計數為 process-local，Workers 計數透過既有 LOGIN_LIMITER 共享；Node 多程序部署需另外共用限流儲存。Session 查詢／建立／刪除在同一 process／isolate 共享最多 16 件並行、512 件等待，等待超過 5 秒或佇列滿載回 503 與 Retry-After；並行界限不是跨所有雲端 isolates 的全域上限。
+
 測試使用本機模擬 Supabase HTTP 服務，涵蓋工作人員 cookie／登出撤銷／重啟恢復、匿名讀取限制、學生專題存取、cookie、密碼雜湊／重設／舊密碼停用、API 權限、完整欄位儲存、刪除／清空、抽籤／重設、版本衝突、登入限流與連線失敗，另測試 Excel 匯入匯出。實際 Supabase migration 與雲端連線需填入專案資訊後驗證。
 
 資料庫測試使用 PostgreSQL（PGlite）實際執行 migrations，驗證欄位與抽籤結果保留、主鍵／學號索引與 2000 筆資料的查詢計畫、交易失敗回復、版本衝突、刪除／清空、學號互換、角色權限，以及遷移失敗保留原資料。API 測試另驗證舊 schema 相容與 300 次同時查榜只查單筆資料。套件 advisory 查詢涵蓋鎖定及啟用版本，未回報已知漏洞；不代表所有部署層面的風險都已消除。

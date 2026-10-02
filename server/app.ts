@@ -5,7 +5,8 @@ import { createStore, ApiError, validateProjects, validateDomains, type Database
 import { projectDto, stageProjectDto, studentProjectDto, publicStudentProjectDto, prepareProjects, verifyPassword, hashPassword, sharedPasswordHash } from './credentials';
 import { createStudentSession, getStudentProject, clearStudentSession } from './studentSessions';
 import { createStaffSession, getStaffSession, clearStaffSession } from './staffSessions';
-import { loginLimiter, anonymousLimiter } from './rateLimit';
+import { loginLimiter, anonymousLimiter, sessionLimiter } from './rateLimit';
+import { readSessionToken, sessionScopeForPath } from './sessionSecurity';
 import { ResourceBusyError, BoundedExecutor, timedFetch } from './resourceLimits';
 import { runtimeEnv } from './runtime';
 import { publicError } from './errors';
@@ -35,6 +36,17 @@ app.use('/api', (req, res, next) => {
     }
   }
   next();
+});
+const studentSessionLimit = sessionLimiter('student');
+const staffSessionLimit = sessionLimiter('staff');
+// Runs before auth/database access, including the pre-body roster authorization.
+app.use('/api', (req, res, next) => {
+  const path = req.path.toLowerCase().replace(/\/+$/, '');
+  const scope = sessionScopeForPath(path);
+  if (!scope) return next();
+  // Clearing a missing/invalid cookie is safe and needs no database or limiter.
+  if (path.endsWith('/logout') && !readSessionToken(req, scope)) return next();
+  (scope === 'student' ? studentSessionLimit : staffSessionLimit)(req, res, next);
 });
 // Authenticate roster writes before accepting their larger body allowance.
 app.post('/api/projects', (req, _res, next) => { void authorize(req, true).then(() => next()).catch(next); });

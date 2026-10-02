@@ -50,7 +50,8 @@ export class ApiBackend {
 export class LoginLimiter {
   constructor(private ctx: DurableObjectState) {}
   async fetch(request: Request) {
-    const { limit, windowMs } = await request.json() as { limit: number; windowMs: number };
+    const { limit, windowMs, budgets } = await request.json() as { limit: number; windowMs: number; budgets?: Array<{ key: string; limit: number }> };
+    if (budgets) return this.checkSessionBudgets(budgets, windowMs);
     const now = Date.now();
     const result = await this.ctx.storage.transaction(async tx => {
       const stored = await tx.get<{ count: number; resetAt: number }>('bucket');
@@ -63,5 +64,40 @@ export class LoginLimiter {
     });
     return Response.json(result);
   }
-  async alarm() { await this.ctx.storage.deleteAll(); }
+  private async checkSessionBudgets(budgets: Array<{ key: string; limit: number }>, windowMs: number) {
+    // Session requests have exactly three server-generated budgets; callers are internal bindings.
+    if (budgets.length !== 3 || windowMs !== 60000 || budgets.some(b => !b.key.startsWith('session:') || !Number.isInteger(b.limit) || b.limit < 1)) return new Response('Invalid budgets', { status: 400 });
+    const now = Date.now();
+    const result = await this.ctx.storage.transaction(async tx => {
+      const resetAt = await tx.get<number>('resetAt');
+      const expires = resetAt && resetAt > now ? resetAt : now + windowMs;
+      if (resetAt && resetAt <= now) {
+        // Transactional cleanup keeps rollover atomic with incoming requests.
+        for (;;) {
+          const page = await tx.list({ limit: 1000 });
+          if (!page.size) break;
+          await tx.delete([...page.keys()]);
+        }
+      }
+      const keys = budgets.map(b => b.key);
+      const stored = await tx.get<{ count: number; resetAt: number }>(keys);
+      const retryAfter = Math.ceil((expires - now) / 1000);
+      if (budgets.some(b => (stored.get(b.key)?.count || 0) >= b.limit)) return { success: false, retryAfter };
+      const count = await tx.get<number>('count') || 0;
+      const additions = keys.filter(key => !stored.has(key)).length;
+      if (count + additions > 10000) return { success: false, retryAfter };
+      const updates = Object.fromEntries(keys.map(key => [key, { count: (stored.get(key)?.count || 0) + 1, resetAt: expires }]));
+      await tx.put({ ...updates, count: count + additions, resetAt: expires });
+      await tx.setAlarm(expires);
+      return { success: true, retryAfter: 0 };
+    });
+    return Response.json(result);
+  }
+  async alarm() {
+    await this.ctx.blockConcurrencyWhile(async () => {
+      const resetAt = await this.ctx.storage.get<number>('resetAt');
+      if (resetAt && resetAt > Date.now()) await this.ctx.storage.setAlarm(resetAt);
+      else await this.ctx.storage.deleteAll();
+    });
+  }
 }
