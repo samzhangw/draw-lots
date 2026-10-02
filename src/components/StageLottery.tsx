@@ -332,11 +332,19 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
           ) : isFullscreen ? (
             <div className="stage-presentation-ready">
               <div className="stage-presentation-hero">
-                <span className={`stage-presentation-emblem ${undrawnPool.length ? '' : 'is-complete'}`} aria-hidden="true">{undrawnPool.length ? <Zap /> : <CheckCircle2 />}</span>
-                <p>{selectedField === 'ALL' ? '全校各領域' : selectedField}</p>
-                <h2>{currentPool.length === 0 ? selectedFields?.length === 0 ? '請勾選抽籤領域' : '尚無專題資料' : undrawnPool.length ? '準備開始抽籤' : '報告場次與順位已排定'}</h2>
-                <div className="stage-presentation-counts"><span>專題總數 <strong>{currentPool.length}</strong> 件</span><span>已完成 <strong>{drawnPool.length}</strong> 件</span><span>尚待抽籤 <strong>{undrawnPool.length}</strong> 件</span></div>
-                <p className="stage-presentation-description">{batchDrawSummary || (currentPool.length === 0 ? selectedFields?.length === 0 ? '請從抽籤範圍選擇至少一個領域。' : '請先在管理後台匯入專題資料。' : undrawnPool.length ? '各領域依設定分組，確認後開始現場抽籤。' : '點選「輪播結果」，開始展示各組報告順序。')}</p>
+                <div className="stage-presentation-intro">
+                  <span className={`stage-presentation-emblem ${undrawnPool.length ? '' : 'is-complete'}`} aria-hidden="true">{undrawnPool.length ? <Zap /> : <CheckCircle2 />}</span>
+                  <div className="stage-presentation-title">
+                    <p className="stage-presentation-scope">{selectedField === 'ALL' ? '全校各領域' : selectedFields?.length === 0 ? '尚未選擇領域' : selectedFields?.length === 1 ? selectedField : `本次已選 ${selectedFields?.length} 個領域`}</p>
+                    <h2>{currentPool.length === 0 ? selectedFields?.length === 0 ? '請勾選抽籤領域' : '尚無專題資料' : undrawnPool.length ? '準備開始抽籤' : '報告場次與順位已排定'}</h2>
+                  </div>
+                </div>
+                <div className="stage-presentation-counts" role="group" aria-label="本次抽籤數量">
+                  <div className="stage-presentation-stat"><span>專題總數</span><p><strong>{currentPool.length}</strong><small>件</small></p></div>
+                  <div className="stage-presentation-stat stage-presentation-stat--complete"><span>已完成</span><p><strong>{drawnPool.length}</strong><small>件</small></p></div>
+                  <div className="stage-presentation-stat stage-presentation-stat--pending"><span>尚待抽籤</span><p><strong>{undrawnPool.length}</strong><small>件</small></p></div>
+                </div>
+                <p className="stage-presentation-description">{batchDrawSummary || (currentPool.length === 0 ? selectedFields?.length === 0 ? '請從抽籤範圍選擇至少一個領域。' : '請先在管理後台匯入專題資料。' : undrawnPool.length ? '確認本次領域後，點選下方按鈕開始抽籤。' : '點選「輪播結果」，開始展示各組報告順序。')}</p>
               </div>
               <div className="stage-presentation-domains">
                 {visibleDomainConfigs.map((cfg) => <article key={cfg.id}><h3>{cfg.field}</h3><p>{cfg.groupCount} 組場次 · {currentPool.filter(p => p.field === cfg.field).length} 件專題</p></article>)}
