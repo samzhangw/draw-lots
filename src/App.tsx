@@ -164,7 +164,7 @@ export default function App() {
     return domainConfigs.map((d) => d.field);
   }, [domainConfigs]);
 
-  if (!authReady) return <div className="p-8 text-center text-slate-500">正在載入後端登入狀態…</div>;
+  if (!authReady && currentView !== 'student') return <div className="p-8 text-center text-slate-500">正在載入後端登入狀態…</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-rose-100 selection:text-rose-900">
@@ -187,7 +187,7 @@ export default function App() {
             onAction={() => void loadData()}
           />
         )}
-        {isLoading && (projects.length === 0 || currentView !== 'student') ? (
+        {isLoading && currentView !== 'student' ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
             <div className="w-9 h-9 border-3 border-rose-100 border-t-rose-600 rounded-full animate-spin" />
             <p className="text-slate-500 text-xs">載入專題名冊與抽籤資料中...</p>
