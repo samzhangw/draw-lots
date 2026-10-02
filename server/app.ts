@@ -5,7 +5,8 @@ import { createStore, ApiError, validateProjects, validateDomains, type Database
 import { projectDto, stageProjectDto, studentProjectDto, publicStudentProjectDto, prepareProjects, verifyPassword, hashPassword, sharedPasswordHash } from './credentials';
 import { createStudentSession, getStudentProject, clearStudentSession } from './studentSessions';
 import { createStaffSession, getStaffSession, clearStaffSession } from './staffSessions';
-import { loginLimiter } from './rateLimit';
+import { loginLimiter, anonymousLimiter } from './rateLimit';
+import { ResourceBusyError, BoundedExecutor, timedFetch } from './resourceLimits';
 import { runtimeEnv } from './runtime';
 import { publicError } from './errors';
 import { executeAllDomainsIndependentLottery, allocateDomainSubgroups } from '../src/lib/lottery';
@@ -23,10 +24,9 @@ app.use('/api', (_req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   next();
 });
-app.use(express.json({ limit: '5mb' }));
 app.use('/api', (req, res, next) => {
   if (req.method === 'POST') {
-    if (!req.is('application/json') || !req.body || Array.isArray(req.body)) return res.status(400).json({ success: false, error: '請使用有效的 JSON 物件。' });
+    if (!req.is('application/json')) return res.status(400).json({ success: false, error: '請使用有效的 JSON 物件。' });
     const origin = req.get('origin');
     if (req.get('sec-fetch-site') === 'cross-site') return res.status(403).json({ success: false, error: '不允許跨站操作。' });
     if (origin) {
@@ -36,8 +36,30 @@ app.use('/api', (req, res, next) => {
   }
   next();
 });
+// Authenticate roster writes before accepting their larger body allowance.
+app.post('/api/projects', (req, _res, next) => { void authorize(req, true).then(() => next()).catch(next); });
+const loginJson = express.json({ limit: '4kb' });
+const rosterJson = express.json({ limit: '5mb' });
+const smallJson = express.json({ limit: '64kb' });
+app.use((req, res, next) => {
+  const path = req.path.toLowerCase().replace(/\/+$/, '');
+  const parser = ['/api/auth/verify', '/api/student/verify'].includes(path) ? loginJson
+    : path === '/api/projects' && req.method === 'POST' ? rosterJson : smallJson;
+  parser(req, res, next);
+});
+app.use('/api', (req, res, next) => {
+  if (req.method === 'POST' && (!req.body || Array.isArray(req.body))) {
+    res.status(400).json({ success: false, error: '請使用有效的 JSON 物件。' }); return;
+  }
+  next();
+});
 const route = (handler: (req: Request, res: Response) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => { Promise.resolve(handler(req, res)).catch(next); };
+
+const studentLoginWork = new BoundedExecutor(8, 32, 8000);
+const staffLoginWork = new BoundedExecutor(2, 8, 3000);
+const loginRoute = (scope: 'staff' | 'student', handler: (req: Request, res: Response) => Promise<unknown>) =>
+  route((req, res) => (scope === 'student' ? studentLoginWork : staffLoginWork).run(() => handler(req, res)));
 
 async function authorize(req: Request, adminOnly = false) {
   const role = (await getStaffSession(req))!.profile.role;
@@ -64,24 +86,18 @@ function checkVersion(req: Request, state: DatabaseState) {
   if (req.body.version !== state.version) throw new ApiError(409, '資料已由其他人更新，請重新整理後再操作。');
 }
 
-app.get('/api/health', route(async (_req, res) => {
-  const store = createStore();
-  const [state, studentSessions, staffSessions] = await Promise.all([
-    store.load(),
-    store.client.from('ntcust_student_sessions').select('token_hash', { head: true }).limit(1),
-    store.client.from('ntcust_staff_sessions').select('token_hash', { head: true }).limit(1),
-  ]);
-  if (studentSessions.error || staffSessions.error) throw new ApiError(503, '登入資料表尚未就緒。');
-  res.json({ status: 'ok', engine: 'supabase', projectCount: state.projects.length, lastUpdated: state.lastUpdated });
+app.get('/api/health', anonymousLimiter('health', 120, 3600), route(async (_req, res) => {
+  await createStore().health();
+  res.json({ status: 'ok' });
 }));
-app.post('/api/auth/verify', loginLimiter('staff'), route(async (req, res) => {
+app.post('/api/auth/verify', loginLimiter('staff'), loginRoute('staff', async (req, res) => {
   const { username, password, targetView } = req.body;
   if (typeof username !== 'string' || username.length > 256 || typeof password !== 'string' || password.length > 128 || !['admin', 'stage'].includes(targetView)) throw new ApiError(400, '請輸入 Email、密碼與有效的登入頁面。');
   // Separate auth client: signing in must never replace the database client's privileged token.
   const url = runtimeEnv().SUPABASE_URL;
   const key = runtimeEnv().SUPABASE_PUBLISHABLE_KEY || runtimeEnv().SUPABASE_ANON_KEY;
   if (!url || !key) throw new ApiError(503, '尚未設定 Supabase Auth 連線資訊。');
-  const auth = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  const auth = createClient(url, key, { global: { fetch: timedFetch }, auth: { persistSession: false, autoRefreshToken: false } });
   const { data, error } = await auth.auth.signInWithPassword({ email: username.trim(), password });
   if (error || !data.session) throw new ApiError(401, 'Email 或密碼不正確。');
   const role = data.user.app_metadata.role;
@@ -96,7 +112,7 @@ app.post('/api/auth/logout', route(async (req, res) => {
   await clearStaffSession(req, res);
   res.json({ success: true });
 }));
-app.post('/api/student/verify', loginLimiter('student', 10, 600), route(async (req, res) => {
+app.post('/api/student/verify', loginLimiter('student', 10, 600), loginRoute('student', async (req, res) => {
   const { leaderId, password } = req.body;
   if (typeof leaderId !== 'string' || leaderId.length > 128 || typeof password !== 'string' || password.length > 128) throw new ApiError(400, '請輸入有效的組長學號與密碼。');
   const project = await createStore().findProject('leader_key', leaderId.trim().toLowerCase());
@@ -113,13 +129,8 @@ app.post('/api/student/logout', route(async (req, res) => {
   await clearStudentSession(req, res);
   res.json({ success: true });
 }));
-app.get('/api/public-results', route(async (_req, res) => {
-  const state = await createStore().load();
-  // Public presentation codes only; no student identity, titles, roster or reviewer names.
-  res.json({ success: true, results: state.projects.filter(p => p.draw_order).map(p => ({
-    field: p.field, original_code: p.original_code, assigned_group: p.assigned_group ?? null,
-    draw_order: p.draw_order, draw_code: p.draw_code ?? null,
-  })) });
+app.get('/api/public-results', anonymousLimiter('results', 600, 6000), route(async (_req, res) => {
+  res.json({ success: true, results: await createStore().publicResults() });
 }));
 app.get('/api/state', route(async (req, res) => {
   const role = await authorize(req);
@@ -135,7 +146,6 @@ app.get('/api/domain-configs', route(async (req, res) => {
   res.json({ success: true, domainConfigs: state.domainConfigs, version: state.version });
 }));
 app.post('/api/projects', route(async (req, res) => {
-  await authorize(req, true);
   validateProjects(req.body.projects);
   if (runtimeEnv().LOGIN_LIMITER && req.body.projects.filter((p: { password?: string }) => p.password).length > 100) throw new ApiError(400, '單次最多設定 100 組學生密碼，請分批設定；無密碼名冊仍可匯入 2000 筆。');
   const store = createStore();
@@ -241,6 +251,7 @@ app.use('/api', (_req, res) => { res.status(404).json({ success: false, error: '
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   const requestId = res.locals.requestId || randomUUID();
   res.setHeader('X-Request-ID', requestId);
+  if (err instanceof ResourceBusyError) res.setHeader('Retry-After', err.retryAfter);
   const { status, body } = publicError(err, requestId);
   if (status >= 500) console.error('API request failed:', {
     requestId, status, type: err instanceof ApiError ? 'ApiError' : 'UnexpectedError',

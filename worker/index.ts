@@ -36,19 +36,13 @@ export default {
 
 // Give password hashing the DO CPU budget; all business data still stays in Supabase.
 export class ApiBackend {
-  private studentLoginQueue: Promise<void> = Promise.resolve();
   constructor(_ctx: DurableObjectState, private env: Env) {}
   async fetch(request: Request) {
-    const run = () => withRuntime(
+    // Validate/limit in Express before hash admission. The credentials module
+    // bounds scrypt work across all API objects sharing this isolate.
+    return withRuntime(
       { ...this.env, NODE_ENV: 'production' }, () => handleAsNodeRequest(8080, request),
     );
-    if (new URL(request.url).pathname !== '/api/student/verify') return run();
-    // Bound concurrent scrypt memory within each object without blocking unrelated reads.
-    const previous = this.studentLoginQueue;
-    let release!: () => void;
-    this.studentLoginQueue = new Promise<void>(resolve => { release = resolve; });
-    await previous;
-    try { return await run(); } finally { release(); }
   }
 }
 

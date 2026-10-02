@@ -78,7 +78,7 @@ IP 限制仍有效（staff 每 IP 100 次／15 分鐘），Supabase 自身防護
 
 修正：工作人員整合 MFA challenge；建立及查驗後端 session 時要求經驗證 token 的 AAL 符合規則。角色移除／停用、密碼重設與 session 撤銷也需做正式驗收。參考：[Supabase MFA 與授權要求](https://supabase.com/docs/guides/auth/auth-mfa)。
 
-## S04 — 中：公開查詢與登入排隊缺少應用層資源界限
+## S04 — 中：公開查詢與登入排隊缺少應用層資源界限（已修復；保留歷史檢查）
 
 位置：`server/app.ts:24`、`server/app.ts:65`、`server/app.ts:118`、`worker/index.ts:45`。
 
@@ -87,6 +87,8 @@ IP 限制仍有效（staff 每 IP 100 次／15 分鐘），Supabase 自身防護
 Workers 學生登入先進入沒有長度／等待期限上限的 queue，之後才到 Express 限流。被限流的請求也先排隊；密碼重設與共用密碼產生端點則未經該 queue。這是可用性與成本風險，未進行負載測試，也未確認 Cloudflare WAF 或平台配額是否已有補強。
 
 修正：為匿名查詢設限流與短期公開結果快取；健康檢查改成最小查詢。登入 payload 另設較小上限；在排隊前執行驗證／限流，設 queue 上限、等待期限及適當的雜湊並行限制，避免使用全域鎖阻塞正常查榜。
+
+2026-10-02 修復：健康檢查改為 HEAD／status 與 2 秒快取；公開結果只選白名單欄位、分頁讀取與版本檢查，快取 5 秒，兩端點加入共享 IP／全站限流。登入 body 限 4 KB、名冊先驗證管理員再解析 5 MB。登入在限流後加入有限並行、排隊數與等待期限；scrypt 的執行器在整個行程／isolate 共用，所有密碼操作一次只跑一件。滿載／等候逾時回 503、Retry-After: 2；查榜不進這些隊列。Supabase 查詢有 5 秒期限。另將 S07 的匿名 health 筆數／時間資訊移除。
 
 ## S05 — 中：前端文件缺少 CSP；Node 版本未全面加上安全標頭
 
@@ -108,7 +110,7 @@ Workers 對回應加入 HSTS、nosniff、DENY，但沒有 CSP。Node 的 nosniff
 
 2026-10-02 修復：移除整數與浮點亂數的 Math.random 備援。Web Crypto 缺少或 getRandomValues 執行失敗時拋出明確錯誤，API 回傳 503 並停止儲存抽籤結果；洗牌與隨機選取也檢查安全亂數支援。單元測試明確替換 Web Crypto 以模擬故障與拒絕取樣，不在正式程式提供不安全亂數路徑。
 
-## S07 — 低：匿名健康檢查暴露名冊筆數與更新時間
+## S07 — 低：匿名健康檢查暴露名冊筆數與更新時間（隨 S04 已修復）
 
 位置：`server/app.ts:73`。
 

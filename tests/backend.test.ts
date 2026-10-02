@@ -45,6 +45,12 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   let malformedState = false;
   let rosterReads = 0;
   let indexedReads = 0;
+  let publicReads = 0;
+  let metadataReads = 0;
+  let activeCapacityReads = 0;
+  let maxCapacityReads = 0;
+  let capacityWait: Promise<void> = Promise.resolve();
+  let releaseCapacity = () => {};
   let legacySchema = false;
   const staffSessions = new Map<string, any>();
   const sessions = new Map<string, { token_hash: string; project_id: string; credential_version: string; expires_at: string }>();
@@ -88,6 +94,12 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST205', message: 'table not found' })); return;
     }
     if (url.pathname === '/rest/v1/ntcust_lottery_state') {
+      if (req.method === 'HEAD') {
+        metadataReads++; res.setHeader('Content-Range', '0-0/1'); res.end(); return;
+      }
+      if (url.searchParams.get('select') === 'version') {
+        metadataReads++; res.end(JSON.stringify({ version: state.version })); return;
+      }
       rosterReads++;
       if (req.method === 'PATCH') {
         if (url.searchParams.get('version') !== `eq.${state.version}`) { res.end('null'); return; }
@@ -108,9 +120,28 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       res.end(JSON.stringify(state)); return;
     }
     if (url.pathname === '/rest/v1/ntcust_projects') {
+      if (url.searchParams.get('select') !== 'document') {
+        publicReads++;
+        assert.equal(url.searchParams.get('document->>draw_order'), 'not.is.null');
+        assert.equal(url.searchParams.get('order'), 'position.asc');
+        assert.equal(url.searchParams.get('select')?.includes('password'), false);
+        const offset = Number(url.searchParams.get('offset') || 0);
+        const limit = Number(url.searchParams.get('limit') || 500);
+        const rows = state.projects.filter(p => p.draw_order).slice(offset, offset + limit).map(p => ({
+          field: p.field, original_code: p.original_code, assigned_group: p.assigned_group,
+          draw_order: p.draw_order, draw_code: p.draw_code,
+        }));
+        res.end(JSON.stringify(malformedState ? null : rows)); return;
+      }
       indexedReads++;
       const id = url.searchParams.get('id')?.slice(3);
       const leader = url.searchParams.get('leader_key')?.slice(3);
+      if (leader?.startsWith('capacity-')) {
+        activeCapacityReads++;
+        maxCapacityReads = Math.max(maxCapacityReads, activeCapacityReads);
+        try { await capacityWait; } finally { activeCapacityReads--; }
+      }
+
       const row = state.projects.find(p => id !== undefined ? p.id === id : p.leader_id.trim().toLowerCase() === leader);
       res.end(JSON.stringify(row ? { document: row } : null)); return;
     }
@@ -143,9 +174,13 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     throw new Error(`Server did not start: ${output}`);
   };
   const stop = async () => { if (child && child.exitCode === null) { child.kill(); await once(child, 'exit'); } };
+  const readJson = async (res: Response) => {
+    const body = await res.text();
+    try { return JSON.parse(body); } catch { throw new Error(`Invalid JSON response ${res.url} (${res.status}): ${body.slice(0, 300)}\n${output}`); }
+  };
   const request = async (endpoint: string, body?: Record<string, unknown>, token?: string, cookie?: string) => {
     const res = await fetch(`${base}${endpoint}`, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', ...((token || cookie) ? { Cookie: [token, cookie].filter(Boolean).join('; ') } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
-    return { status: res.status, data: await res.json(), cookie: res.headers.getSetCookie().at(-1) };
+    return { status: res.status, data: await readJson(res), cookie: res.headers.getSetCookie().at(-1), retryAfter: res.headers.get('retry-after') };
   };
   try {
     await launch();
@@ -156,17 +191,21 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
         assert.match(await response.text(), /<div id="root">/);
       }
       const healthNavigation = await fetch(`${base}/api/health`, { headers: { 'Sec-Fetch-Mode': 'navigate' } });
-      assert.equal((await healthNavigation.json() as any).status, 'ok');
+      assert.equal((await readJson(healthNavigation) as any).status, 'ok');
     }
     const invalidJson = await fetch(`${base}/api/student/verify`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: '{"password":"do-not-echo-this"',
     });
-    const invalidBody = await invalidJson.json();
+    const invalidBody = await readJson(invalidJson);
     assert.equal(invalidJson.status, 400);
     assert.equal(JSON.stringify(invalidBody).includes('do-not-echo-this'), false);
     assert.equal(invalidJson.headers.get('cache-control'), 'no-store');
     assert.equal(invalidJson.headers.get('x-request-id'), invalidBody.requestId);
+    for (const endpoint of ['/api/student/verify', '/api/auth/verify', '/api/STUDENT/VERIFY/']) {
+      const oversized = await request(endpoint, { leaderId: 'test', username: 'test', password: 'x'.repeat(5000), targetView: 'admin' });
+      assert.equal(oversized.status, 413);
+    }
     const adminLogin = await request('/api/auth/verify', { username: 'admin@test.local', password: 'valid-password', targetView: 'admin' });
     assert.equal(adminLogin.status, 200);
     assert.equal(adminLogin.data.accessToken, undefined);
@@ -232,7 +271,16 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(stageState.data.projects[0].project_title, project.project_title);
     assert.equal((await request('/api/state', undefined, admin)).data.projects[0].leader_id, project.leader_id);
     for (const endpoint of ['/api/state', '/api/projects', '/api/domain-configs', '/api/student/me']) assert.equal((await request(endpoint)).status, 401);
+    const beforeAnonymousRosterReads = rosterReads;
+    const beforePublicReads = publicReads;
     assert.deepEqual((await request('/api/public-results')).data.results, []);
+    await Promise.all(Array.from({ length: 20 }, () => request('/api/public-results')));
+    assert.equal(publicReads - beforePublicReads, 1, 'cache must coalesce repeated public queries');
+    assert.equal(rosterReads, beforeAnonymousRosterReads, 'public queries must not load roster documents');
+    assert.ok(metadataReads > 0);
+    const beforeHealthRosterReads = rosterReads;
+    assert.deepEqual((await request('/api/health')).data, { status: 'ok' });
+    assert.equal(rosterReads, beforeHealthRosterReads, 'health must not load roster documents');
     assert.equal((await request('/api/projects', { projects: [{ ...project, password: '5678' }], version: saved.data.version }, admin)).status, 400);
     assert.equal((await request('/api/projects', { projects: [{ ...project, password_hash: 'forged' }], version: saved.data.version }, admin)).status, 400);
     assert.equal((await request('/api/student/verify', { leaderId: project.leader_id, password: '5678' })).status, 401);
@@ -255,6 +303,24 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(rosterReads, readsBeforeLookup, 'student lookup must not read the full roster');
     assert.equal(indexedReads - indexedBeforeLookup, lookupCount);
     assert.ok(results.every(result => result.data.project.leader_id === project.leader_id));
+    capacityWait = new Promise<void>(resolve => { releaseCapacity = resolve; });
+    let busyResponses = 0;
+    const loginBurst = Promise.all(Array.from({ length: 50 }, (_, n) =>
+      request('/api/student/verify', { leaderId: `capacity-${n}`, password: 'incorrect' }).then(result => {
+        if (result.status === 503) { busyResponses++; assert.equal(result.retryAfter, '2'); }
+        return result;
+      })
+    ));
+    try {
+      for (let n = 0; n < 100 && !busyResponses; n++) await new Promise(resolve => setTimeout(resolve, 20));
+      assert.ok(busyResponses > 0, 'full login queues must reject excess work before database access');
+      const duringOverload = await Promise.all(Array.from({ length: 20 }, () => request('/api/student/me', undefined, undefined, studentCookie)));
+      assert.ok(duringOverload.every(result => result.status === 200), 'lookup must remain available during login overload');
+    } finally { releaseCapacity(); }
+    const burstResults = await loginBurst;
+    assert.ok(burstResults.every(result => result.status === 401 || result.status === 503));
+    assert.ok(maxCapacityReads <= 8, 'login admission must bound concurrent database requests across API objects');
+
     const blockedLogout = await fetch(`${base}/api/student/logout`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: studentCookie, Origin: 'https://attacker.invalid' }, body: '{}' });
     assert.equal(blockedLogout.status, 403);
     assert.equal((await request('/api/student/me?projectId=p2', undefined, undefined, studentCookie)).data.project.id, project.id);
@@ -376,6 +442,17 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     await assert.rejects(store.save(legacySnapshot, legacySnapshot.version), /其他人更新/);
     legacySchema = false;
     assert.deepEqual(await store.load(), adapterSaved);
+    const largePublicRoster = Array.from({ length: 1200 }, (_, n) => ({ ...full, id: `public-${n}`, leader_id: `public-${n}`, original_code: `P${n}` }));
+    const largeSaved = await store.save({ ...adapterSaved, projects: largePublicRoster }, adapterSaved.version);
+    const beforeLargeReads = publicReads;
+    const publicRosterReads = rosterReads;
+    const largePublic = await request('/api/public-results');
+    assert.equal(largePublic.status, 200);
+    assert.equal(largePublic.data.results.length, 1200);
+    assert.equal(publicReads - beforeLargeReads, 3);
+    assert.equal(rosterReads, publicRosterReads);
+    assert.deepEqual(Object.keys(largePublic.data.results[0]).sort(), ['assigned_group', 'draw_code', 'draw_order', 'field', 'original_code']);
+    await store.save({ ...largeSaved, projects: [full] }, largeSaved.version);
     const fields = ['__proto__', 'constructor', 'toString'];
     const dangerousNames = fields.map((field, index) => ({ ...projectDto(project), id: `special-${index}`, leader_id: `student-${index}`, field }));
     const uploaded = await request('/api/projects', { projects: dangerousNames, version: state.version }, admin);
@@ -556,6 +633,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.ok(failedTest.data.domains[0].issues.some((issue: any) => issue.level === 'error' && /共 4 件.*名冊有 3 件/.test(issue.message)));
     assert.deepEqual(state, beforeFailedTest);
   } finally {
+    releaseCapacity();
     await stop();
     await rm(persistence, { recursive: true, force: true });
     await new Promise<void>(resolve => mock.close(() => resolve()));

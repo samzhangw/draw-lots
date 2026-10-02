@@ -1,13 +1,16 @@
 import { randomBytes, scrypt, timingSafeEqual, createHash } from 'node:crypto';
 import type { ProjectItem } from '../src/types';
 import { ApiError } from './errors';
+import { BoundedExecutor } from './resourceLimits';
 
 export type StoredProject = ProjectItem & { password_hash?: string; shared_password_mode?: boolean };
 const COST = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };
 const HASH_FORMAT = /^scrypt-v1\$([a-f0-9]{32})\$([a-f0-9]{64})$/;
-const derive = (password: string, salt: string) => new Promise<Buffer>((resolve, reject) => {
+// Shared by every API object in this isolate, including login and admin resets.
+const hashExecutor = new BoundedExecutor(1, 32, 8000);
+const derive = (password: string, salt: string) => hashExecutor.run(() => new Promise<Buffer>((resolve, reject) => {
   scrypt(password, salt, 32, COST, (error, result) => error ? reject(error) : resolve(result));
-});
+}));
 
 export function validatePassword(password: string, leaderId: string): void {
   if (password.trim().length < 12 || password.length > 128 || password === leaderId || password === leaderId.slice(-4)) {

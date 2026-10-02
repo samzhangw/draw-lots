@@ -101,3 +101,32 @@ for (const mode of ['Node', 'Workers'] as const) {
     assert.equal(counts.size, before, 'invalid account fields must be rejected before creating shared buckets');
   });
 }
+
+for (const mode of ['Node', 'Workers'] as const) {
+  test(`${mode}: anonymous budgets enforce both IP and aggregate limits before handlers`, async () => {
+    const counts = new Map<string, number>();
+    const shared = {
+      idFromName(name: string) { return name; },
+      get(name: string) { return { async fetch(_url: string, init: { body: string }) {
+        const { limit } = JSON.parse(init.body);
+        const count = counts.get(name) || 0;
+        if (count >= limit) return Response.json({ success: false, retryAfter: 60 });
+        counts.set(name, count + 1); return Response.json({ success: true, retryAfter: 0 });
+      } }; },
+    };
+    const { anonymousLimiter } = await import('../server/rateLimit');
+    const limiter = anonymousLimiter('results', 2, 3);
+    const attempt = (ip: string) => withRuntime(mode === 'Workers' ? { LOGIN_LIMITER: shared as any } : {},
+      () => new Promise<number>((resolve, reject) => {
+        let status = 200; let retryAfter: unknown;
+        const req = { ip, get: () => ip } as unknown as Request;
+        const res = { setHeader(_key: string, value: unknown) { retryAfter = value; }, status(value: number) { status = value; return this; }, json() { assert.ok(Number(retryAfter) > 0); resolve(status); } } as unknown as Response;
+        limiter(req, res, ((error?: unknown) => error ? reject(error) : resolve(200)) as NextFunction);
+      }));
+    assert.equal(await attempt('203.0.113.1'), 200);
+    assert.equal(await attempt('203.0.113.1'), 200);
+    assert.equal(await attempt('203.0.113.1'), 429);
+    assert.equal(await attempt('203.0.113.2'), 200);
+    assert.equal(await attempt('203.0.113.3'), 429);
+  });
+}
