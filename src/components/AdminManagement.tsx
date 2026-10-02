@@ -293,6 +293,44 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     setIsEvaluatorModalOpen(false);
   });
 
+  // Persist the display order using the version-checked domain settings API.
+  const handleMoveDomain = withSaveFeedback((id: string, _direction: number) => `domain-order:${id}`, async (id: string, direction: number) => {
+    const index = domainConfigs.findIndex(cfg => cfg.id === id);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= domainConfigs.length) return;
+    const reordered = [...domainConfigs];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    await onUpdateDomainConfigs(reordered);
+    setUploadFeedback({ type: 'success', message: '領域顯示順序已儲存。' });
+  });
+
+  const renderDomainOrderControls = (cfg: DomainConfig, index: number) => (
+    <div className="inline-flex items-center gap-1.5" aria-label={`${cfg.field}顯示順序`}>
+      <span className="min-w-6 text-center text-xs font-bold tabular-nums text-slate-600">{index + 1}</span>
+      <button
+        type="button"
+        onClick={() => void handleMoveDomain(cfg.id, -1)}
+        disabled={index === 0 || !!pendingAction || draftOpen}
+        aria-label={`將${cfg.field}上移`}
+        title="上移"
+        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"
+      >
+        <ArrowUp className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => void handleMoveDomain(cfg.id, 1)}
+        disabled={index === domainConfigs.length - 1 || !!pendingAction || draftOpen}
+        aria-label={`將${cfg.field}下移`}
+        title="下移"
+        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"
+      >
+        <ArrowDown className="h-4 w-4" />
+      </button>
+      {pendingAction === `domain-order:${cfg.id}` && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-label="正在儲存順序" />}
+    </div>
+  );
+
   // Save Domain (Add or Edit)
   const handleSaveDomain = withSaveFeedback('domain', async (e: React.FormEvent) => {
     e.preventDefault();
@@ -758,7 +796,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               <span>專題展領域、分組數與評審委員設定</span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              各領域可自訂分組組數與各組評審委員名單。
+              使用上、下箭頭調整領域顯示順序，調整後自動儲存並同步至台上抽籤頁。
             </p>
           </div>
 
@@ -778,7 +816,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
         {/* MOBILE CARDS VIEW (< md / 768px) */}
         <div className="md:hidden space-y-3">
-          {domainStatsDisplay.map((stat) => {
+          {domainStatsDisplay.map((stat, index) => {
             const drawnCount = projects.filter((p) => p.field === stat.field && p.draw_order).length;
             const isSelected = selectedFieldFilter === stat.field;
             const cfgObj = domainConfigs.find((c) => c.id === stat.id) || {
@@ -797,6 +835,10 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     : 'bg-white border-slate-200 shadow-2xs'
                 }`}
               >
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-slate-500">顯示順序</span>
+                  {renderDomainOrderControls(cfgObj, index)}
+                </div>
                 {/* Header: Title & Group Count */}
                 <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-100">
                   <div className="min-w-0 flex-1">
@@ -885,6 +927,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
           <table className="w-full text-left text-xs sm:text-sm border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 text-xs">
+                <th className="py-2.5 px-4 text-center border border-slate-200 whitespace-nowrap">顯示順序</th>
                 <th className="py-2.5 px-4 border border-slate-200">列標籤 (領域名稱)</th>
                 <th className="py-2.5 px-4 text-center border border-slate-200">件數</th>
                 <th className="py-2.5 px-4 text-center border border-slate-200">
@@ -896,7 +939,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {domainStatsDisplay.map((stat) => {
+              {domainStatsDisplay.map((stat, index) => {
                 const drawnCount = projects.filter((p) => p.field === stat.field && p.draw_order).length;
                 const isSelected = selectedFieldFilter === stat.field;
                 const cfgObj = domainConfigs.find((c) => c.id === stat.id) || {
@@ -913,6 +956,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                       isSelected ? 'bg-blue-50/70 font-semibold' : ''
                     }`}
                   >
+                    <td className="py-2 px-4 text-center border border-slate-200 whitespace-nowrap">
+                      {renderDomainOrderControls(cfgObj, index)}
+                    </td>
                     <td className="py-2 px-4 text-slate-800 border border-slate-200">
                       <span className="font-semibold text-slate-900">{stat.field}</span>
                     </td>
@@ -986,6 +1032,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               })}
               {/* Grand Total */}
               <tr className="bg-slate-100/90 font-bold text-slate-900 border-t-2 border-slate-300">
+                <td className="py-2.5 px-4 border border-slate-200" />
                 <td className="py-2.5 px-4 border border-slate-200">總計</td>
                 <td className="py-2.5 px-4 text-center font-mono text-rose-700 text-sm border border-slate-200">
                   {totalProjectsCount}

@@ -390,6 +390,16 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal((await request('/api/state', undefined, adminAgain)).data.projects[0].original_code, 'A01');
     assert.equal(state.version, codeVersion);
     assert.equal(state.projects[0].original_code, 'legacy');
+    const beforeReorder = (await request('/api/state', undefined, adminAgain)).data;
+    const reorderedConfigs = [...beforeReorder.domainConfigs].reverse();
+    const reordered = await request('/api/domain-configs', { domainConfigs: reorderedConfigs, version: beforeReorder.version }, adminAgain);
+    assert.equal(reordered.status, 200);
+    assert.deepEqual(reordered.data.domainConfigs, reorderedConfigs);
+    assert.deepEqual(reordered.data.projects, beforeReorder.projects);
+    assert.equal(reordered.data.version, beforeReorder.version + 1);
+    assert.deepEqual((await request('/api/state', undefined, adminAgain)).data.domainConfigs, reorderedConfigs);
+    assert.deepEqual((await request('/api/state', undefined, stage)).data.domainConfigs.map((c: { id: string }) => c.id), reorderedConfigs.map((c: { id: string }) => c.id));
+    assert.equal((await request('/api/domain-configs', { domainConfigs: beforeReorder.domainConfigs, version: beforeReorder.version }, adminAgain)).status, 409);
   } finally {
     await stop();
     await rm(persistence, { recursive: true, force: true });
