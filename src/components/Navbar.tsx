@@ -21,7 +21,11 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-[0_3px_16px_rgba(15,23,42,0.04)] backdrop-blur-xl">
-      <div className="h-0.5 bg-blue-900" aria-hidden="true" />
+      <div className="flex h-0.5" aria-hidden="true">
+        <span className="flex-[2] bg-[#365b92]" />
+        <span className="flex-1 bg-[#4b8a42]" />
+        <span className="flex-[2] bg-[#b3487d]" />
+      </div>
       <div className="mx-auto flex min-h-[4.25rem] max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:min-h-[4.75rem] sm:px-6 lg:px-8">
         <a href="/" className="group flex min-w-0 items-center gap-3 rounded-lg sm:gap-4 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label="返回學生查榜首頁">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center p-1 sm:h-14 sm:w-14">
@@ -35,10 +39,10 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-x-1.5 text-[11px] font-medium leading-relaxed text-slate-500 sm:text-xs">
               <span>國立臺中科技大學</span>
-              <span>・資訊與流通學院</span>
+              <span className="text-[#356a32]">・資訊與流通學院</span>
             </p>
-            <p className="mt-1 text-xl font-bold leading-tight tracking-wide text-blue-950 transition-colors group-hover:text-blue-800 sm:text-2xl">專題成果展</p>
-            <p className="mt-1 text-xs font-medium tracking-[0.16em] text-slate-600 sm:text-[13px]">報告抽籤系統</p>
+            <p className="mt-1 text-xl font-bold leading-tight tracking-wide text-[#28518a] transition-colors group-hover:text-[#234574] sm:text-2xl">專題成果展</p>
+            <p className="mt-1 text-xs font-medium tracking-[0.16em] text-[#93466e] sm:text-[13px]">報告抽籤系統</p>
           </div>
         </a>
 
