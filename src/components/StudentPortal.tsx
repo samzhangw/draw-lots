@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiRequest, ApiRequestError } from '../lib/api';
+import { hasStudentSessionHint, rememberStudentSessionHint, clearStudentSessionHint } from '../lib/studentSessionHint';
 import { ProjectItem } from '../types';
 import {
   UserCheck,
@@ -27,7 +28,7 @@ export const StudentPortal: React.FC = () => {
   const [sharedPasswordMode, setSharedPasswordMode] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
-  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isCheckingSession, setIsCheckingSession] = useState(hasStudentSessionHint);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<'login' | 'refresh' | 'logout' | null>(null);
   const requestEpoch = useRef(0);
@@ -45,6 +46,7 @@ export const StudentPortal: React.FC = () => {
       setErrorMessage('');
     } catch (error) {
       if (error instanceof ApiRequestError && error.status === 401) {
+        clearStudentSessionHint();
         setMyProject(null);
         setSharedPasswordMode(false);
         setLastUpdatedAt(null);
@@ -57,14 +59,16 @@ export const StudentPortal: React.FC = () => {
     const epoch = requestEpoch.current;
     const timer = window.setTimeout(() => {
       cancelled = true;
+      if (requestEpoch.current !== epoch) return;
       setErrorMessage('確認登入狀態逾時，請檢查網路連線後重新整理頁面。');
       setIsCheckingSession(false);
     }, 10000);
     apiRequest<{ project: ProjectItem; sharedPasswordMode: boolean }>('/api/student/me')
-      .then(data => { if (!cancelled && requestEpoch.current === epoch) { setMyProject(data.project); setLastUpdatedAt(new Date()); setSharedPasswordMode(data.sharedPasswordMode); } })
+      .then(data => { if (!cancelled && requestEpoch.current === epoch) { if (!hasStudentSessionHint()) rememberStudentSessionHint(); setMyProject(data.project); setLastUpdatedAt(new Date()); setSharedPasswordMode(data.sharedPasswordMode); } })
       .catch(error => {
-        if (!cancelled && requestEpoch.current === epoch && !(error instanceof ApiRequestError && error.status === 401)) {
-          setErrorMessage(error instanceof Error ? error.message : '確認登入狀態失敗，請稍後再試。');
+        if (!cancelled && requestEpoch.current === epoch) {
+          if (error instanceof ApiRequestError && error.status === 401) clearStudentSessionHint();
+          else setErrorMessage(error instanceof Error ? error.message : '確認登入狀態失敗，請稍後再試。');
         }
       })
       .finally(() => {
@@ -80,6 +84,7 @@ export const StudentPortal: React.FC = () => {
     setLoadingAction('logout');
     try {
       await apiRequest('/api/student/logout', {});
+      clearStudentSessionHint();
       setMyProject(null);
       setSharedPasswordMode(false);
       setStudentIdInput('');
@@ -111,6 +116,7 @@ export const StudentPortal: React.FC = () => {
     setLoadingAction('login');
     try {
       const data = await apiRequest<{ project: ProjectItem; sharedPasswordMode: boolean }>('/api/student/verify', { leaderId: query, password: pwd });
+      rememberStudentSessionHint();
       setMyProject(data.project);
       setLastUpdatedAt(new Date());
       setSharedPasswordMode(data.sharedPasswordMode);
