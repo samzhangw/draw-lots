@@ -6,8 +6,6 @@ import { FloatingNotice } from './FloatingNotice';
 import confetti from 'canvas-confetti';
 import './StageLottery.css';
 import {
-  Dices,
-  Sparkles,
   RotateCcw,
   Maximize2,
   Minimize2,
@@ -18,7 +16,6 @@ import {
   X,
   Users,
   ShieldCheck,
-  Layers,
   ArrowRight,
   Search,
   Table,
@@ -32,6 +29,26 @@ interface StageLotteryProps {
   domainList: string[];
   domainConfigs: DomainConfig[];
 }
+
+const MIN_DRAW_MS = 3600; // two riffles, then the deck idles until the backend answers
+const DECK_SIZE = 14;
+
+const PokerShuffle: React.FC = () => (
+  <div className="poker-scene" aria-hidden="true">
+    <div className="poker-table-glow" />
+    <div className="poker-deck">
+      {Array.from({ length: DECK_SIZE }, (_, i) => (
+        <div
+          key={i}
+          className="poker-card poker-card--deck"
+          style={{ '--i': i, '--side': i % 2 ? 1 : -1, '--z-after': DECK_SIZE - i } as React.CSSProperties}
+        >
+          <div className="poker-card-back"><span>♠</span></div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 export const StageLottery: React.FC<StageLotteryProps> = ({
   projects,
@@ -166,7 +183,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
           field: selectedField,
           version: dataVersion,
         }),
-        new Promise<void>((resolve) => setTimeout(resolve, 3600)),
+        new Promise<void>((resolve) => setTimeout(resolve, MIN_DRAW_MS)),
       ]);
       if (!Array.isArray(backendResult.projects)) throw new Error('抽籤回應格式不正確。');
       setBatchDrawSummary(
@@ -292,29 +309,12 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
           {isAnimating ? (
             <div className="w-full py-3 sm:py-5">
               <p className="text-sm font-bold tracking-wide text-blue-700">{selectedField === 'ALL' ? '全校各領域' : selectedField} · 現場抽籤中</p>
-              <div className="stage-draw-scene" aria-hidden="true">
-                <div className="stage-draw-halo" />
-                <div className="stage-draw-card stage-draw-card--one">
-                  <span className="stage-draw-card-icon"><Layers className="h-5 w-5" /></span>
-                  <span className="stage-draw-card-label">專題展抽籤</span>
-                  <span className="stage-draw-card-question">？</span>
-                </div>
-                <div className="stage-draw-card stage-draw-card--two">
-                  <span className="stage-draw-card-icon"><Dices className="h-5 w-5" /></span>
-                  <span className="stage-draw-card-label">專題展抽籤</span>
-                  <span className="stage-draw-card-question">？</span>
-                </div>
-                <div className="stage-draw-card stage-draw-card--three">
-                  <span className="stage-draw-card-icon"><Sparkles className="h-5 w-5" /></span>
-                  <span className="stage-draw-card-label">專題展抽籤</span>
-                  <span className="stage-draw-card-question">？</span>
-                </div>
-              </div>
+              <PokerShuffle />
               <div>
                 <h2 className="text-2xl font-black text-slate-900 sm:text-4xl">正在洗牌抽選</h2>
                 <p className="mt-2 text-sm text-slate-600 sm:text-base">場次與順位將在抽籤完成後一同揭曉。</p>
               </div>
-              <p className="mt-5 text-xs text-slate-500">卡片為展示動畫，正式結果由後端產生並儲存。</p>
+              <p className="mt-5 text-xs text-slate-500">洗牌為展示動畫，正式結果由後端產生並儲存。</p>
             </div>
           ) : batchDrawSummary ? (
             /* ========================================================
