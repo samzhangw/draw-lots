@@ -7,6 +7,7 @@ import { useModalFocus } from '../lib/useModalFocus';
 import { FloatingNotice } from './FloatingNotice';
 import { getDomainCode } from '../lib/domainCodes';
 import { normalizeOriginalCodes } from '../lib/originalCodes';
+import { useDomainDragSort } from '../lib/useDomainDragSort';
 import {
   Upload,
   Download,
@@ -31,7 +32,8 @@ import {
   ArrowUpDown,
   LoaderCircle,
   Copy,
-  KeyRound
+  KeyRound,
+  GripVertical
 } from 'lucide-react';
 
 interface AdminManagementProps {
@@ -178,7 +180,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   });
 
   // Derived statistics linked directly with customizable domainConfigs
-  const domainStatsDisplay: (DomainStats & { id: string; evaluatorsPerGroup?: Record<number, string[]> })[] = domainConfigs.map((cfg) => {
+  const domainStats: (DomainStats & { id: string; evaluatorsPerGroup?: Record<number, string[]> })[] = domainConfigs.map((cfg) => {
     return {
       id: cfg.id,
       field: cfg.field,
@@ -189,7 +191,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   });
 
   const totalProjectsCount = projects.length;
-  const totalGroupCount = domainStatsDisplay.reduce((acc, curr) => acc + curr.groupCount, 0);
+  const totalGroupCount = domainStats.reduce((acc, curr) => acc + curr.groupCount, 0);
 
   // Filtered projects
   const filteredProjects = projects.filter((p) => {
@@ -293,41 +295,29 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     setIsEvaluatorModalOpen(false);
   });
 
-  // Persist the display order using the version-checked domain settings API.
-  const handleMoveDomain = withSaveFeedback((id: string, _direction: number) => `domain-order:${id}`, async (id: string, direction: number) => {
-    const index = domainConfigs.findIndex(cfg => cfg.id === id);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= domainConfigs.length) return;
-    const reordered = [...domainConfigs];
-    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
-    await onUpdateDomainConfigs(reordered);
+  const handleSaveDomainOrder = withSaveFeedback('domain-order', async (order: DomainConfig[]) => {
+    await onUpdateDomainConfigs(order);
     setUploadFeedback({ type: 'success', message: '領域顯示順序已儲存。' });
   });
+  const domainDrag = useDomainDragSort(domainConfigs, dataVersion, !!pendingAction || draftOpen, handleSaveDomainOrder);
+  const statsById = new Map(domainStats.map(stat => [stat.id, stat]));
+  const domainStatsDisplay = domainDrag.ordered.map(cfg => statsById.get(cfg.id)!);
 
   const renderDomainOrderControls = (cfg: DomainConfig, index: number) => (
     <div className="inline-flex items-center gap-1.5" aria-label={`${cfg.field}顯示順序`}>
       <span className="min-w-6 text-center text-xs font-bold tabular-nums text-slate-600">{index + 1}</span>
       <button
         type="button"
-        onClick={() => void handleMoveDomain(cfg.id, -1)}
-        disabled={index === 0 || !!pendingAction || draftOpen}
-        aria-label={`將${cfg.field}上移`}
-        title="上移"
-        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"
+        disabled={!!pendingAction || draftOpen}
+        aria-label={`拖曳調整${cfg.field}顯示順序`}
+        aria-describedby="domain-drag-instructions"
+        title="拖曳調整順序"
+        onPointerDown={event => domainDrag.start(event, cfg.id)}
+        onKeyDown={event => domainDrag.keyDown(event, cfg.id)}
+        className="flex min-h-11 min-w-11 touch-none select-none items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-500 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-35 cursor-grab"
       >
-        <ArrowUp className="h-4 w-4" />
+        {pendingAction === 'domain-order' ? <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <GripVertical className="h-5 w-5" />}
       </button>
-      <button
-        type="button"
-        onClick={() => void handleMoveDomain(cfg.id, 1)}
-        disabled={index === domainConfigs.length - 1 || !!pendingAction || draftOpen}
-        aria-label={`將${cfg.field}下移`}
-        title="下移"
-        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"
-      >
-        <ArrowDown className="h-4 w-4" />
-      </button>
-      {pendingAction === `domain-order:${cfg.id}` && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-label="正在儲存順序" />}
     </div>
   );
 
@@ -788,7 +778,14 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       )}
 
       {/* Domain & Group Count Pivot Table */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 p-4 sm:p-6 shadow-xs">
+      <div
+        data-domain-order-container
+        onPointerMove={domainDrag.move}
+        onPointerUp={event => domainDrag.finish(event, true)}
+        onPointerCancel={event => domainDrag.finish(event, false)}
+        onLostPointerCapture={event => domainDrag.finish(event, false)}
+        className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 p-4 sm:p-6 shadow-xs"
+      >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
           <div>
             <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
@@ -796,7 +793,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               <span>專題展領域、分組數與評審委員設定</span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              使用上、下箭頭調整領域顯示順序，調整後自動儲存並同步至台上抽籤頁。
+              按住拖曳把手調整領域顯示順序，放開後自動儲存並同步至台上抽籤頁。
             </p>
           </div>
 
@@ -814,6 +811,10 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
           </div>
         </div>
 
+        <p id="domain-drag-instructions" className="sr-only">按住把手拖曳排序，也可聚焦把手後使用上下方向鍵調整；Escape 取消拖曳。</p>
+        <p role="status" aria-live="polite" className="sr-only">
+          {domainDrag.draggedId ? `正在拖曳${domainConfigs.find(cfg => cfg.id === domainDrag.draggedId)?.field}，目前第 ${domainDrag.ordered.findIndex(cfg => cfg.id === domainDrag.draggedId) + 1} 位` : pendingAction === 'domain-order' ? '正在儲存領域顯示順序' : ''}
+        </p>
         {/* MOBILE CARDS VIEW (< md / 768px) */}
         <div className="md:hidden space-y-3">
           {domainStatsDisplay.map((stat, index) => {
@@ -829,7 +830,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             return (
               <div
                 key={stat.id}
-                className={`p-3.5 rounded-2xl border transition-all ${
+                data-domain-order-id={stat.id}
+                className={`p-3.5 rounded-2xl border transition-colors ${domainDrag.draggedId === stat.id ? 'ring-2 ring-blue-500 shadow-lg ' : ''}${
                   isSelected
                     ? 'bg-blue-50/60 border-blue-300 shadow-xs'
                     : 'bg-white border-slate-200 shadow-2xs'
@@ -952,7 +954,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 return (
                   <tr
                     key={stat.id}
-                    className={`hover:bg-slate-50 transition-colors ${
+                    data-domain-order-id={stat.id}
+                    className={`hover:bg-slate-50 transition-colors ${domainDrag.draggedId === stat.id ? 'bg-blue-100 outline-2 outline-blue-500 ' : ''}${
                       isSelected ? 'bg-blue-50/70 font-semibold' : ''
                     }`}
                   >
