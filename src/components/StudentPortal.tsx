@@ -20,6 +20,13 @@ import {
   LoaderCircle,
 } from 'lucide-react';
 
+function resultNumberSize(value: number | string | null | undefined): string {
+  const digits = String(value ?? '—').length;
+  if (digits >= 4) return 'text-2xl min-[400px]:text-[32px] sm:text-5xl';
+  if (digits === 3) return 'text-[32px] min-[400px]:text-[40px] sm:text-6xl';
+  return 'text-4xl min-[400px]:text-5xl sm:text-6xl';
+}
+
 export const StudentPortal: React.FC = () => {
   const [studentIdInput, setStudentIdInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
@@ -258,19 +265,19 @@ export const StudentPortal: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 sm:gap-4" aria-label="抽籤結果">
-                  <section className="flex min-w-0 min-h-36 flex-col justify-between gap-4 rounded-2xl border border-blue-200 bg-blue-50 p-3 sm:min-h-44 sm:p-8">
+                  <section className="flex min-w-0 min-h-36 flex-col justify-between gap-4 rounded-2xl border border-blue-200 bg-blue-50 p-2 sm:min-h-44 sm:p-8">
                     <div className="flex flex-col items-start gap-1.5 text-xs font-bold text-blue-800 sm:flex-row sm:items-center sm:gap-2 sm:text-sm">
                       <Users className="h-5 w-5 shrink-0" />
                       分組場次
                     </div>
-                    <div className="flex flex-wrap items-baseline gap-1 font-black text-blue-950" aria-label={`第 ${myProject.assigned_group ?? '—'} 組`}><span className="text-base sm:text-xl">第</span><strong className="text-[32px] leading-tight tabular-nums sm:text-6xl">{myProject.assigned_group ?? '—'}</strong><span className="text-base sm:text-xl">組</span></div>
+                    <div className="flex flex-wrap items-baseline justify-center gap-1 font-black text-blue-950" aria-label={`第 ${myProject.assigned_group ?? '—'} 組`}><span className="text-lg min-[400px]:text-xl">第</span><strong className={`leading-tight tabular-nums ${resultNumberSize(myProject.assigned_group)}`}>{myProject.assigned_group ?? '—'}</strong><span className="text-lg min-[400px]:text-xl">組</span></div>
                   </section>
-                  <section className="flex min-w-0 min-h-36 flex-col justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:min-h-44 sm:p-8">
+                  <section className="flex min-w-0 min-h-36 flex-col justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-2 sm:min-h-44 sm:p-8">
                     <div className="flex flex-col items-start gap-1.5 text-xs font-bold text-amber-800 sm:flex-row sm:items-center sm:gap-2 sm:text-sm">
                       <Award className="h-5 w-5 shrink-0" />
                       報告出場順序
                     </div>
-                    <div className="flex flex-wrap items-baseline gap-1 font-black text-amber-950" aria-label={`第 ${myProject.draw_order} 位`}><span className="text-base sm:text-xl">第</span><strong className="text-[32px] leading-tight tabular-nums sm:text-6xl">{myProject.draw_order}</strong><span className="text-base sm:text-xl">位</span></div>
+                    <div className="flex flex-wrap items-baseline justify-center gap-1 font-black text-amber-950" aria-label={`第 ${myProject.draw_order} 位`}><span className="text-lg min-[400px]:text-xl">第</span><strong className={`leading-tight tabular-nums ${resultNumberSize(myProject.draw_order)}`}>{myProject.draw_order}</strong><span className="text-lg min-[400px]:text-xl">位</span></div>
                   </section>
                 </div>
 
