@@ -155,8 +155,12 @@ export function validateDomains(value: unknown): asserts value is DomainConfig[]
         throw error;
       }
     }
-    if (c.evaluatorsPerGroup != null && (Object.keys(c.evaluatorsPerGroup).length > c.groupCount || typeof c.evaluatorsPerGroup !== 'object' || Array.isArray(c.evaluatorsPerGroup) || Object.entries(c.evaluatorsPerGroup).some(([g, names]) => !/^\d+$/.test(g) || Number(g) < 1 || !Array.isArray(names) || names.length > 100 || names.some(x => typeof x !== 'string' || x.length > 128)))) throw new ApiError(400, '評審設定格式不正確。');
+    if (c.evaluatorsPerGroup != null && (typeof c.evaluatorsPerGroup !== 'object' || Array.isArray(c.evaluatorsPerGroup))) throw new ApiError(400, '評審設定格式不正確。');
     for (const [group, names] of Object.entries(c.evaluatorsPerGroup || {})) {
+      if (!/^[1-9]\d*$/.test(group) || Number(group) > c.groupCount) {
+        throw new ApiError(400, `「${c.field}」僅設定 ${c.groupCount} 組，評審名單包含無效組別，請重新確認。`);
+      }
+      if (!Array.isArray(names) || names.length > 100 || names.some(name => typeof name !== 'string' || name.length > 128)) throw new ApiError(400, '評審設定格式不正確。');
       if (Array.isArray(names) && names.some((name: string) => !normalizeProfessorName(name))) {
         throw new ApiError(400, `「${c.field}」第 ${group} 組的評審姓名不可空白或僅有職稱，請填寫完整姓名。`);
       }

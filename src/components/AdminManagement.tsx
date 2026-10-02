@@ -363,6 +363,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       const updatedConfigs = domainConfigs.filter(c => c.id !== editingDomain.id);
       updatedConfigs.splice(domainFormOrder - 1, 0, {
         ...current, field: cleanName, groupCount: Number(domainFormGroupCount), groupCapacities,
+        evaluatorsPerGroup: Object.fromEntries(Object.entries(current.evaluatorsPerGroup || {})
+          .filter(([group]) => /^[1-9]\d*$/.test(group) && Number(group) <= domainFormGroupCount)),
       });
 
       await onUpdateDomainConfigs(

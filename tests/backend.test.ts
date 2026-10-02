@@ -39,6 +39,17 @@ test('input validation rejects malformed rosters and domain settings', () => {
   assert.throws(() => validateDomains([{ ...domains[0], evaluatorsPerGroup: { 1: 'bad' } }]));
 });
 
+test('evaluator group keys must be canonical integers within the configured group count', () => {
+  for (const group of ['0', '-1', '3', '50', '01', '1.5', '1e0', ' 1', '', '999999999999999999999999']) {
+    assert.throws(() => validateDomains([{ ...domains[0], evaluatorsPerGroup: { [group]: ['李教授'] } }]), /僅設定 2 組.*無效組別/);
+  }
+  validateDomains([{ ...domains[0], evaluatorsPerGroup: { 1: ['李教授'], 2: ['陳教授'] } }]);
+  validateDomains([{ ...domains[0], groupCount: 50, evaluatorsPerGroup: { 50: ['李教授'] } }]);
+  for (const evaluatorsPerGroup of ['invalid', [], { 1: 'invalid' }, { 1: [123] }]) {
+    assert.throws(() => validateDomains([{ ...domains[0], evaluatorsPerGroup }]), /評審設定格式不正確/);
+  }
+});
+
 test(`API persists through Supabase, enforces roles and detects concurrent writes (${cloudflareTest ? 'Workers' : 'Node'})`, { timeout: 300000 }, async () => {
   let state = { id: 1, projects: [] as StoredProject[], domain_configs: domains, version: 0, updated_at: new Date().toISOString() };
   let unavailable = false;
@@ -663,6 +674,16 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal((await request('/api/domain-configs', { domainConfigs: configsWithCount(2), version: state.version }, adminAgain)).status, 200);
     assert.deepEqual(state.projects, drawnProjects);
     const beforeInvalidShrink = structuredClone(state);
+    for (const group of ['3', '50', '01']) {
+      const invalidEvaluators = await request('/api/domain-configs', {
+        domainConfigs: configsWithCount(2).map(config => config.field === shrinkField
+          ? { ...config, evaluatorsPerGroup: { [group]: ['李教授'] } } : config),
+        version: state.version,
+      }, adminAgain);
+      assert.equal(invalidEvaluators.status, 400);
+      assert.match(invalidEvaluators.data.error, /僅設定 2 組.*無效組別/);
+      assert.deepEqual(state, beforeInvalidShrink, 'invalid evaluator groups must not change configs, projects or version');
+    }
     const invalidShrink = await request('/api/domain-configs', { domainConfigs: configsWithCount(1), version: state.version }, adminAgain);
     assert.equal(invalidShrink.status, 409);
     assert.match(invalidShrink.data.error, /縮組測試.*第 2 組.*重設/);
