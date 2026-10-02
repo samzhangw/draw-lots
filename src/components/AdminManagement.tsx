@@ -643,12 +643,12 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             accept=".xlsx, .xls, .csv"
             className="hidden"
           />
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-xs transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+              className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-2 py-2.5 text-xs sm:px-4 sm:text-sm font-bold text-white shadow-xs transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
               title="匯入專題名冊"
             >
               <Upload className="h-4 w-4 shrink-0" />
@@ -657,16 +657,16 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             <button
               type="button"
               onClick={handleOpenAddProject}
-              className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white shadow-xs transition-colors hover:bg-slate-800 cursor-pointer"
+              className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-2 py-2.5 text-xs sm:px-4 sm:text-sm font-bold text-white shadow-xs transition-colors hover:bg-slate-800 cursor-pointer"
               title="手動新增單一專題"
             >
               <Plus className="h-4 w-4 shrink-0" />
-              <span>手動新增專題</span>
+              <span className="sm:hidden">新增專題</span><span className="hidden sm:inline">手動新增專題</span>
             </button>
             <button
               type="button"
               onClick={downloadInputTemplate}
-              className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 cursor-pointer"
+              className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2.5 text-xs sm:px-4 sm:text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 cursor-pointer"
               title="下載標準 Excel 名冊匯入範本"
             >
               <Download className="h-4 w-4 shrink-0" />
@@ -675,7 +675,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             <button
               type="button"
               onClick={handleExport}
-              className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100 cursor-pointer"
+              className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-2.5 text-xs sm:px-4 sm:text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100 cursor-pointer"
               title="匯出含抽籤結果的 Excel 名冊"
             >
               <FileSpreadsheet className="h-4 w-4 shrink-0" />
@@ -696,22 +696,22 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               {sharedPasswordEnabled ? '使用中' : '未啟用'}
             </span>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-1 xl:grid-cols-2">
             <button
               type="button"
               onClick={() => setSharedAction('generate')}
               disabled={!projects.length || sharedSaving}
-              className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+              className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-2 py-2.5 text-xs sm:px-4 sm:text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
             >
               <ShieldCheck className="h-4 w-4 shrink-0" />
-              <span>{sharedPasswordEnabled ? '重新產生共用密碼' : '產生全體共用密碼'}</span>
+              <span className="sm:hidden">{sharedPasswordEnabled ? '重新產生密碼' : '產生共用密碼'}</span><span className="hidden sm:inline">{sharedPasswordEnabled ? '重新產生共用密碼' : '產生全體共用密碼'}</span>
             </button>
             {sharedPasswordEnabled && (
               <button
                 type="button"
                 onClick={() => setSharedAction('clear')}
                 disabled={sharedSaving}
-                className="flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                className="flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-2 py-2.5 text-xs sm:px-4 sm:text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
               >
                 停用共用密碼
               </button>
