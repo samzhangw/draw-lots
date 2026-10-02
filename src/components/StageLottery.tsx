@@ -477,6 +477,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
 
         {/* Action Button: One-Click School-Wide Automatic Draw */}
         <div className={`${isFullscreen ? 'stage-presentation-actions' : ''} relative z-10 mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-slate-100 flex flex-col items-center gap-3`}>
+          <div className={isFullscreen ? 'stage-presentation-buttons' : 'flex w-full flex-col items-center gap-3'}>
           {(!isFullscreen || undrawnPool.length > 0 || isAnimating) && <button
             onClick={handleOpenBatchModal}
             disabled={isAnimating || undrawnPool.length === 0}
@@ -490,6 +491,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
             </span>
           </button>}
           {isFullscreen && drawnPool.length > 0 && !isAnimating && <button type="button" onClick={openCarousel} className="stage-presentation-play"><Play size={22} />輪播結果</button>}
+          </div>
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-600 cursor-pointer">
             <input type="checkbox" checked={autoCarousel} onChange={(event) => setAutoCarousel(event.target.checked)} className="h-4 w-4 accent-blue-700" />
             全螢幕展示時，抽籤完成自動輪播結果

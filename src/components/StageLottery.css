@@ -165,7 +165,8 @@
 .stage-presentation-domains h3 { font-size:15px; font-weight:800; color:#172b45; }
 .stage-presentation-domains p { font-size:12px; color:#52657a; margin-top:4px; }
 .stage-presentation-actions { flex-shrink:0; margin-top:14px!important; padding-top:14px!important; }
-.stage-presentation-actions>button { min-width:0!important; max-width:100%; }
+.stage-presentation-buttons { display:flex; align-items:stretch; justify-content:center; gap:12px; width:100%; max-width:800px; }
+.stage-presentation-buttons>button { flex:1; min-width:0!important; width:auto; max-width:560px; }
 .stage-presentation-play { display:flex; justify-content:center; align-items:center; gap:8px; background:#28518a; color:white; border-radius:16px; padding:14px 36px; font-size:20px; font-weight:800; cursor:pointer; }
 .stage-presentation-main .poker-scene { height:clamp(140px,30vh,360px); width:min(100%,720px); }
 @media(max-width:700px) {
@@ -193,6 +194,9 @@
  .stage-presentation-hero { gap:8px; }
  .stage-presentation-description { font-size:12px; }
  .stage-presentation-actions label { font-size:11px; }
+ .stage-presentation-buttons { gap:8px; }
+ .stage-presentation-buttons>button { padding:12px 10px; font-size:14px; gap:6px; }
+ .stage-presentation-buttons svg { flex-shrink:0; width:18px; height:18px; }
 }
 @media(max-height:600px) {
  .stage-fullscreen { padding:8px 12px; }
@@ -205,7 +209,7 @@
  .stage-presentation-ready,.stage-presentation-hero { gap:6px; }
  .stage-presentation-domains article { padding:6px 10px; }
  .stage-presentation-actions { margin-top:6px!important; padding-top:6px!important; gap:4px!important; }
- .stage-presentation-actions>button { padding:8px 20px; }
+ .stage-presentation-buttons>button { padding:8px 12px; }
  .stage-presentation-main .poker-scene { height:120px; --cw:80px; --ch:112px; }
  .stage-presentation-main .poker-scene~div h2 { font-size:24px; }
 }
