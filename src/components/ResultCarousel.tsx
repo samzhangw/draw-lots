@@ -100,9 +100,14 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
         <button onClick={onClose} className="result-control" aria-label="結束輪播，返回抽籤畫面"><X size={20} /><span>返回抽籤</span></button>
       </header>
       {slide && <div className="result-carousel-meta">
-        <strong>第 <b>{slide.group}</b> 組</strong>
-        <span>共 {slide.groupTotal} 件 · 本組第 {slide.page + 1}／{slide.pages} 頁</span>
-        <span className="result-carousel-range">報告順位 {slide.items[0].draw_order}–{slide.items.at(-1)!.draw_order}</span>
+        <div className="result-carousel-group">
+          <strong>第 <b>{slide.group}</b> 組</strong>
+          <span className="result-carousel-total">共 {slide.groupTotal} 件</span>
+        </div>
+        <div className="result-carousel-page-info">
+          <span className="result-carousel-range">報告順位 {slide.items[0].draw_order}–{slide.items.at(-1)!.draw_order}</span>
+          <span className="result-carousel-group-page" aria-label={`本組第 ${slide.page + 1}／${slide.pages} 頁`}><small>本組頁碼</small><span><b>{slide.page + 1}</b>／{slide.pages} 頁</span></span>
+        </div>
       </div>}
       <div className="result-carousel-list" ref={listRef} onWheel={() => setPlaying(false)} onTouchMove={() => setPlaying(false)} style={{ '--result-rows': pageSize } as React.CSSProperties}>
         {slide?.items.map((item) => <article className="result-carousel-row" key={item.id}>
