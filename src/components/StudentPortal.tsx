@@ -27,6 +27,7 @@ export const StudentPortal: React.FC = () => {
   const [sharedPasswordMode, setSharedPasswordMode] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<'login' | 'refresh' | 'logout' | null>(null);
   const requestEpoch = useRef(0);
@@ -54,10 +55,23 @@ export const StudentPortal: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     const epoch = requestEpoch.current;
+    const timer = window.setTimeout(() => {
+      cancelled = true;
+      setErrorMessage('確認登入狀態逾時，請檢查網路連線後重新整理頁面。');
+      setIsCheckingSession(false);
+    }, 10000);
     apiRequest<{ project: ProjectItem; sharedPasswordMode: boolean }>('/api/student/me')
       .then(data => { if (!cancelled && requestEpoch.current === epoch) { setMyProject(data.project); setLastUpdatedAt(new Date()); setSharedPasswordMode(data.sharedPasswordMode); } })
-      .catch(() => {});
-    return () => { cancelled = true; };
+      .catch(error => {
+        if (!cancelled && requestEpoch.current === epoch && !(error instanceof ApiRequestError && error.status === 401)) {
+          setErrorMessage(error instanceof Error ? error.message : '確認登入狀態失敗，請稍後再試。');
+        }
+      })
+      .finally(() => {
+        window.clearTimeout(timer);
+        if (!cancelled) setIsCheckingSession(false);
+      });
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, []);
   const handleLogout = async () => {
     if (isLoading) return;
@@ -124,7 +138,12 @@ export const StudentPortal: React.FC = () => {
           </div>
         </header>
 
-      {!myProject ? (
+      {isCheckingSession ? (
+        <div role="status" className="flex min-h-48 items-center justify-center gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-6 text-sm font-medium text-slate-600 shadow-sm">
+          <LoaderCircle className="h-5 w-5 shrink-0 animate-spin text-blue-700 motion-reduce:animate-none" aria-hidden="true" />
+          <span>正在確認登入狀態…</span>
+        </div>
+      ) : !myProject ? (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-stretch">
           <section className="order-2 rounded-[1.75rem] border border-blue-100 bg-blue-50/80 p-6 sm:p-8 lg:order-1">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-blue-700 shadow-sm"><UserCheck className="h-6 w-6" /></div>
