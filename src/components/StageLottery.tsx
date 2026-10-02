@@ -264,13 +264,25 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       ref={stageContainerRef}
       className={`min-h-[calc(100vh-4rem)] bg-gradient-to-b from-blue-50/70 via-white to-slate-50 text-slate-800 transition-all ${
         isFullscreen
-          ? 'p-3 sm:p-6 fixed inset-0 z-50 overflow-y-auto bg-white'
+          ? 'stage-fullscreen fixed inset-0 z-50 bg-white'
           : 'py-4 sm:py-7 px-3 sm:px-6 max-w-[1600px] mx-auto space-y-5 sm:space-y-7'
       }`}
     >
-      <div hidden={carouselScope !== null} className="space-y-5 sm:space-y-7">
+      <div hidden={carouselScope !== null} className={isFullscreen ? 'stage-fullscreen-layout' : 'space-y-5 sm:space-y-7'}>
+      {isFullscreen && <header className="stage-presentation-header">
+        <div><p>國立臺中科技大學 · 資訊與流通學院</p><h1>專題報告抽籤現場</h1></div>
+        <div className="stage-presentation-tools">
+          <select aria-label="抽籤範圍" value={selectedField} disabled={isAnimating} onChange={(event) => { setSelectedField(event.target.value); setBatchDrawSummary(null); }}>
+            <option value="ALL">全校所有領域（{projects.length} 件）</option>
+            {domainConfigs.map((cfg) => <option key={cfg.id} value={cfg.field}>{cfg.field}（{projects.filter(p => p.field === cfg.field).length} 件）</option>)}
+          </select>
+          <button type="button" onClick={handleOpenResetModal} disabled={isAnimating || drawnPool.length === 0} aria-label="重設結果"><RotateCcw size={18} /></button>
+          <button type="button" onClick={toggleFullscreen} aria-label="退出全螢幕"><Minimize2 size={18} /><span>退出全螢幕</span></button>
+        </div>
+      </header>}
+
       {/* Presentation control header */}
-      <section className="relative overflow-hidden rounded-[1.75rem] border border-blue-100 bg-white text-slate-900 shadow-sm">
+      <section hidden={isFullscreen} className="relative overflow-hidden rounded-[1.75rem] border border-blue-100 bg-white text-slate-900 shadow-sm">
         <div className="absolute -right-20 -top-28 h-72 w-72 rounded-full bg-blue-100/80 blur-3xl pointer-events-none" />
         <div className="absolute -left-20 bottom-0 h-52 w-52 rounded-full bg-amber-100/70 blur-3xl pointer-events-none" />
         <div className="relative p-5 sm:p-7 lg:p-9 space-y-6">
@@ -321,19 +333,19 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
         </div>
       </section>
 
-      <div role="group" className="grid grid-cols-3 gap-2 sm:gap-4" aria-label="抽籤數量統計">
+      <div role="group" className={isFullscreen ? 'hidden' : 'grid grid-cols-3 gap-2 sm:gap-4'} aria-label="抽籤數量統計">
         <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-5 shadow-sm"><div className="text-[11px] sm:text-sm font-semibold text-slate-500">專題總數</div><div className="mt-1 text-2xl sm:text-4xl font-black text-slate-900 tabular-nums">{currentPool.length}<span className="ml-1 text-xs sm:text-base font-semibold text-slate-500">件</span></div></div>
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 sm:p-5 shadow-sm"><div className="text-[11px] sm:text-sm font-semibold text-emerald-700">已完成</div><div className="mt-1 text-2xl sm:text-4xl font-black text-emerald-800 tabular-nums">{drawnPool.length}<span className="ml-1 text-xs sm:text-base font-semibold text-emerald-700">件</span></div></div>
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:p-5 shadow-sm"><div className="text-[11px] sm:text-sm font-semibold text-amber-700">尚待抽籤</div><div className="mt-1 text-2xl sm:text-4xl font-black text-amber-900 tabular-nums">{undrawnPool.length}<span className="ml-1 text-xs sm:text-base font-semibold text-amber-700">件</span></div></div>
       </div>
 
       {/* Main Big Stage Presentation Card */}
-      <section className="relative overflow-hidden rounded-[1.75rem] bg-white border border-blue-100 border-t-4 border-t-blue-500 shadow-lg shadow-blue-100/70 p-5 sm:p-8 lg:p-10 text-center" aria-label="抽籤主舞台" aria-busy={isAnimating}>
+      <section className={`${isFullscreen ? 'stage-presentation-main' : ''} relative overflow-hidden rounded-[1.75rem] bg-white border border-blue-100 border-t-4 border-t-blue-500 shadow-lg shadow-blue-100/70 p-5 sm:p-8 lg:p-10 text-center`} aria-label="抽籤主舞台" aria-busy={isAnimating}>
         {isAnimating && <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(219,234,254,0.75),transparent_70%)] pointer-events-none" />}
 
-        <div className="relative z-10 max-w-7xl mx-auto min-h-[300px] sm:min-h-[350px] flex flex-col items-center justify-center" aria-live="polite">
+        <div className={`${isFullscreen ? 'stage-presentation-content' : ''} relative z-10 max-w-7xl mx-auto min-h-[300px] sm:min-h-[350px] flex flex-col items-center justify-center`} aria-live="polite">
           {isAnimating ? (
-            <div className="w-full py-3 sm:py-5">
+            <div className={`${isFullscreen ? 'stage-presentation-animation' : ''} w-full py-3 sm:py-5`}>
               <p className="text-sm font-bold tracking-wide text-blue-700">{selectedField === 'ALL' ? '全校各領域' : selectedField} · 現場抽籤中</p>
               <PokerShuffle />
               <div>
@@ -341,6 +353,19 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                 <p className="mt-2 text-sm text-slate-600 sm:text-base">場次與順位將在抽籤完成後一同揭曉。</p>
               </div>
               <p className="mt-5 text-xs text-slate-500">洗牌為展示動畫，正式結果由後端產生並儲存。</p>
+            </div>
+          ) : isFullscreen ? (
+            <div className="stage-presentation-ready">
+              <div className="stage-presentation-hero">
+                <span className={`stage-presentation-emblem ${undrawnPool.length ? '' : 'is-complete'}`} aria-hidden="true">{undrawnPool.length ? <Zap /> : <CheckCircle2 />}</span>
+                <p>{selectedField === 'ALL' ? '全校各領域' : selectedField}</p>
+                <h2>{currentPool.length === 0 ? '尚無專題資料' : undrawnPool.length ? '準備開始抽籤' : '報告場次與順位已排定'}</h2>
+                <div className="stage-presentation-counts"><span>專題總數 <strong>{currentPool.length}</strong> 件</span><span>已完成 <strong>{drawnPool.length}</strong> 件</span><span>尚待抽籤 <strong>{undrawnPool.length}</strong> 件</span></div>
+                <p className="stage-presentation-description">{batchDrawSummary || (currentPool.length === 0 ? '請先在管理後台匯入專題資料。' : undrawnPool.length ? '各領域依設定分組，確認後開始現場抽籤。' : '點選「輪播結果」，開始展示各組報告順序。')}</p>
+              </div>
+              <div className="stage-presentation-domains">
+                {visibleDomainConfigs.map((cfg) => <article key={cfg.id}><h3>{cfg.field}</h3><p>{cfg.groupCount} 組場次 · {currentPool.filter(p => p.field === cfg.field).length} 件專題</p></article>)}
+              </div>
             </div>
           ) : batchDrawSummary ? (
             /* ========================================================
@@ -468,8 +493,8 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
         </div>
 
         {/* Action Button: One-Click School-Wide Automatic Draw */}
-        <div className="relative z-10 mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-slate-100 flex flex-col items-center gap-3">
-          <button
+        <div className={`${isFullscreen ? 'stage-presentation-actions' : ''} relative z-10 mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-slate-100 flex flex-col items-center gap-3`}>
+          {(!isFullscreen || undrawnPool.length > 0 || isAnimating) && <button
             onClick={handleOpenBatchModal}
             disabled={isAnimating || undrawnPool.length === 0}
             className="w-full sm:w-auto min-w-[260px] sm:min-w-[340px] px-8 py-4 rounded-2xl bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-base sm:text-lg shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:hover:scale-100 disabled:shadow-none flex items-center justify-center gap-2.5 cursor-pointer"
@@ -480,7 +505,8 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                 ? '開始全校抽籤'
                 : `開始「${selectedField}」抽籤`}
             </span>
-          </button>
+          </button>}
+          {isFullscreen && drawnPool.length > 0 && !isAnimating && <button type="button" onClick={openCarousel} className="stage-presentation-play"><Play size={22} />輪播結果</button>}
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-600 cursor-pointer">
             <input type="checkbox" checked={autoCarousel} onChange={(event) => setAutoCarousel(event.target.checked)} className="h-4 w-4 accent-blue-700" />
             全螢幕展示時，抽籤完成自動輪播結果
@@ -493,6 +519,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
        * ======================================================== */}
       <section
         ref={boardRef}
+        hidden={isFullscreen && !isBoardPresentation}
         className={`${isBoardPresentation ? 'fixed inset-0 z-[60] overflow-y-auto rounded-none p-5 sm:p-8 lg:p-10' : 'rounded-[1.75rem] p-4 sm:p-7 lg:p-8'} bg-white border border-slate-200 shadow-sm space-y-6`}
         role={isBoardPresentation ? 'dialog' : undefined}
         aria-modal={isBoardPresentation ? true : undefined}
