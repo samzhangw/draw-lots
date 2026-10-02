@@ -53,19 +53,19 @@ test('public cache coalesces misses, expires and does not retain failures or inv
 });
 
 
-test('student admission holds 8 active and 384 waiting requests, rejects overflow, and recovers', async () => {
+test('student admission holds 16 active and 768 waiting requests, rejects overflow, and recovers', async () => {
   const held = gate(); let active = 0; let maximum = 0;
-  const work = Array.from({ length: 394 }, () => studentLoginWork.run(async () => {
+  const work = Array.from({ length: 786 }, () => studentLoginWork.run(async () => {
     active++; maximum = Math.max(maximum, active);
     try { await held.wait; } finally { active--; }
   }));
   const all = Promise.allSettled(work);
   await new Promise(resolve => setTimeout(resolve, 0));
-  assert.equal(maximum, 8);
+  assert.equal(maximum, 16);
   held.release();
   const results = await all;
-  assert.equal(results.filter(r => r.status === 'fulfilled').length, 392);
+  assert.equal(results.filter(r => r.status === 'fulfilled').length, 784);
   assert.equal(results.filter(r => r.status === 'rejected' && r.reason instanceof ResourceBusyError).length, 2);
-  assert.equal(maximum, 8); assert.equal(active, 0);
+  assert.equal(maximum, 16); assert.equal(active, 0);
   assert.equal(await studentLoginWork.run(async () => 'ready'), 'ready');
 });

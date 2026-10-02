@@ -124,7 +124,7 @@ app.post('/api/auth/logout', route(async (req, res) => {
   await clearStaffSession(req, res);
   res.json({ success: true });
 }));
-app.post('/api/student/verify', loginLimiter('student', 10, 600), loginRoute('student', async (req, res) => {
+app.post('/api/student/verify', loginLimiter('student', 10, 1200), loginRoute('student', async (req, res) => {
   const { leaderId, password } = req.body;
   if (typeof leaderId !== 'string' || leaderId.length > 128 || typeof password !== 'string' || password.length > 128) throw new ApiError(400, '請輸入有效的組長學號與密碼。');
   const store = createStore();

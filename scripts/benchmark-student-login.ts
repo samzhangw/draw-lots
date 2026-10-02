@@ -14,7 +14,8 @@ const mode = process.argv.includes('--workers') ? 'Workers' : 'Node';
 const delayArg = process.argv.find(arg => arg.startsWith('--db-delay-ms='));
 const delayMs = Number(delayArg?.split('=')[1] || 30);
 if (!Number.isInteger(delayMs) || delayMs < 0 || delayMs > 1000) throw new Error('Database delay must be 0–1000 ms');
-const count = 300;
+const count = Number(process.argv.find(arg => arg.startsWith('--students='))?.split('=')[1] || 300);
+if (!Number.isInteger(count) || count < 1 || count > 1000) throw new Error('Students must be 1–1000');
 const commonPassword = 'local-load-test-password';
 const passwordHash = await hashPassword(commonPassword);
 const projects: StoredProject[] = Array.from({ length: count }, (_, n) => ({
