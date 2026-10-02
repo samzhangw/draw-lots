@@ -21,10 +21,10 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-[0_3px_16px_rgba(15,23,42,0.04)] backdrop-blur-xl">
-      <div className="h-1 bg-gradient-to-r from-blue-700 via-sky-500 to-rose-500" aria-hidden="true" />
+      <div className="h-0.5 bg-blue-900" aria-hidden="true" />
       <div className="mx-auto flex min-h-[4.25rem] max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:min-h-[4.75rem] sm:px-6 lg:px-8">
         <a href="/" className="group flex min-w-0 items-center gap-3 rounded-lg sm:gap-4 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label="返回學生查榜首頁">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 p-1.5 shadow-sm sm:h-12 sm:w-12">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center p-1 sm:h-14 sm:w-14">
             <img
               src="https://cidsexhibition.nutc.edu.tw/images/logo.png"
               alt=""
@@ -32,17 +32,13 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
               loading="eager"
             />
           </div>
-          <div className="hidden h-10 w-px bg-slate-200 sm:block" aria-hidden="true" />
-          <div className="min-w-0 space-y-1.5">
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-semibold leading-relaxed sm:text-xs">
-              <span className="text-slate-600">國立臺中科技大學</span>
-              <span className="hidden h-3 w-px bg-slate-300 sm:inline-block" aria-hidden="true" />
-              <span className="text-blue-700">資訊與流通學院</span>
+          <div className="min-w-0">
+            <p className="flex flex-wrap items-center gap-x-1.5 text-[11px] font-medium leading-relaxed text-slate-500 sm:text-xs">
+              <span>國立臺中科技大學</span>
+              <span>・資訊與流通學院</span>
             </p>
-            <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
-              <p className="whitespace-nowrap text-xl font-black leading-none tracking-tight text-slate-900 transition-colors group-hover:text-blue-800 sm:text-2xl">專題成果展</p>
-              <span className="inline-flex shrink-0 items-center rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-[10px] font-bold leading-none tracking-wide text-blue-800 sm:text-xs">報告抽籤系統</span>
-            </div>
+            <p className="mt-1 text-xl font-bold leading-tight tracking-wide text-blue-950 transition-colors group-hover:text-blue-800 sm:text-2xl">專題成果展</p>
+            <p className="mt-1 text-xs font-medium tracking-[0.16em] text-slate-600 sm:text-[13px]">報告抽籤系統</p>
           </div>
         </a>
 
