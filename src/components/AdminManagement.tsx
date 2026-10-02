@@ -627,7 +627,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       </div>
 
       {/* Main admin actions */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(19rem,1fr)]">
+      <div className="space-y-4">
         <section aria-labelledby="roster-actions-heading" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:rounded-3xl sm:p-5">
           <div className="mb-4">
             <h2 id="roster-actions-heading" className="flex items-center gap-2 text-sm font-bold text-slate-900 sm:text-base">
@@ -643,7 +643,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             accept=".xlsx, .xls, .csv"
             className="hidden"
           />
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 lg:gap-3">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -684,8 +684,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
           </div>
         </section>
 
-        <section aria-labelledby="password-actions-heading" className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 shadow-xs sm:rounded-3xl sm:p-5">
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+        <section aria-labelledby="password-actions-heading" className="flex flex-col gap-4 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 shadow-xs sm:rounded-3xl sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-2 lg:justify-start lg:gap-4">
             <div>
               <h2 id="password-actions-heading" className="flex items-center gap-2 text-sm font-bold text-slate-900 sm:text-base">
                 <ShieldCheck className="h-4 w-4 text-indigo-600" />學生共用密碼
@@ -696,7 +696,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               {sharedPasswordEnabled ? '使用中' : '未啟用'}
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-1 xl:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2 lg:w-auto lg:shrink-0 lg:gap-3">
             <button
               type="button"
               onClick={() => setSharedAction('generate')}
