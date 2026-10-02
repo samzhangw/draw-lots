@@ -113,7 +113,7 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
             const found = groups.find(({ page }) => JSON.stringify([page.field, page.group]) === event.target.value);
             if (found) { setIndex(found.position); setRemaining(seconds); }
           }}>{groups.map(({ page }) => <option key={page.key} value={JSON.stringify([page.field, page.group])}>{page.field} · 第 {page.group} 組</option>)}</select></label>
-          <label>換頁間隔<select aria-label="換頁間隔" value={seconds} onChange={(event) => setSeconds(Number(event.target.value))}>{[5, 10, 15, 20, 30].map((value) => <option key={value} value={value}>{value} 秒</option>)}</select></label>
+          <label>換頁間隔<select aria-label="換頁間隔" value={seconds} onChange={(event) => setSeconds(Number(event.target.value))}>{[3, 5, 10, 15, 20, 30].map((value) => <option key={value} value={value}>{value} 秒</option>)}</select></label>
         </div>
         <div className="result-carousel-hint"><span>{slides.length < 2 ? '單頁結果' : !visible ? '背景暫停' : playing ? `${remaining} 秒後換頁 · 循環播放` : '已暫停'}{next && slides.length > 1 ? ` · 下一頁：${next.field} 第 ${next.group} 組` : ''}</span><span>← → 換頁 · 空白鍵播放／暫停 · Esc 返回</span></div>
       </footer>
