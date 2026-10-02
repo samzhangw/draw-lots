@@ -5,7 +5,7 @@ React + Vite 前端，Express API 統一使用 Supabase Database 與 Supabase Au
 ## 啟動
 
 1. 安裝 Node.js 22.12 以上版本與相依套件：`npm install`（或 `pnpm install`）。
-2. 在 Supabase 專案的 SQL Editor 依序執行 [初始資料庫 migration](supabase/migrations/202610010001_lottery_state.sql)、[學生資安 migration](supabase/migrations/202610010002_student_security.sql)、[工作人員 session migration](supabase/migrations/202610010003_staff_sessions_and_preferences.sql)、[移除音效偏好資料表 migration](supabase/migrations/202610010004_remove_staff_preferences.sql) 與 [專題獨立資料列 migration](supabase/migrations/202610020001_project_rows.sql)。已有資料庫請依序執行尚未套用的 migration；第二份會移除所有舊明文學生密碼，之後須重新設定。
+2. 在 Supabase 專案的 SQL Editor 依序執行 [初始資料庫 migration](supabase/migrations/202610010001_lottery_state.sql)、[學生資安 migration](supabase/migrations/202610010002_student_security.sql)、[工作人員 session migration](supabase/migrations/202610010003_staff_sessions_and_preferences.sql)、[移除音效偏好資料表 migration](supabase/migrations/202610010004_remove_staff_preferences.sql)、[專題獨立資料列 migration](supabase/migrations/202610020001_project_rows.sql) 與 [學生查榜單次查詢 migration](supabase/migrations/202610020002_student_lookup.sql)。已有資料庫請依序執行尚未套用的 migration；第二份會移除所有舊明文學生密碼，之後須重新設定。
 3. 複製 `.env.example` 為 `.env.local`，填入：
 
    ```dotenv
@@ -83,6 +83,8 @@ React + Vite 前端，Express API 統一使用 Supabase Database 與 Supabase Au
 4. 確認 SQL 成功後，檢查 `/api/health`、管理名冊與學生查榜。正常查榜只查 `ntcust_projects` 的一列；相容流程僅在 schema 尚不存在時啟用，不會掩蓋斷線或權限錯誤。
 
 第五份 migration 只需執行一次。套用後不要回退到仍直接寫入舊 `projects` 欄位的 API；回退新版程式需搭配備份還原或另外準備反向遷移。本機測試已驗證 SQL，正式 Supabase 的遷移仍須另外執行，推送程式不會自動修改資料庫。
+
+學生查榜加速：先部署新版程式，再於 Supabase SQL Editor 執行第六份 [學生查榜單次查詢 migration](supabase/migrations/202610020002_student_lookup.sql)。需先完成第五份 migration；此 SQL 不變更名冊、密碼或既有登入 session。套用後 `/api/student/me` 一次 RPC 同時讀取有效 session 與自己的專題，後端仍檢查密碼指紋；函式僅開放 service_role。未套用時僅在 RPC 缺少（PGRST202）時回退既有索引查詢，其他資料庫錯誤直接回 503。推送不會自動執行 SQL。
 
 ## 舊資料移轉
 

@@ -8,6 +8,10 @@ export interface StoreState {
   lastUpdated: string;
   sharedPasswordEnabled: boolean;
 }
+export class ApiRequestError extends Error {
+  constructor(message: string, readonly status: number) { super(message); this.name = 'ApiRequestError'; }
+}
+
 export async function apiRequest<T = StoreState>(url: string, body?: Record<string, unknown>): Promise<T> {
   const session = getAuthSession();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -21,7 +25,7 @@ export async function apiRequest<T = StoreState>(url: string, body?: Record<stri
       clearAuthSession();
       window.dispatchEvent(new Event('auth-expired'));
     }
-    throw new Error(data?.error || data?.message || `伺服器連線失敗 (HTTP ${res.status})`);
+    throw new ApiRequestError(data?.error || data?.message || `伺服器連線失敗 (HTTP ${res.status})`, res.status);
   }
   return data as T;
 }

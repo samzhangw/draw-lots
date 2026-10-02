@@ -34,6 +34,16 @@ export async function getStudentProject(req: Request): Promise<StoredProject> {
   const token = readToken(req);
   if (!token) throw new ApiError(401, '請先登入學生查詢。');
   const store = createStore();
+  const lookup = await store.client.rpc('ntcust_student_lookup', { p_token_hash: fingerprint(token) });
+  if (lookup.error?.code !== 'PGRST202') {
+    if (lookup.error) throw new ApiError(503, '登入服務暫時無法使用。');
+    const p = lookup.data?.project as StoredProject | undefined;
+    if (!p?.password_hash || p.password || fingerprint(p.password_hash) !== lookup.data.credential_version) {
+      throw new ApiError(401, '學生登入已失效，請重新登入。');
+    }
+    return p;
+  }
+  // Rolling deployment: retain the indexed two-read path until migration 006.
   const { data, error } = await store.client.from('ntcust_student_sessions').select('project_id, credential_version, expires_at').eq('token_hash', fingerprint(token)).maybeSingle();
   if (error) throw new ApiError(503, '登入服務暫時無法使用。');
   if (!data || Date.parse(data.expires_at) <= Date.now()) throw new ApiError(401, '學生登入已過期，請重新登入。');

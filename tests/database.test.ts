@@ -116,3 +116,30 @@ test('failed migration preserves the old roster and does not leave half-created 
     assert.equal((await db.query<{ table: string | null }>("select to_regclass('public.ntcust_projects')::text as table")).rows[0].table, null);
   } finally { await db.close(); }
 });
+
+test('student lookup joins only the token owner, excludes expired/revoked sessions and restricts RPC access', async () => {
+  const db = await database();
+  try {
+    const projects = [project('01'), project('02')];
+    await db.query('update public.ntcust_lottery_state set projects = $1::jsonb', [JSON.stringify(projects)]);
+    await migrate(db);
+    await db.exec(await readFile(new URL('202610020002_student_lookup.sql', directory), 'utf8'));
+    const token = 'a'.repeat(64); const expired = 'b'.repeat(64);
+    await db.query("insert into public.ntcust_student_sessions values ($1, '02', 'credential-version', now() + interval '1 hour'), ($2, '01', 'expired-version', now() - interval '1 second')", [token, expired]);
+    const lookup = async (key: string) => (await db.query<{ result: any }>('select public.ntcust_student_lookup($1) as result', [key])).rows[0].result;
+    for (const role of ['anon', 'authenticated']) {
+      await db.exec(`set role ${role}`);
+      await assert.rejects(lookup(token), (error: any) => error.code === '42501');
+      await db.exec('reset role');
+    }
+    await db.exec('set role service_role');
+    assert.deepEqual(await lookup(token), { project: projects[1], credential_version: 'credential-version' });
+    assert.equal(await lookup(expired), null);
+    assert.equal(await lookup('c'.repeat(64)), null);
+    await db.exec('reset role');
+    await db.query('delete from public.ntcust_student_sessions where token_hash = $1', [token]);
+    await db.exec('set role service_role');
+    assert.equal(await lookup(token), null);
+    await db.exec('reset role');
+  } finally { await db.close(); }
+});

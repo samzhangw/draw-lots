@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { apiRequest } from '../lib/api';
+import { apiRequest, ApiRequestError } from '../lib/api';
 import { ProjectItem } from '../types';
 import {
   UserCheck,
@@ -25,6 +25,7 @@ export const StudentPortal: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [myProject, setMyProject] = useState<ProjectItem | null>(null);
   const [sharedPasswordMode, setSharedPasswordMode] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<'login' | 'refresh' | 'logout' | null>(null);
@@ -38,11 +39,15 @@ export const StudentPortal: React.FC = () => {
     try {
       const data = await apiRequest<{ project: ProjectItem; sharedPasswordMode: boolean }>('/api/student/me');
       setMyProject(data.project);
+      setLastUpdatedAt(new Date());
       setSharedPasswordMode(data.sharedPasswordMode);
       setErrorMessage('');
     } catch (error) {
-      setMyProject(null);
-      setSharedPasswordMode(false);
+      if (error instanceof ApiRequestError && error.status === 401) {
+        setMyProject(null);
+        setSharedPasswordMode(false);
+        setLastUpdatedAt(null);
+      }
       setErrorMessage(error instanceof Error ? error.message : '查詢失敗');
     } finally { setIsLoading(false); setLoadingAction(null); }
   };
@@ -50,7 +55,7 @@ export const StudentPortal: React.FC = () => {
     let cancelled = false;
     const epoch = requestEpoch.current;
     apiRequest<{ project: ProjectItem; sharedPasswordMode: boolean }>('/api/student/me')
-      .then(data => { if (!cancelled && requestEpoch.current === epoch) { setMyProject(data.project); setSharedPasswordMode(data.sharedPasswordMode); } })
+      .then(data => { if (!cancelled && requestEpoch.current === epoch) { setMyProject(data.project); setLastUpdatedAt(new Date()); setSharedPasswordMode(data.sharedPasswordMode); } })
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -93,6 +98,7 @@ export const StudentPortal: React.FC = () => {
     try {
       const data = await apiRequest<{ project: ProjectItem; sharedPasswordMode: boolean }>('/api/student/verify', { leaderId: query, password: pwd });
       setMyProject(data.project);
+      setLastUpdatedAt(new Date());
       setSharedPasswordMode(data.sharedPasswordMode);
       setPasswordInput('');
     } catch (error) {
@@ -198,6 +204,9 @@ export const StudentPortal: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {errorMessage && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{errorMessage}<p className="mt-1">目前顯示上次成功取得的結果，請稍後按「更新結果」。</p></div>}
+          {lastUpdatedAt && <p className="px-1 text-xs text-slate-500">最後成功更新：{lastUpdatedAt.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>}
 
           {/* Main Showcase Card */}
           <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 sm:p-8 shadow-sm">

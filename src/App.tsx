@@ -3,13 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { ProjectItem, ViewMode, DomainConfig } from './types';
 import { apiRequest, StoreState } from './lib/api';
 import { Navbar } from './components/Navbar';
 import { StudentPortal } from './components/StudentPortal';
-import { StageLottery } from './components/StageLottery';
-import { AdminManagement } from './components/AdminManagement';
 import { AuthGate } from './components/AuthGate';
 import { FloatingNotice } from './components/FloatingNotice';
 import {
@@ -21,6 +19,9 @@ import {
 } from './lib/auth';
 
 import { getViewFromLocation, canonicalPageUrl, viewPath, viewTitles } from './lib/routes';
+
+const StageLottery = lazy(() => import('./components/StageLottery').then(module => ({ default: module.StageLottery })));
+const AdminManagement = lazy(() => import('./components/AdminManagement').then(module => ({ default: module.AdminManagement })));
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewMode>(() => getViewFromLocation(window.location));
@@ -192,7 +193,7 @@ export default function App() {
             <p className="text-slate-500 text-xs">載入專題名冊與抽籤資料中...</p>
           </div>
         ) : (
-          <>
+          <Suspense fallback={<div className="p-8 text-center text-slate-500" role="status">正在載入頁面…</div>}>
             {currentView === 'student' && (
               <StudentPortal />
             )}
@@ -237,7 +238,7 @@ export default function App() {
                 />
               )
             )}
-          </>
+          </Suspense>
         )}
       </main>
 

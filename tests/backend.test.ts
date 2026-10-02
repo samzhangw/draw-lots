@@ -45,6 +45,8 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   let malformedState = false;
   let rosterReads = 0;
   let indexedReads = 0;
+  let studentLookupReads = 0;
+  let missingLookup = false;
   let publicReads = 0;
   let metadataReads = 0;
   let activeCapacityReads = 0;
@@ -92,6 +94,13 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     }
     if (legacySchema && url.pathname === '/rest/v1/ntcust_projects') {
       res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST205', message: 'table not found' })); return;
+    }
+    if (url.pathname === '/rest/v1/rpc/ntcust_student_lookup') {
+      if (missingLookup) { res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST202' })); return; }
+      studentLookupReads++;
+      const session = sessions.get(body.p_token_hash);
+      const p = session && Date.parse(session.expires_at) > Date.now() ? state.projects.find(p => p.id === session.project_id) : undefined;
+      res.end(JSON.stringify(p ? { project: p, credential_version: session!.credential_version } : null)); return;
     }
     if (url.pathname === '/rest/v1/ntcust_lottery_state') {
       if (req.method === 'HEAD') {
@@ -297,11 +306,17 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(sessions.has(sessionToken), false); // Supabase only holds token digests.
     const readsBeforeLookup = rosterReads;
     const indexedBeforeLookup = indexedReads;
+    const rpcBeforeLookup = studentLookupReads;
     const lookupCount = cloudflareTest ? 300 : 20;
     const results = await Promise.all(Array.from({ length: lookupCount }, () => request('/api/student/me', undefined, undefined, studentCookie)));
     assert.equal(results.filter(result => result.status === 200).length, lookupCount);
     assert.equal(rosterReads, readsBeforeLookup, 'student lookup must not read the full roster');
-    assert.equal(indexedReads - indexedBeforeLookup, lookupCount);
+    assert.equal(indexedReads, indexedBeforeLookup, 'lookup RPC must not trigger another project query');
+    assert.equal(studentLookupReads - rpcBeforeLookup, lookupCount);
+    missingLookup = true;
+    assert.equal((await request('/api/student/me', undefined, undefined, studentCookie)).status, 200);
+    assert.equal(indexedReads - indexedBeforeLookup, 1, 'missing migration must use the indexed fallback');
+    missingLookup = false;
     assert.ok(results.every(result => result.data.project.leader_id === project.leader_id));
     capacityWait = new Promise<void>(resolve => { releaseCapacity = resolve; });
     let busyResponses = 0;
