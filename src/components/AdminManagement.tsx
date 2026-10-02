@@ -693,7 +693,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               <p className="mt-1 text-xs text-slate-500">管理所有學生登入使用的共用密碼。</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2 lg:w-auto lg:shrink-0 lg:gap-3">
+          <div className={`grid gap-2 lg:w-auto lg:shrink-0 lg:gap-3 ${sharedPasswordEnabled ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <button
               type="button"
               onClick={() => setSharedAction('generate')}
