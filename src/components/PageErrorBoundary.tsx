@@ -14,22 +14,19 @@ export class PageErrorBoundary extends React.Component<React.PropsWithChildren, 
   private assetFailure = (event: PromiseRejectionEvent) => {
     if (isPageAssetError(event.reason)) this.setState({ error: event.reason, failed: true });
   };
-  private preloadFailure = (event: Event) => {
-    this.setState({ error: (event as Event & { payload?: unknown }).payload ?? new Error('Unable to preload CSS'), failed: true });
-  };
   componentDidMount() {
     document.getElementById('page-boot-fallback')?.remove();
     window.addEventListener('online', this.connectivity);
     window.addEventListener('offline', this.connectivity);
     window.addEventListener('unhandledrejection', this.assetFailure);
-    window.addEventListener('vite:preloadError', this.preloadFailure);
+    // Recoverable imports (e.g. Excel tools) handle their own failure. Lazy page
+    // failures still reach this render boundary or the unhandled-rejection handler.
     window.dispatchEvent(new Event('page-app-ready'));
   }
   componentWillUnmount() {
     window.removeEventListener('online', this.connectivity);
     window.removeEventListener('offline', this.connectivity);
     window.removeEventListener('unhandledrejection', this.assetFailure);
-    window.removeEventListener('vite:preloadError', this.preloadFailure);
   }
   render() {
     if (!this.state.failed) return this.props.children;

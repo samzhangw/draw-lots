@@ -28,12 +28,7 @@ export const REQUIRED_OUTPUT_HEADERS = [
   '+編號(抽籤後)'
 ];
 
-// The import parser creates temporary IDs. Keep a matching group's stable ID
-// so a roster replacement does not revoke its existing student credential.
-export function preserveImportedProjectIds(imported: ProjectItem[], existing: ProjectItem[]): ProjectItem[] {
-  const byLeader = new Map(existing.map(p => [p.leader_id.trim().toLowerCase(), p.id]));
-  return imported.map(p => ({ ...p, id: byLeader.get(p.leader_id.trim().toLowerCase()) || p.id }));
-}
+export { preserveImportedProjectIds } from './importProjects';
 
 // Helper to normalize header keys (stripping spaces, parentheses differences)
 function normalizeKey(str: string): string {

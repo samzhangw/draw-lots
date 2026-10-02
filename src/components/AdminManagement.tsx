@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { ProjectItem, DomainStats, DomainConfig } from '../types';
-import { parseExcelFile, preserveImportedProjectIds, exportToExcel, downloadInputTemplate } from '../lib/excel';
+import { preserveImportedProjectIds } from '../lib/importProjects';
 import { isAdvisorConflict, normalizeProfessorName } from '../lib/lottery';
 import { sortProjects, type ProjectSortKey, type ProjectSortDirection } from '../lib/projectSort';
 import { useModalFocus } from '../lib/useModalFocus';
@@ -61,7 +61,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedFieldFilter, setSelectedFieldFilter] = useState<string>('ALL');
-  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [excelAction, setExcelAction] = useState<'import' | 'export' | 'template' | null>(null);
+  const excelActionRef = useRef<'import' | 'export' | 'template' | null>(null);
+  const [isPreparingExcel, setIsPreparingExcel] = useState(false);
   const [uploadFeedback, setUploadFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [adminProjectDisplayMode, setAdminProjectDisplayMode] = useState<'table' | 'cards'>('table');
   const [domainDisplayMode, setDomainDisplayMode] = useState<'table' | 'cards'>('table');
@@ -429,29 +431,47 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     setDomainToDelete(null);
   });
 
-  // Handle Excel upload
+  const withExcelTools = async (action: 'import' | 'export' | 'template', work: (tools: typeof import('../lib/excel')) => Promise<void> | void) => {
+    if (excelActionRef.current) return;
+    excelActionRef.current = action;
+    setExcelAction(action);
+    setIsPreparingExcel(true);
+    setUploadFeedback(null);
+    let loaded = false;
+    try {
+      const tools = await import('../lib/excel');
+      loaded = true;
+      setIsPreparingExcel(false);
+      await work(tools);
+    } catch {
+      setUploadFeedback({ type: 'error', message: loaded
+        ? 'Excel 操作失敗，請確認檔案內容與瀏覽器下載設定後再試。'
+        : 'Excel 工具載入失敗，請檢查網路後再試；若網站已更新版本，請重新載入頁面。' });
+    } finally {
+      excelActionRef.current = null;
+      setExcelAction(null);
+      setIsPreparingExcel(false);
+    }
+  };
+
+  // Load the parser only after the user selects a file.
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    setUploadFeedback(null);
-
-    const result = await parseExcelFile(file);
-
-    if (result.success && result.projects) {
-      beginDraft();
-      setPendingImportProjects(result.projects);
-      setOverwriteAcknowledged(false);
-    } else {
-      setUploadFeedback({
-        type: 'error',
-        message: result.error || '讀取 Excel 失敗，請確認檔案格式',
+    if (!file || excelActionRef.current) return;
+    try {
+      await withExcelTools('import', async ({ parseExcelFile }) => {
+        const result = await parseExcelFile(file);
+        if (result.success && result.projects) {
+          beginDraft();
+          setPendingImportProjects(result.projects);
+          setOverwriteAcknowledged(false);
+        } else {
+          setUploadFeedback({ type: 'error', message: result.error || '讀取 Excel 失敗，請確認檔案格式' });
+        }
       });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
-
-    setIsUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // Confirm import mode (Overwrite or Append)
@@ -484,9 +504,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   });
 
   // Export Excel
-  const handleExport = () => {
-    exportToExcel(projects, '台中科技大學專題展報告抽籤結果');
-  };
+  const handleExport = () => withExcelTools('export', ({ exportToExcel }) => exportToExcel(projects, '台中科技大學專題展報告抽籤結果'));
+  const handleDownloadTemplate = () => withExcelTools('template', ({ downloadInputTemplate }) => downloadInputTemplate());
 
   // Confirm project deletion
   const handleConfirmDelete = withSaveFeedback('delete-project', async () => {
@@ -651,38 +670,41 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             accept=".xlsx, .xls, .csv"
             className="hidden"
           />
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 lg:gap-3">
+          <div aria-busy={!!excelAction} className="grid grid-cols-2 gap-2 lg:grid-cols-4 lg:gap-3 [&_button:disabled]:cursor-not-allowed [&_button:disabled]:opacity-50">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
+              disabled={!!excelAction}
               className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-2 py-2.5 text-xs sm:px-4 sm:text-sm font-bold text-white shadow-xs transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
               title="匯入專題名冊"
             >
               <Upload className="h-4 w-4 shrink-0" />
-              <span>{isUploading ? '讀取中…' : '匯入 Excel 名冊'}</span>
+              <span>{excelAction === 'import' ? '讀取中…' : '匯入 Excel 名冊'}</span>
             </button>
             <button
               type="button"
-              onClick={downloadInputTemplate}
+              onClick={handleDownloadTemplate}
+              disabled={!!excelAction}
               className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2.5 text-xs sm:px-4 sm:text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 cursor-pointer"
               title="下載標準 Excel 名冊匯入範本"
             >
               <Download className="h-4 w-4 shrink-0" />
-              <span>下載匯入範本</span>
+              <span>{excelAction === 'template' ? '準備中…' : '下載匯入範本'}</span>
             </button>
             <button
               type="button"
               onClick={handleExport}
+              disabled={!!excelAction}
               className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-2.5 text-xs sm:px-4 sm:text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100 cursor-pointer"
               title="匯出含抽籤結果的 Excel 名冊"
             >
               <FileSpreadsheet className="h-4 w-4 shrink-0" />
-              <span>匯出結果 Excel</span>
+              <span>{excelAction === 'export' ? '準備中…' : '匯出結果 Excel'}</span>
             </button>
             <button
               type="button"
               onClick={handleOpenAddProject}
+              disabled={!!excelAction}
               className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-2 py-2.5 text-xs sm:px-4 sm:text-sm font-bold text-white shadow-xs transition-colors hover:bg-slate-800 cursor-pointer"
               title="手動新增單一專題"
             >
@@ -690,6 +712,10 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               <span className="sm:hidden">新增專題</span><span className="hidden sm:inline">手動新增專題</span>
             </button>
           </div>
+          {excelAction && <p role="status" className="mt-3 flex items-center gap-2 text-xs font-medium text-blue-800">
+            <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            {isPreparingExcel ? '正在準備 Excel 工具…' : excelAction === 'import' ? '正在讀取 Excel 名冊…' : '正在產生 Excel 檔案…'}
+          </p>}
         </section>
 
         <section aria-labelledby="password-actions-heading" className="flex flex-col gap-4 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 shadow-xs sm:rounded-3xl sm:p-5 lg:flex-row lg:items-center lg:justify-between">

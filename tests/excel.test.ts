@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
-import { parseExcelFile, preserveImportedProjectIds, createExportWorkbook, REQUIRED_OUTPUT_HEADERS } from '../src/lib/excel';
+import { parseExcelFile, createExportWorkbook, REQUIRED_OUTPUT_HEADERS } from '../src/lib/excel';
+import { preserveImportedProjectIds } from '../src/lib/importProjects';
 
 const row = { 序號: '1', 學制: '四技', 系所: '資管', 班級: '甲', 指導老師: '王教授', 領域: '企業智慧化', 編號: 'P1', 專題名稱: '中文測試', 組長學號: '12345678', 組長密碼: 'Strong-password-123' };
 function makeFile(rows: Record<string, string>[]): File {
