@@ -265,16 +265,16 @@ export const StudentPortal: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 sm:gap-4" aria-label="抽籤結果">
-                  <section className="flex min-w-0 min-h-36 flex-col justify-between gap-4 rounded-2xl border border-blue-200 bg-blue-50 p-2 sm:min-h-44 sm:p-8">
-                    <div className="flex flex-col items-start gap-1.5 text-xs font-bold text-blue-800 sm:flex-row sm:items-center sm:gap-2 sm:text-sm">
-                      <Users className="h-5 w-5 shrink-0" />
+                  <section className="flex min-w-0 flex-col gap-2 rounded-2xl border border-blue-200 bg-blue-50 p-3 sm:p-4">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 sm:gap-2 sm:text-sm">
+                      <Users className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
                       分組場次
                     </div>
                     <div className="flex flex-wrap items-baseline justify-center gap-1 font-black text-blue-950" aria-label={`第 ${myProject.assigned_group ?? '—'} 組`}><span className="text-lg min-[400px]:text-xl">第</span><strong className={`leading-tight tabular-nums ${resultNumberSize(myProject.assigned_group)}`}>{myProject.assigned_group ?? '—'}</strong><span className="text-lg min-[400px]:text-xl">組</span></div>
                   </section>
-                  <section className="flex min-w-0 min-h-36 flex-col justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-2 sm:min-h-44 sm:p-8">
-                    <div className="flex flex-col items-start gap-1.5 text-xs font-bold text-amber-800 sm:flex-row sm:items-center sm:gap-2 sm:text-sm">
-                      <Award className="h-5 w-5 shrink-0" />
+                  <section className="flex min-w-0 flex-col gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:p-4">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800 sm:gap-2 sm:text-sm">
+                      <Award className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
                       報告出場順序
                     </div>
                     <div className="flex flex-wrap items-baseline justify-center gap-1 font-black text-amber-950" aria-label={`第 ${myProject.draw_order} 位`}><span className="text-lg min-[400px]:text-xl">第</span><strong className={`leading-tight tabular-nums ${resultNumberSize(myProject.draw_order)}`}>{myProject.draw_order}</strong><span className="text-lg min-[400px]:text-xl">位</span></div>
