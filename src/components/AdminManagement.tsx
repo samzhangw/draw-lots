@@ -1349,28 +1349,30 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       {isEvaluatorModalOpen && domainForEvaluators && (
         <div role="dialog" aria-modal="true" aria-label="設定各組評審委員名單" className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-7 shadow-xl space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200">
-                  <Users className="w-5 h-5" />
+            <div className="space-y-4 border-b border-slate-100 pb-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f2f7f1] text-[#356a32]">
+                    <Users className="h-5 w-5" />
+                  </div>
+                  <h3 className="min-w-0 text-base font-bold leading-snug text-slate-900 sm:text-xl">設定各組評審委員名單</h3>
                 </div>
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                    設定各組評審委員名單
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    領域：「<strong className="text-slate-800">{domainForEvaluators.field}</strong>」
-                    <span className="block mt-1">（共 {domainForEvaluators.groupCount} 個分組場次）</span>
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEvaluatorModalOpen(false)}
+                  aria-label="關閉評審委員設定"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-blue-600 cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setIsEvaluatorModalOpen(false)}
-                aria-label="關閉評審委員設定"
-                className="text-slate-400 hover:text-slate-700 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-slate-500">專題領域</p>
+                  <p className="mt-1 break-words text-lg font-bold leading-snug text-[#28518a] sm:text-xl">{domainForEvaluators.field}</p>
+                </div>
+                <span className="inline-flex shrink-0 items-center rounded-full border border-[#ead5df] bg-[#fbf4f8] px-3 py-1.5 text-xs font-semibold text-[#93466e]">共 {domainForEvaluators.groupCount} 個分組場次</span>
+              </div>
             </div>
 
             <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl text-xs text-slate-600">
