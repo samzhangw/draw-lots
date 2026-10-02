@@ -171,7 +171,7 @@ Session 負載防護（S09）：學生與工作人員 Cookie 使用綁定用途�
 
 API 內部錯誤僅回傳固定訊息與事件 ID；5xx 不會回傳資料庫錯誤、檔案路徑或堆疊。格式錯誤 JSON 回 400，過大請求回 413。特殊領域名稱（含 `__proto__`、`constructor`）可正常參與獨立分組抽籤。
 
-學生同一 IP 同時登入後查詢的本機負載測試可用 `pnpm benchmark:student-login --students=600 --db-delay-ms=100`；Workers 加 `--workers`，亦可設為 100 ms 模擬較慢的資料庫。此工具只使用合成名冊及本機模擬 Supabase，不連接正式資料庫。佇列調整後的結果、延遲與本機連線暖機限制請見 [2026-10-02 改善驗證報告](STUDENT_LOGIN_LOAD_IMPROVEMENT_2026-10-02.md)。
+學生同一 IP 同時登入後查詢的本機負載測試可用 `pnpm benchmark:student-login --students=600 --db-delay-ms=100 --output=/tmp/lottery-login-benchmark.json`；Workers 加 `--workers`。此工具只使用合成名冊及本機模擬 Supabase，不連接正式資料庫。結果包含成功率與延遲；本機模擬結果不代表正式資料庫或部署環境的容量保證。
 
 學生登入的等待容量調整後，300 個不同學號、同一 IP 的本機 Node／Workers API 測試在每次模擬資料庫請求延遲 30／100 ms 下，首次登入及查詢皆為 300／300。Workers 測試預先準備本機代理的內部連線；不代表正式 Supabase 或 300 人第一次載入網站的容量保證。
 

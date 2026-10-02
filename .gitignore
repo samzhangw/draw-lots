@@ -2,6 +2,7 @@ node_modules/
 build/
 dist/
 coverage/
+STUDENT_LOGIN_LOAD_*.json
 .DS_Store
 *.log
 .env*
