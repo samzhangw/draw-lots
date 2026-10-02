@@ -166,7 +166,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({
           </button>
         </form>
 
-        <p className="text-xs text-slate-500">請使用大會配置的 Supabase Auth Email 與密碼登入。</p>
+        <p className="text-xs text-slate-500">請使用大會配置的 Email 與密碼登入。</p>
       </div>
     </div>
   );
