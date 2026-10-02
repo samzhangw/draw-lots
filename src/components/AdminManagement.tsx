@@ -9,6 +9,7 @@ import { ProjectRosterCard } from './ProjectRosterCard';
 import { LotteryTestPanel } from './LotteryTestPanel';
 import { getDomainCode } from '../lib/domainCodes';
 import { normalizeOriginalCodes } from '../lib/originalCodes';
+import { domainDeletionError } from '../lib/domainDeletion';
 import {
   Upload,
   Download,
@@ -138,6 +139,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   const [isDomainModalOpen, setIsDomainModalOpen] = useState<boolean>(false);
   const [editingDomain, setEditingDomain] = useState<DomainConfig | null>(null);
   const [domainToDelete, setDomainToDelete] = useState<DomainConfig | null>(null);
+  const domainDeleteBlockedMessage = domainToDelete
+    ? domainDeletionError(projects, domainConfigs, domainConfigs.filter(config => config.id !== domainToDelete.id))
+    : null;
   const [domainFormName, setDomainFormName] = useState<string>('');
   const [domainFormGroupCount, setDomainFormGroupCount] = useState<number>(2);
   const [domainFormOrder, setDomainFormOrder] = useState<number>(1);
@@ -407,6 +411,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     if (!domainToDelete) return;
 
     const remainingConfigs = domainConfigs.filter((c) => c.id !== domainToDelete.id);
+    const deletionError = domainDeletionError(projects, domainConfigs, remainingConfigs);
+    if (deletionError) throw new Error(deletionError);
     const affectedCount = statsMap[domainToDelete.field] || 0;
 
     await onUpdateDomainConfigs(remainingConfigs);
@@ -1639,9 +1645,11 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <p className="text-xs text-slate-600 mt-1">
                   領域：「<strong className="text-slate-900">{domainToDelete.field}</strong>」
                 </p>
-                {statsMap[domainToDelete.field] > 0 && (
+                {domainDeleteBlockedMessage ? (
+                  <p role="alert" className="mt-2 rounded-lg border border-rose-200 bg-rose-50 p-2 text-xs leading-relaxed text-rose-700">{domainDeleteBlockedMessage}</p>
+                ) : statsMap[domainToDelete.field] > 0 && (
                   <p className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200 mt-2 leading-relaxed">
-                    ⚠️ 注意：名冊內尚有 {statsMap[domainToDelete.field]} 筆專題屬於此領域，刪除後將自動歸類至相鄰領域。
+                    ⚠️ 注意：名冊內尚有 {statsMap[domainToDelete.field]} 筆專題屬於此領域，刪除後將移至「{domainConfigs.find(config => config.id !== domainToDelete.id)?.field || '未分類領域'}」。
                   </p>
                 )}
               </div>
@@ -1657,7 +1665,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </button>
               <button
                 onClick={handleConfirmDeleteDomain}
-                disabled={pendingAction === 'delete-domain'}
+                disabled={pendingAction === 'delete-domain' || !!domainDeleteBlockedMessage}
                 className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60 cursor-pointer"
               >
                 {pendingAction === 'delete-domain' && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}

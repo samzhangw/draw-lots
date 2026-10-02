@@ -14,6 +14,7 @@ import { publicError } from './errors';
 import { executeAllDomainsIndependentLottery } from '../src/lib/lottery';
 import { LotteryAllocationError } from '../src/lib/groupCapacities';
 import { resolveLotteryFields } from './lotteryScope';
+import { domainDeletionError } from '../src/lib/domainDeletion';
 import { testLottery } from '../src/lib/lotteryTest';
 
 export const app = express();
@@ -209,6 +210,8 @@ app.post('/api/domain-configs', route(async (req, res) => {
   checkVersion(req, state);
   const renamed = req.body.renamedField;
   if (renamed && (typeof renamed.oldName !== 'string' || typeof renamed.newName !== 'string')) throw new ApiError(400, '領域更名格式不正確。');
+  const deletionError = domainDeletionError(state.projects, state.domainConfigs, req.body.domainConfigs);
+  if (deletionError) throw new ApiError(409, deletionError);
   if (renamed) state.projects = state.projects.map(p => p.field === renamed.oldName ? { ...p, field: renamed.newName } : p);
   const removedFields = state.domainConfigs.filter(c => !req.body.domainConfigs.some((next: { id: string }) => next.id === c.id)).map(c => c.field);
   state.domainConfigs = req.body.domainConfigs;

@@ -621,6 +621,30 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.deepEqual((await request('/api/state', undefined, stage)).data.domainConfigs.map((c: { id: string }) => c.id), reorderedConfigs.map((c: { id: string }) => c.id));
     assert.equal((await request('/api/domain-configs', { domainConfigs: beforeReorder.domainConfigs, version: beforeReorder.version }, adminAgain)).status, 409);
 
+    // Deleting a drawn domain must reject before moving/merging any results.
+    const deletionFields = ['企業智慧化', '數位內容與多媒體應用'];
+    assert.equal((await request('/api/projects', {
+      projects: deletionFields.map((field, i) => ({ ...projectDto(project), id: `delete-${i}`, leader_id: `delete-${i}`, field })),
+      version: state.version,
+    }, adminAgain)).status, 200);
+    const deletionConfigs = deletionFields.map(field => ({ id: state.domain_configs.find(config => config.field === field)!.id, field, groupCount: 1, evaluatorsPerGroup: {} }));
+    assert.equal((await request('/api/domain-configs', { domainConfigs: deletionConfigs, version: state.version }, adminAgain)).status, 200);
+    assert.equal((await request('/api/lottery/draw', { field: 'ALL', version: state.version }, stage)).status, 200);
+    const beforeDelete = structuredClone(state);
+    for (const renamedField of [undefined, { oldName: deletionFields[0], newName: deletionFields[1] }]) {
+      const blocked = await request('/api/domain-configs', { domainConfigs: [deletionConfigs[1]], renamedField, version: state.version }, adminAgain);
+      assert.equal(blocked.status, 409);
+      assert.match(blocked.data.error, /企業智慧化.*已有抽籤結果.*重設.*刪除/);
+      assert.deepEqual(state, beforeDelete, 'rejected deletion must preserve projects, config and version');
+    }
+    assert.equal((await request('/api/lottery/reset', { field: deletionFields[0], version: state.version }, stage)).status, 200);
+    const destinationResult = structuredClone(state.projects[1]);
+    assert.equal((await request('/api/domain-configs', { domainConfigs: [deletionConfigs[1]], version: state.version }, adminAgain)).status, 200);
+    assert.equal(state.projects[0].field, deletionFields[1]);
+    assert.equal(state.projects[0].draw_order, null);
+    assert.equal(state.projects[0].assigned_group, null);
+    assert.deepEqual(state.projects[1], destinationResult);
+
     // Shrinking a domain must not strand drawn projects in a removed group.
     const shrinkField = '縮組測試';
     const shrinkUpload = await request('/api/projects', {
