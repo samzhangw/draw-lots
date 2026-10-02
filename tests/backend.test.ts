@@ -475,6 +475,26 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(capacityEdit.status, 409);
     assert.match(capacityEdit.data.error, /重設/);
     assert.deepEqual(state, beforeCapacityEdit);
+    // Admin test draws reuse current saved settings but never commit any state.
+    const beforeTestDraw = structuredClone(state);
+    assert.equal((await request('/api/lottery/test', { field: 'ALL', version: state.version })).status, 401);
+    assert.equal((await request('/api/lottery/test', { field: 'ALL', version: state.version }, stage)).status, 403);
+    assert.equal((await request('/api/lottery/test', { field: 'ALL', version: state.version - 1 }, adminAgain)).status, 409);
+    assert.equal((await request('/api/lottery/test', { field: 'missing', version: state.version }, adminAgain)).status, 400);
+    const testDraw = await request('/api/lottery/test', { field: 'ALL', version: state.version }, adminAgain);
+    assert.equal(testDraw.status, 200); assert.equal(testDraw.data.errorCount, 0);
+    assert.deepEqual(testDraw.data.domains[0].groups.map((g: any) => g.count), [1, 2]);
+    assert.deepEqual(state, beforeTestDraw);
+    assert.equal(testDraw.data.version, beforeTestDraw.version);
+    assert.equal(testDraw.data.projects, undefined);
+    assert.deepEqual(Object.keys(testDraw.data.domains[0].preview[0]).sort(), ['drawCode', 'group', 'order', 'originalCode', 'title']);
+    assert.equal((await request('/api/lottery/reset', { field: shrinkField, version: state.version }, stage)).status, 200);
+    assert.equal((await request('/api/domain-configs', { domainConfigs: manualConfigs({ 1: 1, 2: 3 }), version: state.version }, adminAgain)).status, 200);
+    const beforeFailedTest = structuredClone(state);
+    const failedTest = await request('/api/lottery/test', { field: shrinkField, version: state.version }, adminAgain);
+    assert.equal(failedTest.status, 200); assert.equal(failedTest.data.errorCount, 1);
+    assert.ok(failedTest.data.domains[0].issues.some((issue: any) => issue.level === 'error' && /共 4 件.*名冊有 3 件/.test(issue.message)));
+    assert.deepEqual(state, beforeFailedTest);
   } finally {
     await stop();
     await rm(persistence, { recursive: true, force: true });

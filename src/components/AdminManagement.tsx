@@ -6,6 +6,7 @@ import { sortProjects, type ProjectSortKey, type ProjectSortDirection } from '..
 import { useModalFocus } from '../lib/useModalFocus';
 import { FloatingNotice } from './FloatingNotice';
 import { ProjectRosterCard } from './ProjectRosterCard';
+import { LotteryTestPanel } from './LotteryTestPanel';
 import { getDomainCode } from '../lib/domainCodes';
 import { normalizeOriginalCodes } from '../lib/originalCodes';
 import { useDomainDragSort } from '../lib/useDomainDragSort';
@@ -824,6 +825,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <LotteryTestPanel version={dataVersion} configs={domainConfigs} disabled={!!pendingAction || draftOpen || !projects.length} />
             <button
               onClick={handleOpenAddDomain}
               className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:bg-black text-white text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"

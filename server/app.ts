@@ -10,6 +10,7 @@ import { runtimeEnv } from './runtime';
 import { publicError } from './errors';
 import { executeAllDomainsIndependentLottery, allocateDomainSubgroups } from '../src/lib/lottery';
 import { LotteryAllocationError } from '../src/lib/groupCapacities';
+import { testLottery } from '../src/lib/lotteryTest';
 
 export const app = express();
 const SHARED_PASSWORD_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -195,6 +196,15 @@ app.post('/api/domain-configs', route(async (req, res) => {
     }
   }
   res.json(staffState(await store.save(state, state.version), 'admin'));
+}));
+app.post('/api/lottery/test', route(async (req, res) => {
+  await authorize(req, true);
+  const state = await createStore().load();
+  checkVersion(req, state);
+  const field = req.body.field ?? 'ALL';
+  if (typeof field !== 'string' || !field.trim()) throw new ApiError(400, '請選擇有效的測試領域。');
+  if (!state.projects.some(p => field === 'ALL' || p.field === field)) throw new ApiError(400, '目前範圍內沒有專題可測試。');
+  res.json(testLottery(state.projects, state.domainConfigs, field, state.version));
 }));
 app.post('/api/lottery/draw', route(async (req, res) => {
   const role = await authorize(req);
