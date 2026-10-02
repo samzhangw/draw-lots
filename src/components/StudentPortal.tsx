@@ -292,12 +292,11 @@ export const StudentPortal: React.FC = () => {
           <aside className="rounded-[1.5rem] border border-slate-200 bg-white p-5 sm:p-6 text-sm text-slate-600 shadow-sm">
             <h3 className="flex items-center gap-2 font-bold text-slate-900">
               <FileText className="h-5 w-5 text-blue-700" />
-              報告注意事項
+              成果簡報(所有參賽組別)：
             </h3>
             <ul className="mt-3 list-disc space-y-2 pl-5 leading-relaxed">
-              <li>報告時間：每組發表 7 分鐘，評審委員提問答詢 3 分鐘，共計 10 分鐘（按鈴提醒）。</li>
-              <li>請於發表前 2 組至指定分組場次候席區就座，並攜帶備份簡報隨身碟。</li>
-              <li>發表順序以本系統現場抽出之分組與順位為準。</li>
+              <li>日間部簡報時間為115年11月26日(四)全天09:00至17:00。</li>
+              <li>進修部簡報時間為115年11月26日(四)晚間18:00至21:00。</li>
             </ul>
           </aside>
         </div>
