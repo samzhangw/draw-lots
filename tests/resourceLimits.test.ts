@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { studentLoginWork } from '../server/loginAdmission';
 import { BoundedExecutor, ResourceBusyError, ShortCache } from '../server/resourceLimits';
 
 function gate() {
@@ -49,4 +50,22 @@ test('public cache coalesces misses, expires and does not retain failures or inv
   assert.equal(await cache.get('other', async () => 2), 2);
   stale.release(); assert.equal(await old, 1);
   assert.equal(await cache.get('other', async () => 3), 2);
+});
+
+
+test('student admission holds 8 active and 384 waiting requests, rejects overflow, and recovers', async () => {
+  const held = gate(); let active = 0; let maximum = 0;
+  const work = Array.from({ length: 394 }, () => studentLoginWork.run(async () => {
+    active++; maximum = Math.max(maximum, active);
+    try { await held.wait; } finally { active--; }
+  }));
+  const all = Promise.allSettled(work);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(maximum, 8);
+  held.release();
+  const results = await all;
+  assert.equal(results.filter(r => r.status === 'fulfilled').length, 392);
+  assert.equal(results.filter(r => r.status === 'rejected' && r.reason instanceof ResourceBusyError).length, 2);
+  assert.equal(maximum, 8); assert.equal(active, 0);
+  assert.equal(await studentLoginWork.run(async () => 'ready'), 'ready');
 });

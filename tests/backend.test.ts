@@ -349,8 +349,9 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       })
     ));
     try {
-      for (let n = 0; n < 100 && !busyResponses; n++) await new Promise(resolve => setTimeout(resolve, 20));
-      assert.ok(busyResponses > 0, 'full login queues must reject excess work before database access');
+      for (let n = 0; n < 100 && activeCapacityReads < 8; n++) await new Promise(resolve => setTimeout(resolve, 20));
+      assert.equal(activeCapacityReads, 8, 'queued logins must keep database work at the active limit');
+      assert.equal(busyResponses, 0, 'a 50-student burst must fit in the expanded login queue');
       const duringOverload = await Promise.all(Array.from({ length: 20 }, () => request('/api/student/me', undefined, undefined, studentCookie)));
       assert.ok(duringOverload.every(result => result.status === 200), 'lookup must remain available during login overload');
     } finally { releaseCapacity(); }

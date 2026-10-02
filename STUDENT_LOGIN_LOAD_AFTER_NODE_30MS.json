@@ -1,0 +1,81 @@
+{
+  "mode": "Node",
+  "students": 300,
+  "sameSourceIp": true,
+  "sharedPassword": true,
+  "cacheInitiallyCold": true,
+  "connectionsPrewarmed": true,
+  "simulatedDatabaseDelayMs": 30,
+  "nodeVersion": "v24.19.0",
+  "firstAttempt": {
+    "statuses": {
+      "200": 300
+    },
+    "successful": 300,
+    "successPercent": 100,
+    "burstMs": 4133,
+    "successfulLatency": {
+      "p50Ms": 2139,
+      "p95Ms": 3891,
+      "maxMs": 4093
+    },
+    "allLatency": {
+      "p50Ms": 2139,
+      "p95Ms": 3891,
+      "maxMs": 4093
+    },
+    "transportOrNonJsonErrors": 0,
+    "sampleErrors": [],
+    "databaseRequestsIncludingQueries": 1200
+  },
+  "oneBusyRetry": {
+    "attempted": 0,
+    "statuses": {},
+    "additionalSuccessful": 0,
+    "successfulLatency": {
+      "p50Ms": null,
+      "p95Ms": null,
+      "maxMs": null
+    },
+    "phaseMs": 2
+  },
+  "final": {
+    "successfulLogins": 300,
+    "successfulQueries": 300,
+    "uniqueCookies": 300,
+    "incorrectStudentResults": 0,
+    "remainingStudents": 0,
+    "elapsedMs": 4133,
+    "queryStatuses": {
+      "200": 300
+    },
+    "queryLatency": {
+      "p50Ms": 37,
+      "p95Ms": 42,
+      "maxMs": 48
+    }
+  },
+  "database": {
+    "totalRequests": 1200,
+    "types": {
+      "leaderLookup": 300,
+      "credentialRecheck": 300,
+      "sessionInsert": 300,
+      "resultLookup": 300
+    },
+    "peakConcurrentRequests": 16,
+    "peakRequestsPerSecond": 321,
+    "latency": {
+      "p50Ms": 31,
+      "p95Ms": 32,
+      "maxMs": 34
+    },
+    "persistedSessions": 300
+  },
+  "limitation": "Local API benchmark with simulated Supabase HTTP responses; not production Supabase CPU/IO, campus network, or browser rendering. Current admission settings are recorded separately.",
+  "studentLoginAdmission": {
+    "concurrency": 8,
+    "maxWaiting": 384,
+    "waitMs": 20000
+  }
+}

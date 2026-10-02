@@ -7,7 +7,8 @@ import { createStudentSession, getStudentProject, clearStudentSession } from './
 import { createStaffSession, getStaffSession, clearStaffSession } from './staffSessions';
 import { loginLimiter, anonymousLimiter, sessionLimiter } from './rateLimit';
 import { readSessionToken, sessionScopeForPath } from './sessionSecurity';
-import { ResourceBusyError, BoundedExecutor, timedFetch } from './resourceLimits';
+import { studentLoginWork, staffLoginWork } from './loginAdmission';
+import { ResourceBusyError, timedFetch } from './resourceLimits';
 import { runtimeEnv } from './runtime';
 import { publicError } from './errors';
 import { executeAllDomainsIndependentLottery, allocateDomainSubgroups } from '../src/lib/lottery';
@@ -68,8 +69,6 @@ app.use('/api', (req, res, next) => {
 const route = (handler: (req: Request, res: Response) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => { Promise.resolve(handler(req, res)).catch(next); };
 
-const studentLoginWork = new BoundedExecutor(8, 32, 8000);
-const staffLoginWork = new BoundedExecutor(2, 8, 3000);
 const loginRoute = (scope: 'staff' | 'student', handler: (req: Request, res: Response) => Promise<unknown>) =>
   route((req, res) => (scope === 'student' ? studentLoginWork : staffLoginWork).run(() => handler(req, res)));
 

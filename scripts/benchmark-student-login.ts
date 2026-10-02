@@ -7,6 +7,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
+import { STUDENT_LOGIN_LIMITS } from '../server/loginAdmission';
 import { hashPassword, fingerprint, type StoredProject } from '../server/credentials';
 
 const mode = process.argv.includes('--workers') ? 'Workers' : 'Node';
@@ -108,7 +109,7 @@ const request = (path: string, body?: Record<string, string>, cookie?: string, a
       });
     });
     req.on('error', error => resolve({ status: 0, elapsed: performance.now() - start, error: String(error), retryAfter: 0 }));
-    req.setTimeout(15000, () => req.destroy(new Error('Request timed out')));
+    req.setTimeout(45000, () => req.destroy(new Error('Request timed out')));
     req.end(rawBody);
   });
 };
@@ -131,7 +132,16 @@ try {
   // Each browser first opens the page, keeping its own connection. Prepare in
   // small batches so the local OS SYN backlog is not the login bottleneck.
   for (let offset = 0; offset < count; offset += 25) {
-    await Promise.all(projects.slice(offset, offset + 25).map(p => request('/api/student/verify', undefined, undefined, agents.get(p.leader_id), 'OPTIONS')));
+    await Promise.all(projects.slice(offset, offset + 25).map(p => request('/api/student/me', undefined, undefined, agents.get(p.leader_id))));
+  }
+  // Warm the local dev proxy's internal pool before measuring application load.
+  // Unsigned session checks perform no database work and are safe to repeat.
+  const warmupErrors: number[] = [];
+  if (mode === 'Workers') {
+    for (let round = 0; round < 2; round++) {
+      const checks = await Promise.all(projects.map(p => request('/api/student/me', undefined, undefined, agents.get(p.leader_id))));
+      warmupErrors.push(checks.filter(r => r.status !== 401).length);
+    }
   }
   measured = true;
   const started = performance.now();
@@ -169,8 +179,8 @@ try {
     peakRequestsPerSecond = Math.max(peakRequestsPerSecond, right - left + 1);
   }
   const successful = [...firstOk, ...retryOk];
-  const result = { mode, students: count, sameSourceIp: true, sharedPassword: true, cacheInitiallyCold: true, connectionsPrewarmed: true,
-    simulatedDatabaseDelayMs: delayMs, nodeVersion: process.version,
+  const result = { mode, students: count, sameSourceIp: true, sharedPassword: true, cacheInitiallyCold: true, connectionsPrewarmed: true, workerPoolWarmupErrors: warmupErrors,
+    studentLoginAdmission: STUDENT_LOGIN_LIMITS, simulatedDatabaseDelayMs: delayMs, nodeVersion: process.version,
     firstAttempt: { statuses: statuses(first.map(r => r.response)), successful: firstOk.length,
       successPercent: Number((firstOk.length / count * 100).toFixed(1)), burstMs: Math.round(burstMs),
       successfulLatency: percentiles(firstOk.map(r => r.response.elapsed)), allLatency: percentiles(first.map(r => r.response.elapsed)),
@@ -183,8 +193,8 @@ try {
       remainingStudents: count - successful.length, elapsedMs: Math.round(elapsedMs), queryStatuses: statuses(lookups), queryLatency: percentiles(lookups.map(r => r.elapsed)) },
     database: { totalRequests: dbRequests.length, types: dbRequests.reduce<Record<string, number>>((acc, r) => { acc[r.type] = (acc[r.type] || 0) + 1; return acc; }, {}),
       peakConcurrentRequests: dbPeak, peakRequestsPerSecond, latency: percentiles(dbRequests.map(r => r.duration)), persistedSessions: sessions.size },
-    limitation: 'Local API benchmark with simulated Supabase HTTP responses; not production Supabase CPU/IO, campus network, or browser rendering. Login queues and limits unchanged.' };
-  const path = resolve(`STUDENT_LOGIN_LOAD_${mode.toUpperCase()}_${delayMs}MS.json`);
+    limitation: 'Local API benchmark with simulated Supabase HTTP responses; not production Supabase CPU/IO, campus network, or browser rendering. Measures current bounded login queues and limits.' };
+  const path = resolve(process.argv.find(arg => arg.startsWith('--output='))?.slice('--output='.length) || `STUDENT_LOGIN_LOAD_${mode.toUpperCase()}_${delayMs}MS.json`);
   await writeFile(path, JSON.stringify(result, null, 2) + '\n');
   await writeFile(path.replace('.json', '.runtime.log'), log);
   console.log(JSON.stringify({ path, ...result }, null, 2));
