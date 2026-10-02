@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
-  const pageSize = 5;
+  const [pageSize, setPageSize] = useState<5 | 10>(5);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [seconds, setSeconds] = useState(10);
@@ -92,7 +92,7 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
           <span className="result-carousel-group-page" aria-label={`本組第 ${slide.page + 1}／${slide.pages} 頁`}><small>本組頁碼</small><span><b>{slide.page + 1}</b>／{slide.pages} 頁</span></span>
         </div>
       </div>}
-      <div className="result-carousel-list" ref={listRef} onWheel={() => setPlaying(false)} onTouchMove={() => setPlaying(false)} style={{ '--result-rows': pageSize } as React.CSSProperties}>
+      <div className={`result-carousel-list ${pageSize === 10 ? 'result-carousel-list--two-columns' : ''}`} ref={listRef} onWheel={() => setPlaying(false)} onTouchMove={() => setPlaying(false)} style={{ '--result-rows': 5 } as React.CSSProperties}>
         {slide?.items.map((item) => <article className="result-carousel-row" key={item.id}>
           <div className="result-carousel-order"><small>報告順位</small><strong>{String(item.draw_order).padStart(2, '0')}</strong></div>
           <div className="result-carousel-project"><span>{item.draw_code || '編號未設定'}</span><h3>{item.project_title}</h3></div>
@@ -111,6 +111,7 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
             const found = groups.find(({ page }) => JSON.stringify([page.field, page.group]) === event.target.value);
             if (found) { setIndex(found.position); setRemaining(seconds); }
           }}>{groups.map(({ page }) => <option key={page.key} value={JSON.stringify([page.field, page.group])}>{page.field} · 第 {page.group} 組</option>)}</select></label>
+          <label>每頁筆數<select aria-label="每頁筆數" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value) as 5 | 10)}><option value={5}>5 筆（單欄）</option><option value={10}>10 筆（左右）</option></select></label>
           <label>換頁間隔<select aria-label="換頁間隔" value={seconds} onChange={(event) => setSeconds(Number(event.target.value))}>{[3, 5, 10, 15, 20, 30].map((value) => <option key={value} value={value}>{value} 秒</option>)}</select></label>
         </div>
         <div className="result-carousel-hint"><span>{slides.length < 2 ? '單頁結果' : !visible ? '背景暫停' : playing ? `${remaining} 秒後換頁 · 循環播放` : '已暫停'}{next && slides.length > 1 ? ` · 下一頁：${next.field} 第 ${next.group} 組` : ''}</span><span>← → 換頁 · 空白鍵播放／暫停 · Esc 返回</span></div>

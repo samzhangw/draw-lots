@@ -18,7 +18,7 @@ test('presentation follows configured domains, numeric groups and report order w
 });
 test('614 projects in 19 groups appear exactly once at every supported viewport page size', () => {
   const projects = Array.from({ length: 614 }, (_, i) => item(`p${i}`, i % 19 < 9 ? 'A' : 'B', i % 19 + 1, Math.floor(i / 19) + 1)).reverse();
-  for (const size of [1, 2, 3, 4, 5, 6, 8]) {
+  for (const size of [1, 2, 3, 4, 5, 6, 8, 10]) {
     const slides = buildResultSlides(projects, domains, 'ALL', size);
     assert.equal(new Set(slides.map((slide) => JSON.stringify([slide.field, slide.group]))).size, 19);
     const ids = slides.flatMap((slide) => slide.items.map((p) => p.id));

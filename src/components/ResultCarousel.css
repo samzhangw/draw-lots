@@ -78,3 +78,16 @@
  .result-carousel-order { min-width:50px; padding:4px 6px; }
  .result-carousel-order strong { font-size:26px; }
 }
+
+/* Read down the left column (1–5), then down the right (6–10). */
+.result-carousel-list--two-columns { grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-flow:column; }
+.result-carousel-list--two-columns .result-carousel-row { gap:12px; padding:8px 12px; }
+.result-carousel-list--two-columns .result-carousel-project h3 { font-size:clamp(16px,1.65vw,26px); }
+@media(max-width:700px) {
+ .result-carousel-list--two-columns .result-carousel-row { align-items:flex-start; flex-direction:column; gap:4px; padding:6px; }
+ .result-carousel-list--two-columns .result-carousel-order { display:flex; align-items:center; gap:6px; padding:2px 6px; min-width:0; }
+ .result-carousel-list--two-columns .result-carousel-order strong { font-size:20px; }
+ .result-carousel-list--two-columns .result-carousel-project h3 { font-size:13px; }
+ .result-carousel-list--two-columns .result-carousel-project span { font-size:11px; }
+ .result-carousel-controls label:first-of-type { flex-basis:100%; }
+}
