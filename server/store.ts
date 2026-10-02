@@ -4,6 +4,7 @@ import type { DomainConfig, ProjectItem } from '../src/types';
 import { removeLegacyCredentials, type StoredProject } from './credentials';
 import { normalizeOriginalCodes } from '../src/lib/originalCodes';
 import { normalizeProfessorName } from '../src/lib/lottery';
+import { LotteryAllocationError, validateGroupCapacities } from '../src/lib/groupCapacities';
 import { ApiError } from './errors';
 export { ApiError } from './errors';
 
@@ -72,6 +73,13 @@ export function validateDomains(value: unknown): asserts value is DomainConfig[]
   const fields = new Set<string>();
   for (const c of value) {
     if (!c || typeof c.id !== 'string' || !c.id.trim() || typeof c.field !== 'string' || !c.field.trim() || ids.has(c.id) || fields.has(c.field) || !Number.isInteger(c.groupCount) || c.groupCount < 1 || c.groupCount > 50) throw new ApiError(400, '領域 ID、名稱不得重複，組數須為 1 至 50。');
+    if (c.groupCapacities !== undefined) {
+      try { validateGroupCapacities(c.groupCapacities, c.groupCount, c.field); }
+      catch (error) {
+        if (error instanceof LotteryAllocationError) throw new ApiError(400, error.message);
+        throw error;
+      }
+    }
     if (c.evaluatorsPerGroup != null && (typeof c.evaluatorsPerGroup !== 'object' || Array.isArray(c.evaluatorsPerGroup) || Object.entries(c.evaluatorsPerGroup).some(([g, names]) => !/^\d+$/.test(g) || Number(g) < 1 || !Array.isArray(names) || names.some(x => typeof x !== 'string')))) throw new ApiError(400, '評審設定格式不正確。');
     for (const [group, names] of Object.entries(c.evaluatorsPerGroup || {})) {
       if (Array.isArray(names) && names.some((name: string) => !normalizeProfessorName(name))) {

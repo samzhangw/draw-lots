@@ -30,6 +30,7 @@ export interface DomainConfig {
   id: string;
   field: string;
   groupCount: number; // 評審分組組數
+  groupCapacities?: Record<number, number>; // 指定各組專題件數；未設定沿用自動分組
   evaluatorsPerGroup?: Record<number, string[]>; // 每一個分組 (1..N) 的評分教授清單
 }
 

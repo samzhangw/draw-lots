@@ -140,6 +140,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   const [domainToDelete, setDomainToDelete] = useState<DomainConfig | null>(null);
   const [domainFormName, setDomainFormName] = useState<string>('');
   const [domainFormGroupCount, setDomainFormGroupCount] = useState<number>(2);
+  const [domainManualCounts, setDomainManualCounts] = useState(false);
+  const [domainCapacityDrafts, setDomainCapacityDrafts] = useState<Record<number, string>>({});
   const [domainFormError, setDomainFormError] = useState<string | null>(null);
 
   // Evaluators (Reviewer Professors) Modal State
@@ -181,13 +183,14 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   });
 
   // Derived statistics linked directly with customizable domainConfigs
-  const domainStats: (DomainStats & { id: string; evaluatorsPerGroup?: Record<number, string[]> })[] = domainConfigs.map((cfg) => {
+  const domainStats: (DomainStats & { id: string; evaluatorsPerGroup?: Record<number, string[]>; groupCapacities?: Record<number, number> })[] = domainConfigs.map((cfg) => {
     return {
       id: cfg.id,
       field: cfg.field,
       count: statsMap[cfg.field] || 0,
       groupCount: cfg.groupCount,
       evaluatorsPerGroup: cfg.evaluatorsPerGroup,
+      groupCapacities: cfg.groupCapacities,
     };
   });
 
@@ -238,6 +241,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     setEditingDomain(null);
     setDomainFormName('');
     setDomainFormGroupCount(2);
+    setDomainManualCounts(false);
+    setDomainCapacityDrafts({});
     setDomainFormError(null);
     setIsDomainModalOpen(true);
   };
@@ -248,6 +253,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     setEditingDomain(cfg);
     setDomainFormName(cfg.field);
     setDomainFormGroupCount(cfg.groupCount);
+    setDomainManualCounts(!!cfg.groupCapacities);
+    setDomainCapacityDrafts(Object.fromEntries(Object.entries(cfg.groupCapacities || {}).map(([group, count]) => [group, String(count)])));
     setDomainFormError(null);
     setIsDomainModalOpen(true);
   };
@@ -338,6 +345,20 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       return;
     }
 
+    let groupCapacities: Record<number, number> | undefined;
+    if (domainManualCounts) {
+      groupCapacities = {};
+      for (let group = 1; group <= domainFormGroupCount; group++) {
+        const value = domainCapacityDrafts[group] ?? '';
+        const count = Number(value);
+        if (!value.trim() || !Number.isInteger(count) || count < 0 || count > 2000) {
+          setDomainFormError(`第 ${group} 組請填寫 0 至 2000 件的整數。`);
+          return;
+        }
+        groupCapacities[group] = count;
+      }
+    }
+
     if (editingDomain) {
       const duplicate = domainConfigs.find(
         (c) => c.id !== editingDomain.id && c.field.toLowerCase() === cleanName.toLowerCase()
@@ -352,7 +373,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
       const updatedConfigs = domainConfigs.map((c) =>
         c.id === editingDomain.id
-          ? { ...c, field: cleanName, groupCount: Number(domainFormGroupCount) }
+          ? { ...c, field: cleanName, groupCount: Number(domainFormGroupCount), groupCapacities }
           : c
       );
 
@@ -381,6 +402,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
         field: cleanName,
         groupCount: Number(domainFormGroupCount),
         evaluatorsPerGroup: {},
+        groupCapacities,
       };
 
       const updatedConfigs = [...domainConfigs, newDomain];
@@ -883,6 +905,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                           <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[10px] font-mono font-bold flex items-center justify-center shrink-0">
                             {g}
                           </span>
+                          {stat.groupCapacities && <span className="shrink-0 font-semibold text-blue-700">{stat.groupCapacities[g]} 件</span>}
                           <span className="text-slate-700 truncate">
                             {evs.length > 0 ? (
                               <span className="font-medium text-slate-900">{evs.join('、')}</span>
@@ -986,6 +1009,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                               <span className="font-bold text-slate-700 font-mono shrink-0">
                                 第{g}組:
                               </span>
+                              {stat.groupCapacities && <span className="shrink-0 font-semibold text-blue-700">{stat.groupCapacities[g]} 件</span>}
                               <span className="text-slate-600 truncate">
                                 {evs.length > 0 ? evs.join('、') : <span className="text-slate-400 italic">尚未設定（點右側設定）</span>}
                               </span>
@@ -1533,6 +1557,30 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   用於該領域的分組場次或評審組數。已有抽籤結果時，若要移除有專題的組別，請先重設該領域。
                 </p>
               </div>
+
+              <fieldset className="space-y-3 rounded-xl border border-slate-200 p-3">
+                <legend className="px-1 font-semibold text-slate-700">各組專題件數</legend>
+                <label className="flex items-center gap-2 text-slate-800">
+                  <input type="checkbox" checked={domainManualCounts} onChange={e => { setDomainManualCounts(e.target.checked); setDomainFormError(null); }} />
+                  直接指定每組件數
+                </label>
+                {domainManualCounts ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      {Array.from({ length: Math.min(50, Math.max(0, domainFormGroupCount)) }, (_, i) => i + 1).map(group => (
+                        <div key={group}>
+                          <label htmlFor={`domain-capacity-${group}`} className="mb-1 block text-xs font-medium text-slate-700">第 {group} 組專題件數</label>
+                          <input id={`domain-capacity-${group}`} type="number" min={0} max={2000} step={1} required value={domainCapacityDrafts[group] ?? ''}
+                            onChange={e => { setDomainCapacityDrafts(drafts => ({ ...drafts, [group]: e.target.value })); setDomainFormError(null); }}
+                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-slate-900" />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-700" aria-live="polite">設定合計 {Array.from({ length: Math.min(50, Math.max(0, domainFormGroupCount)) }, (_, i) => Number(domainCapacityDrafts[i + 1]) || 0).reduce((sum, count) => sum + count, 0)} 件 · 目前名冊 {editingDomain ? statsMap[editingDomain.field] || 0 : statsMap[domainFormName.trim()] || 0} 件</p>
+                    <p className="text-[11px] leading-relaxed text-slate-500">可先儲存設定。抽籤時合計必須等於該領域專題數，並符合指導老師迴避；0 件表示該組不分配專題。已抽籤領域若要改變分配件數，請先重設。</p>
+                  </>
+                ) : <p className="text-[11px] text-slate-500">未指定時沿用自動分組。需要固定各組件數時，請勾選並逐組填寫。</p>}
+              </fieldset>
 
               {editingDomain && statsMap[editingDomain.field] > 0 && (
                 <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-[11px] leading-relaxed">

@@ -833,6 +833,9 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                 <li>
                   <strong>抽籤後編號</strong>：A 企業智慧化、B 數位內容與多媒體應用、C 網路應用與資通安全、D 嵌入式系統與行動計算、E 智慧運算創新應用、F 智慧流通應用與研究、G 進修部。各領域從 01 連續編號，跨組不重複，例如 A01、A02。
                 </li>
+                {domainConfigs.filter(cfg => (selectedField === 'ALL' || cfg.field === selectedField) && cfg.groupCapacities).map(cfg => (
+                  <li key={cfg.id}><strong>{cfg.field} 指定件數</strong>：{Array.from({ length: cfg.groupCount }, (_, i) => `第 ${i + 1} 組 ${cfg.groupCapacities![i + 1]} 件`).join('、')}。抽籤將同時遵守指定件數與指導老師迴避。</li>
+                ))}
               </ul>
             </div>
 

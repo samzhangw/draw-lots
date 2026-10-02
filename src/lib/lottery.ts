@@ -1,7 +1,8 @@
 import { ProjectItem, DomainConfig } from '../types';
-import { secureFisherYatesShuffle, getSecureRandomInt } from './cryptoRandom';
+import { secureFisherYatesShuffle } from './cryptoRandom';
 
 import { getDomainCode } from './domainCodes';
+import { LotteryAllocationError, validateGroupCapacities } from './groupCapacities';
 export { getDomainCode } from './domainCodes';
 
 /**
@@ -30,19 +31,27 @@ export function isAdvisorConflict(advisor: string, evaluators: string[] = []): b
 }
 
 /**
- * Allocate projects within a single domain to its subgroups, strictly avoiding advisor conflict
- * Employs CSPRNG (window.crypto.getRandomValues) + Fisher-Yates Knuth Shuffle for uniform fairness.
+ * Allocate a domain using exact capacity matching when counts are configured;
+ * otherwise retain legacy automatic grouping. CSPRNG shuffles presentation order.
  */
 export function allocateDomainSubgroups(
   domainProjects: ProjectItem[],
   groupCount: number,
   domainField: string,
-  evaluatorsPerGroup: Record<number, string[]> = {}
+  evaluatorsPerGroup: Record<number, string[]> = {},
+  groupCapacities?: Record<number, number>
 ): ProjectItem[] {
   const k = Math.max(1, groupCount);
   const now = new Date().toISOString();
   const domainPrefix = domainField.slice(0, 4);
   const domainCode = getDomainCode(domainField);
+  if (groupCapacities !== undefined) {
+    validateGroupCapacities(groupCapacities, k, domainField);
+    const total = Object.values(groupCapacities).reduce((sum, count) => sum + count, 0);
+    if (total !== domainProjects.length) {
+      throw new LotteryAllocationError(`「${domainField}」各組設定共 ${total} 件，但名冊有 ${domainProjects.length} 件；請調整每組件數後再抽籤。`);
+    }
+  }
 
   // Group buckets
   const buckets: Record<number, ProjectItem[]> = {};
@@ -64,21 +73,51 @@ export function allocateDomainSubgroups(
     }
     return {
       project: p,
-      validGroups: validGroups.length > 0 ? validGroups : Array.from({ length: k }, (_, i) => i + 1),
+      validGroups: groupCapacities !== undefined ? validGroups : validGroups.length > 0 ? validGroups : Array.from({ length: k }, (_, i) => i + 1),
     };
   });
 
   // Sort most-constrained projects first (projects with fewer valid groups get prioritized)
   analyzedProjects.sort((a, b) => a.validGroups.length - b.validGroups.length);
 
-  // Assign projects to buckets with uniform random tie-breaking
-  analyzedProjects.forEach(({ project, validGroups }) => {
-    // Randomize validGroups order first with Fisher-Yates, then pick group with fewest members
-    const shuffledValidGroups = secureFisherYatesShuffle(validGroups);
-    shuffledValidGroups.sort((gA, gB) => buckets[gA].length - buckets[gB].length);
-    const chosenGroup = shuffledValidGroups[0] || 1;
-    buckets[chosenGroup].push(project);
-  });
+  if (groupCapacities !== undefined) {
+    // Capacitated bipartite matching: move earlier assignments along augmenting paths
+    // so a greedy choice cannot block an otherwise feasible exact allocation.
+    const members: Record<number, number[]> = {};
+    for (let g = 1; g <= k; g++) members[g] = [];
+    const assign = (index: number, visitedGroups: Set<number>): boolean => {
+      for (const group of secureFisherYatesShuffle(analyzedProjects[index].validGroups)) {
+        if (visitedGroups.has(group) || groupCapacities[group] === 0) continue;
+        visitedGroups.add(group);
+        if (members[group].length < groupCapacities[group]) {
+          members[group].push(index);
+          return true;
+        }
+        for (const previous of secureFisherYatesShuffle(members[group])) {
+          if (assign(previous, visitedGroups)) {
+            members[group].splice(members[group].indexOf(previous), 1, index);
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+    for (let index = 0; index < analyzedProjects.length; index++) {
+      if (!assign(index, new Set())) {
+        throw new LotteryAllocationError(`「${domainField}」無法同時滿足各組件數與指導老師迴避，請調整各組件數或評審名單後再抽籤。`);
+      }
+    }
+    for (let g = 1; g <= k; g++) buckets[g] = members[g].map(index => analyzedProjects[index].project);
+  } else {
+    // Legacy automatic allocation, retained for domains without explicit counts.
+    analyzedProjects.forEach(({ project, validGroups }) => {
+      // Randomize validGroups order first with Fisher-Yates, then pick group with fewest members
+      const shuffledValidGroups = secureFisherYatesShuffle(validGroups);
+      shuffledValidGroups.sort((gA, gB) => buckets[gA].length - buckets[gB].length);
+      const chosenGroup = shuffledValidGroups[0] || 1;
+      buckets[chosenGroup].push(project);
+    });
+  }
 
   // For each bucket, cryptographically Fisher-Yates shuffle within group to determine final presentation order
   const results: ProjectItem[] = [];
@@ -146,7 +185,8 @@ export function executeAllDomainsIndependentLottery(
       domainItems,
       groupCount,
       fieldName,
-      evaluatorsPerGroup
+      evaluatorsPerGroup,
+      cfg?.groupCapacities
     );
 
     // Verify conflict of interest

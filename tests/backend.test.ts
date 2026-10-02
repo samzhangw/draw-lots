@@ -444,6 +444,37 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal((await request('/api/lottery/draw', { field: shrinkField, version: state.version }, stage)).status, 200);
     assert.ok(state.projects.every(p => p.assigned_group === 1));
     assert.deepEqual(state.projects.map(p => p.draw_order).sort(), [1, 2, 3]);
+
+    // Manual per-group counts persist; invalid draws and edits are atomic.
+    assert.equal((await request('/api/lottery/reset', { field: shrinkField, version: state.version }, stage)).status, 200);
+    const manualConfigs = (groupCapacities: Record<number, number>, evaluatorsPerGroup: Record<number, string[]> = {}) =>
+      state.domain_configs.map(c => c.field === shrinkField ? { ...c, groupCount: 2, groupCapacities, evaluatorsPerGroup } : c);
+    assert.equal((await request('/api/domain-configs', { domainConfigs: manualConfigs({ 1: 1, 2: 3 }), version: state.version }, adminAgain)).status, 200);
+    const beforeWrongTotal = structuredClone(state);
+    const wrongTotal = await request('/api/lottery/draw', { field: shrinkField, version: state.version }, stage);
+    assert.equal(wrongTotal.status, 400);
+    assert.match(wrongTotal.data.error, /共 4 件.*名冊有 3 件/);
+    assert.deepEqual(state, beforeWrongTotal);
+    assert.equal((await request('/api/domain-configs', { domainConfigs: manualConfigs({ 1: 1, 2: 2 }, { 1: ['王教授'], 2: ['李教授'] }), version: state.version }, adminAgain)).status, 200);
+    const beforeImpossible = structuredClone(state);
+    const impossible = await request('/api/lottery/draw', { field: 'ALL', version: state.version }, stage);
+    assert.equal(impossible.status, 400);
+    assert.match(impossible.data.error, /件數.*迴避/);
+    assert.deepEqual(state, beforeImpossible);
+    const manualSaved = await request('/api/domain-configs', { domainConfigs: manualConfigs({ 1: 1, 2: 2 }, { 1: ['李教授'], 2: ['陳教授'] }), version: state.version }, adminAgain);
+    assert.equal(manualSaved.status, 200);
+    assert.deepEqual((await request('/api/state', undefined, adminAgain)).data.domainConfigs.find((c: any) => c.field === shrinkField).groupCapacities, { 1: 1, 2: 2 });
+    const stageConfigs = (await request('/api/state', undefined, stage)).data.domainConfigs.find((c: any) => c.field === shrinkField);
+    assert.deepEqual(stageConfigs.groupCapacities, { 1: 1, 2: 2 });
+    assert.equal(stageConfigs.evaluatorsPerGroup, undefined);
+    const manualDraw = await request('/api/lottery/draw', { field: 'ALL', version: state.version }, stage);
+    assert.equal(manualDraw.status, 200);
+    assert.deepEqual([1, 2].map(group => state.projects.filter(p => p.assigned_group === group).length), [1, 2]);
+    const beforeCapacityEdit = structuredClone(state);
+    const capacityEdit = await request('/api/domain-configs', { domainConfigs: manualConfigs({ 1: 2, 2: 1 }), version: state.version }, adminAgain);
+    assert.equal(capacityEdit.status, 409);
+    assert.match(capacityEdit.data.error, /重設/);
+    assert.deepEqual(state, beforeCapacityEdit);
   } finally {
     await stop();
     await rm(persistence, { recursive: true, force: true });

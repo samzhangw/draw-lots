@@ -9,6 +9,7 @@ import { loginLimiter } from './rateLimit';
 import { runtimeEnv } from './runtime';
 import { publicError } from './errors';
 import { executeAllDomainsIndependentLottery, allocateDomainSubgroups } from '../src/lib/lottery';
+import { LotteryAllocationError } from '../src/lib/groupCapacities';
 
 export const app = express();
 const SHARED_PASSWORD_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -49,7 +50,7 @@ function staffState(state: DatabaseState, role: 'admin' | 'stage') {
   };
   if (role === 'stage') return {
     ...base,
-    domainConfigs: state.domainConfigs.map(c => ({ id: c.id, field: c.field, groupCount: c.groupCount })),
+    domainConfigs: state.domainConfigs.map(c => ({ id: c.id, field: c.field, groupCount: c.groupCount, ...(c.groupCapacities ? { groupCapacities: c.groupCapacities } : {}) })),
     projects: state.projects.map(stageProjectDto),
   };
   return {
@@ -186,6 +187,13 @@ app.post('/api/domain-configs', route(async (req, res) => {
     }
     return updated.assigned_group && cfg ? { ...updated, evaluators: cfg.evaluatorsPerGroup?.[updated.assigned_group] || [] } : updated;
   });
+  for (const cfg of state.domainConfigs) {
+    const drawn = state.projects.filter(p => p.field === cfg.field && p.assigned_group);
+    if (cfg.groupCapacities && drawn.length && Array.from({ length: cfg.groupCount }, (_, i) => i + 1)
+      .some(group => drawn.filter(p => p.assigned_group === group).length !== cfg.groupCapacities![group])) {
+      throw new ApiError(409, `「${cfg.field}」已有抽籤結果與各組設定件數不符，請先重設此領域再修改每組件數。`);
+    }
+  }
   res.json(staffState(await store.save(state, state.version), 'admin'));
 }));
 app.post('/api/lottery/draw', route(async (req, res) => {
@@ -197,12 +205,17 @@ app.post('/api/lottery/draw', route(async (req, res) => {
   const pool = state.projects.filter(p => field === 'ALL' || p.field === field);
   if (!pool.length) throw new ApiError(400, '目前範圍內沒有專題。');
   if (pool.some(p => p.draw_order)) throw new ApiError(409, '此範圍已有抽籤結果，請先重設再抽籤。');
-  if (field === 'ALL') state.projects = executeAllDomainsIndependentLottery(state.projects, state.domainConfigs).updatedProjects;
-  else {
-    const cfg = state.domainConfigs.find(c => c.field === field);
-    const allocated = allocateDomainSubgroups(pool, cfg?.groupCount || 2, field, cfg?.evaluatorsPerGroup || {});
-    const byId = new Map(allocated.map(p => [p.id, p]));
-    state.projects = state.projects.map(p => byId.get(p.id) || p);
+  try {
+    if (field === 'ALL') state.projects = executeAllDomainsIndependentLottery(state.projects, state.domainConfigs).updatedProjects;
+    else {
+      const cfg = state.domainConfigs.find(c => c.field === field);
+      const allocated = allocateDomainSubgroups(pool, cfg?.groupCount || 2, field, cfg?.evaluatorsPerGroup || {}, cfg?.groupCapacities);
+      const byId = new Map(allocated.map(p => [p.id, p]));
+      state.projects = state.projects.map(p => byId.get(p.id) || p);
+    }
+  } catch (error) {
+    if (error instanceof LotteryAllocationError) throw new ApiError(400, error.message);
+    throw error;
   }
   const saved = await store.save(state, state.version);
   res.json({ ...staffState(saved, role), summary: `抽籤完成，${pool.length} 件專題結果已儲存至 Supabase。` });
