@@ -63,6 +63,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadFeedback, setUploadFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [adminProjectDisplayMode, setAdminProjectDisplayMode] = useState<'table' | 'cards'>('table');
+  const [domainDisplayMode, setDomainDisplayMode] = useState<'table' | 'cards'>('table');
   const [projectSort, setProjectSort] = useState<{ key: ProjectSortKey; direction: ProjectSortDirection } | null>(null);
   const [sharedAction, setSharedAction] = useState<'generate' | 'clear' | null>(null);
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
@@ -823,8 +824,22 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
           </div>
         </div>
 
-        {/* MOBILE CARDS VIEW (< md / 768px) */}
-        <div className="md:hidden space-y-3">
+        <div role="group" aria-label="展覽領域顯示方式" className="mb-4 inline-flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs">
+          {(['table', 'cards'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setDomainDisplayMode(mode)}
+              aria-pressed={domainDisplayMode === mode}
+              className={`rounded-md px-3 py-2 font-medium transition-colors cursor-pointer ${domainDisplayMode === mode ? 'bg-white text-[#28518a] shadow-xs font-semibold' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              {mode === 'table' ? '表格檢視' : '卡片檢視'}
+            </button>
+          ))}
+        </div>
+
+        {domainDisplayMode === 'cards' ? (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {domainStats.map((stat, index) => {
             const drawnCount = projects.filter((p) => p.field === stat.field && p.draw_order).length;
             const isSelected = selectedFieldFilter === stat.field;
@@ -931,10 +946,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             );
           })}
         </div>
-
-        {/* DESKTOP & TABLET TABLE VIEW (md and above) */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm border-collapse">
+        ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[850px] text-left text-xs sm:text-sm border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 text-xs">
                 <th className="py-2.5 px-4 text-center border border-slate-200 whitespace-nowrap">顯示順序</th>
@@ -1071,6 +1085,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* Projects Table / Card View Card */}
