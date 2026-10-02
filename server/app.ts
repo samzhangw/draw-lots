@@ -180,6 +180,10 @@ app.post('/api/domain-configs', route(async (req, res) => {
   state.projects = state.projects.map(p => {
     const updated = removedFields.includes(p.field) ? { ...p, field: state.domainConfigs[0]?.field || '未分類領域' } : p;
     const cfg = state.domainConfigs.find(c => c.field === updated.field);
+    // Validate the resulting assignment before saving any configuration or project changes.
+    if (updated.assigned_group && (!cfg || updated.assigned_group > cfg.groupCount)) {
+      throw new ApiError(409, `「${updated.field}」仍有第 ${updated.assigned_group} 組的抽籤結果，無法移除該組；請先重設此領域再修改分組設定。`);
+    }
     return updated.assigned_group && cfg ? { ...updated, evaluators: cfg.evaluatorsPerGroup?.[updated.assigned_group] || [] } : updated;
   });
   res.json(staffState(await store.save(state, state.version), 'admin'));

@@ -400,6 +400,39 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.deepEqual((await request('/api/state', undefined, adminAgain)).data.domainConfigs, reorderedConfigs);
     assert.deepEqual((await request('/api/state', undefined, stage)).data.domainConfigs.map((c: { id: string }) => c.id), reorderedConfigs.map((c: { id: string }) => c.id));
     assert.equal((await request('/api/domain-configs', { domainConfigs: beforeReorder.domainConfigs, version: beforeReorder.version }, adminAgain)).status, 409);
+
+    // Shrinking a domain must not strand drawn projects in a removed group.
+    const shrinkField = '縮組測試';
+    const shrinkUpload = await request('/api/projects', {
+      projects: [1, 2, 3].map(n => ({ ...projectDto(project), id: `shrink-${n}`, leader_id: `shrink-${n}`, seq_no: String(n), field: shrinkField })),
+      version: state.version,
+    }, adminAgain);
+    assert.equal(shrinkUpload.status, 200);
+    const shrinkDraw = await request('/api/lottery/draw', { field: shrinkField, version: state.version }, stage);
+    assert.equal(shrinkDraw.status, 200);
+    assert.ok(state.projects.some(p => p.assigned_group === 2));
+    const configsWithCount = (groupCount: number) => state.domain_configs.map(c => c.field === shrinkField ? { ...c, groupCount } : c);
+    // Expanding, or removing only an empty group, preserves valid results.
+    const drawnProjects = structuredClone(state.projects);
+    assert.equal((await request('/api/domain-configs', { domainConfigs: configsWithCount(3), version: state.version }, adminAgain)).status, 200);
+    assert.deepEqual(state.projects, drawnProjects);
+    assert.equal((await request('/api/domain-configs', { domainConfigs: configsWithCount(2), version: state.version }, adminAgain)).status, 200);
+    assert.deepEqual(state.projects, drawnProjects);
+    const beforeInvalidShrink = structuredClone(state);
+    const invalidShrink = await request('/api/domain-configs', { domainConfigs: configsWithCount(1), version: state.version }, adminAgain);
+    assert.equal(invalidShrink.status, 409);
+    assert.match(invalidShrink.data.error, /縮組測試.*第 2 組.*重設/);
+    assert.deepEqual(state, beforeInvalidShrink);
+    const afterInvalidShrink = (await request('/api/state', undefined, adminAgain)).data;
+    assert.equal(afterInvalidShrink.version, beforeInvalidShrink.version);
+    assert.deepEqual(afterInvalidShrink.domainConfigs, beforeInvalidShrink.domain_configs);
+    assert.deepEqual(afterInvalidShrink.projects, drawnProjects.map(p => ({ ...projectDto(p), password_set: false })));
+    // Resetting the affected domain makes the smaller configuration safe to save and draw.
+    assert.equal((await request('/api/lottery/reset', { field: shrinkField, version: state.version }, stage)).status, 200);
+    assert.equal((await request('/api/domain-configs', { domainConfigs: configsWithCount(1), version: state.version }, adminAgain)).status, 200);
+    assert.equal((await request('/api/lottery/draw', { field: shrinkField, version: state.version }, stage)).status, 200);
+    assert.ok(state.projects.every(p => p.assigned_group === 1));
+    assert.deepEqual(state.projects.map(p => p.draw_order).sort(), [1, 2, 3]);
   } finally {
     await stop();
     await rm(persistence, { recursive: true, force: true });

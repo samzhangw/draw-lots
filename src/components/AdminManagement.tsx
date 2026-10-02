@@ -1527,7 +1527,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   <span className="absolute right-3.5 top-2.5 text-xs text-slate-400">組</span>
                 </div>
                 <p className="text-[11px] text-slate-500 mt-1">
-                  用於該領域的分組場次或評審組數（例如圖表中的 2 組、5 組等）
+                  用於該領域的分組場次或評審組數。已有抽籤結果時，若要移除有專題的組別，請先重設該領域。
                 </p>
               </div>
 
