@@ -74,7 +74,6 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   const [boardSearchQuery, setBoardSearchQuery] = useState<string>('');
   const [boardDisplayMode, setBoardDisplayMode] = useState<'lanes' | 'table'>('lanes');
   const [boardDomainFilter, setBoardDomainFilter] = useState<string>('ALL');
-  const [isBoardPresentation, setIsBoardPresentation] = useState(false);
 
   // In-app modal states
   const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
@@ -83,7 +82,6 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
 
   const stageContainerRef = useRef<HTMLDivElement>(null);
-  const boardRef = useRef<HTMLElement>(null);
 
   // Filter projects based on selected field
   const currentPool = selectedField === 'ALL'
@@ -122,7 +120,6 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
     if (document.fullscreenElement === stageContainerRef.current) await document.exitFullscreen().catch(() => {});
   };
   const openCarousel = () => {
-    setIsBoardPresentation(false);
     setCarouselScope(selectedField);
     if (!fullscreenRef.current) void enterFullscreen();
   };
@@ -136,11 +133,6 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
     document.addEventListener('fullscreenchange', handleFsChange);
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
-
-  useEffect(() => {
-    if (!isBoardPresentation) return;
-    boardRef.current?.scrollTo({ top: 0 });
-  }, [isBoardPresentation]);
 
   // Multi-cannon celebratory confetti
   const triggerCelebration = () => {
@@ -216,8 +208,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       onApplyState(backendResult);
       triggerCelebration();
       if (fullscreenRef.current && autoCarouselRef.current) {
-        setIsBoardPresentation(false);
-        setCarouselScope(selectedField);
+            setCarouselScope(selectedField);
       }
     } catch (apiErr) {
       setNoticeMessage(apiErr instanceof Error ? apiErr.message : '抽籤失敗，請重新整理後再試。');
@@ -257,7 +248,6 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
     isBatchModalOpen ? 'draw' : isResetModalOpen ? 'reset' : null,
     () => { if (!isResetting) { setIsBatchModalOpen(false); setIsResetModalOpen(false); } }
   );
-  useModalFocus(isBoardPresentation ? 'board-presentation' : null, () => setIsBoardPresentation(false));
 
   return (
     <div
@@ -518,15 +508,12 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
        * Redesigned Order Board (清晰分組與順序時間軸看板)
        * ======================================================== */}
       <section
-        ref={boardRef}
-        hidden={isFullscreen && !isBoardPresentation}
-        className={`${isBoardPresentation ? 'fixed inset-0 z-[60] overflow-y-auto rounded-none p-5 sm:p-8 lg:p-10' : 'rounded-[1.75rem] p-4 sm:p-7 lg:p-8'} bg-white border border-slate-200 shadow-sm space-y-6`}
-        role={isBoardPresentation ? 'dialog' : undefined}
-        aria-modal={isBoardPresentation ? true : undefined}
+        hidden={isFullscreen}
+        className="rounded-[1.75rem] p-4 sm:p-7 lg:p-8 bg-white border border-slate-200 shadow-sm space-y-6"
         aria-label="已抽出順序看板"
       >
         {/* Board title and tools */}
-        <div className={`${isBoardPresentation ? 'sticky top-0 z-10 bg-white pt-2' : ''} space-y-5 border-b border-slate-200 pb-5`}>
+        <div className="space-y-5 border-b border-slate-200 pb-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <h3 className="flex items-center gap-2.5 text-xl font-black text-slate-900 sm:text-3xl">
@@ -541,15 +528,6 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
             <button type="button" onClick={openCarousel} disabled={isAnimating || drawnPool.length === 0}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100 disabled:opacity-40 cursor-pointer">
               <Play className="h-4 w-4" />輪播結果
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsBoardPresentation((value) => !value)}
-              aria-pressed={isBoardPresentation}
-              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 self-stretch rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 sm:self-start cursor-pointer"
-            >
-              {isBoardPresentation ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              {isBoardPresentation ? '返回抽籤畫面' : '放大看板'}
             </button>
             </div>
           </div>
