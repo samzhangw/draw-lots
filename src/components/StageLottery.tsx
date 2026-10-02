@@ -315,7 +315,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       </div>
 
       {/* Main Big Stage Presentation Card */}
-      <section className={`${isFullscreen ? 'stage-presentation-main' : ''} relative overflow-hidden rounded-[1.75rem] bg-white border border-blue-100 border-t-4 border-t-blue-500 shadow-lg shadow-blue-100/70 p-5 sm:p-8 lg:p-10 text-center`} aria-label="抽籤主舞台" aria-busy={isAnimating}>
+      <section className={`${isFullscreen ? 'stage-presentation-main' : ''} relative overflow-hidden rounded-[1.75rem] bg-white border border-blue-100 shadow-lg shadow-blue-100/70 p-5 sm:p-8 lg:p-10 text-center`} aria-label="抽籤主舞台" aria-busy={isAnimating}>
         {isAnimating && <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(219,234,254,0.75),transparent_70%)] pointer-events-none" />}
 
         <div className={`${isFullscreen ? 'stage-presentation-content' : ''} relative z-10 max-w-7xl mx-auto min-h-[300px] sm:min-h-[350px] flex flex-col items-center justify-center`} aria-live="polite">
