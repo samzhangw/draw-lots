@@ -690,6 +690,33 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(failedTest.status, 200); assert.equal(failedTest.data.errorCount, 1);
     assert.ok(failedTest.data.domains[0].issues.some((issue: any) => issue.level === 'error' && /共 4 件.*名冊有 3 件/.test(issue.message)));
     assert.deepEqual(state, beforeFailedTest);
+    // Multi-domain draw/reset is one atomic save and leaves unselected results intact.
+    assert.equal((await request('/api/lottery/reset', { field: 'ALL', version: state.version }, stage)).status, 200);
+    const multiFields = ['企業智慧化', '數位內容與多媒體應用', '網路應用與資通安全'];
+    const multiProjects = multiFields.map((field, i) => ({ ...project, id: `multi-${i}`, leader_id: `multi-student-${i}`, original_code: `M${i}`, seq_no: String(i + 1), field, assigned_group: null, draw_order: null, draw_code: null, evaluators: [] }));
+    assert.equal((await request('/api/projects', { projects: multiProjects, version: state.version }, adminAgain)).status, 200);
+    const multiConfigs = multiFields.map(field => ({ id: state.domain_configs.find(cfg => cfg.field === field)!.id, field, groupCount: 1 }));
+    assert.equal((await request('/api/domain-configs', { domainConfigs: multiConfigs, version: state.version }, adminAgain)).status, 200);
+    const multiFirst = await request('/api/lottery/draw', { field: multiFields[2], version: state.version }, stage);
+    assert.equal(multiFirst.status, 200, JSON.stringify(multiFirst.data));
+    const thirdBefore = structuredClone(state.projects.find(p => p.field === multiFields[2]));
+    const beforeMultiVersion = state.version;
+    assert.equal((await request('/api/lottery/draw', { fields: multiFields.slice(0, 2), version: state.version }, stage)).status, 200);
+    assert.equal(state.version, beforeMultiVersion + 1);
+    assert.ok(state.projects.every(p => p.draw_order === 1));
+    assert.deepEqual(state.projects.find(p => p.field === multiFields[2]), thirdBefore);
+    const beforeBadScope = structuredClone(state);
+    for (const fields of [[], [multiFields[0], multiFields[0]], ['missing']]) {
+      assert.equal((await request('/api/lottery/reset', { fields, version: state.version }, stage)).status, 400);
+    }
+    assert.deepEqual(state, beforeBadScope);
+    assert.equal((await request('/api/lottery/reset', { fields: multiFields.slice(0, 2), version: state.version }, stage)).status, 200);
+    assert.ok(state.projects.filter(p => p.field !== multiFields[2]).every(p => p.draw_order === null));
+    assert.deepEqual(state.projects.find(p => p.field === multiFields[2]), thirdBefore);
+    assert.equal((await request('/api/domain-configs', { domainConfigs: multiConfigs.map((cfg, i) => i === 1 ? { ...cfg, groupCapacities: { 1: 2 } } : cfg), version: state.version }, adminAgain)).status, 200);
+    const beforeMultiFailure = structuredClone(state);
+    assert.equal((await request('/api/lottery/draw', { fields: multiFields.slice(0, 2), version: state.version }, stage)).status, 400);
+    assert.deepEqual(state, beforeMultiFailure, 'failure in second domain must not save first domain results');
     // A legitimately signed but revoked cookie must still have a bounded DB budget.
     let sessionLimited = false;
     for (let n = 0; n < 610; n++) {

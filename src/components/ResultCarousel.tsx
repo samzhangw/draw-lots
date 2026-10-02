@@ -8,7 +8,7 @@ import './ResultCarousel.css';
 interface Props {
   projects: ProjectItem[];
   domains: DomainConfig[];
-  scope: string;
+  scope: string | string[];
   onClose: () => void;
 }
 

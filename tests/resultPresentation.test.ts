@@ -37,3 +37,9 @@ test('empty, unsaved or invalid assignments never enter presentation', () => {
   assert.deepEqual(buildResultSlides([item('x', 'A', 0, 1), item('y', 'A', 1, -1), item('z', 'A', 1.5, 1)], domains), []);
   assert.throws(() => buildResultSlides([], domains, 'ALL', 0));
 });
+
+test('multiple-domain presentation excludes every unselected domain', () => {
+  const projects = [item('a', 'A', 1, 1), item('b', 'B', 1, 1), item('c', 'C', 1, 1)];
+  assert.deepEqual(buildResultSlides(projects, domains, ['A', 'C']).flatMap(page => page.items.map(p => p.id)), ['a', 'c']);
+  assert.deepEqual(buildResultSlides(projects, domains, []), []);
+});

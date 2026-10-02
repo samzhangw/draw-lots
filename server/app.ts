@@ -11,8 +11,9 @@ import { studentLoginWork, staffLoginWork } from './loginAdmission';
 import { ResourceBusyError, timedFetch } from './resourceLimits';
 import { runtimeEnv } from './runtime';
 import { publicError } from './errors';
-import { executeAllDomainsIndependentLottery, allocateDomainSubgroups } from '../src/lib/lottery';
+import { executeAllDomainsIndependentLottery } from '../src/lib/lottery';
 import { LotteryAllocationError } from '../src/lib/groupCapacities';
+import { resolveLotteryFields } from './lotteryScope';
 import { testLottery } from '../src/lib/lotteryTest';
 
 export const app = express();
@@ -243,18 +244,14 @@ app.post('/api/lottery/draw', route(async (req, res) => {
   const store = createStore();
   const state = await store.load();
   checkVersion(req, state);
-  const field = req.body.field || 'ALL';
-  const pool = state.projects.filter(p => field === 'ALL' || p.field === field);
+  const fields = resolveLotteryFields(req.body, [...new Set([...state.domainConfigs.map(c => c.field), ...state.projects.map(p => p.field)])]);
+  const pool = state.projects.filter(p => fields.has(p.field));
   if (!pool.length) throw new ApiError(400, '目前範圍內沒有專題。');
   if (pool.some(p => p.draw_order)) throw new ApiError(409, '此範圍已有抽籤結果，請先重設再抽籤。');
   try {
-    if (field === 'ALL') state.projects = executeAllDomainsIndependentLottery(state.projects, state.domainConfigs).updatedProjects;
-    else {
-      const cfg = state.domainConfigs.find(c => c.field === field);
-      const allocated = allocateDomainSubgroups(pool, cfg?.groupCount || 2, field, cfg?.evaluatorsPerGroup || {}, cfg?.groupCapacities);
-      const byId = new Map(allocated.map(p => [p.id, p]));
-      state.projects = state.projects.map(p => byId.get(p.id) || p);
-    }
+    const allocated = executeAllDomainsIndependentLottery(pool, state.domainConfigs).updatedProjects;
+    const byId = new Map(allocated.map(p => [p.id, p]));
+    state.projects = state.projects.map(p => byId.get(p.id) || p);
   } catch (error) {
     if (error instanceof LotteryAllocationError) throw new ApiError(400, error.message);
     throw error;
@@ -267,8 +264,8 @@ app.post('/api/lottery/reset', route(async (req, res) => {
   const store = createStore();
   const state = await store.load();
   checkVersion(req, state);
-  const field = req.body.field || 'ALL';
-  state.projects = state.projects.map(p => field === 'ALL' || p.field === field ? { ...p, assigned_group: null, draw_order: null, draw_code: null, draw_time: null, evaluators: [] } : p);
+  const fields = resolveLotteryFields(req.body, [...new Set([...state.domainConfigs.map(c => c.field), ...state.projects.map(p => p.field)])]);
+  state.projects = state.projects.map(p => fields.has(p.field) ? { ...p, assigned_group: null, draw_order: null, draw_code: null, draw_time: null, evaluators: [] } : p);
   res.json(staffState(await store.save(state, state.version), role));
 }));
 app.use('/api', (_req, res) => { res.status(404).json({ success: false, error: '找不到此 API。' }); });

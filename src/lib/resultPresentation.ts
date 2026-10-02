@@ -11,11 +11,11 @@ export interface ResultSlide {
 }
 
 /** Only saved assignments; domain display order, then group and report order. */
-export function buildResultSlides(projects: ProjectItem[], domains: DomainConfig[], scope = 'ALL', pageSize = 6): ResultSlide[] {
+export function buildResultSlides(projects: ProjectItem[], domains: DomainConfig[], scope: string | string[] = 'ALL', pageSize = 6): ResultSlide[] {
   if (!Number.isSafeInteger(pageSize) || pageSize < 1) throw new Error('Invalid presentation page size');
   const grouped = new Map<string, Map<number, ProjectItem[]>>();
   for (const item of projects) {
-    if (scope !== 'ALL' && item.field !== scope) continue;
+    if (Array.isArray(scope) ? !scope.includes(item.field) : scope !== 'ALL' && item.field !== scope) continue;
     if (!Number.isSafeInteger(item.assigned_group) || item.assigned_group! < 1 ||
         !Number.isSafeInteger(item.draw_order) || item.draw_order! < 1) continue;
     if (!grouped.has(item.field)) grouped.set(item.field, new Map());
