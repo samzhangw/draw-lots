@@ -232,20 +232,20 @@ export const StudentPortal: React.FC = () => {
                   </div>}
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2" aria-label="抽籤結果">
-                  <section className="flex min-h-44 flex-col justify-between gap-5 rounded-2xl border border-blue-200 bg-blue-50 p-6 sm:p-8">
-                    <div className="flex items-center gap-2 text-sm font-bold text-blue-800">
-                      <Users className="h-5 w-5" />
+                <div className="grid grid-cols-2 gap-2 sm:gap-4" aria-label="抽籤結果">
+                  <section className="flex min-w-0 min-h-36 flex-col justify-between gap-4 rounded-2xl border border-blue-200 bg-blue-50 p-3 sm:min-h-44 sm:p-8">
+                    <div className="flex flex-col items-start gap-1.5 text-xs font-bold text-blue-800 sm:flex-row sm:items-center sm:gap-2 sm:text-sm">
+                      <Users className="h-5 w-5 shrink-0" />
                       分組場次
                     </div>
-                    <div className="text-5xl sm:text-6xl font-black tracking-tight text-blue-950">第 {myProject.assigned_group ?? '—'} 組</div>
+                    <div className="flex items-baseline gap-1 font-black text-blue-950" aria-label={`第 ${myProject.assigned_group ?? '—'} 組`}><span className="text-sm sm:text-xl">第</span><strong className="text-2xl tabular-nums sm:text-6xl">{myProject.assigned_group ?? '—'}</strong><span className="text-sm sm:text-xl">組</span></div>
                   </section>
-                  <section className="flex min-h-44 flex-col justify-between gap-5 rounded-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8">
-                    <div className="flex items-center gap-2 text-sm font-bold text-amber-800">
-                      <Award className="h-5 w-5" />
+                  <section className="flex min-w-0 min-h-36 flex-col justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:min-h-44 sm:p-8">
+                    <div className="flex flex-col items-start gap-1.5 text-xs font-bold text-amber-800 sm:flex-row sm:items-center sm:gap-2 sm:text-sm">
+                      <Award className="h-5 w-5 shrink-0" />
                       報告出場順序
                     </div>
-                    <div className="text-5xl sm:text-6xl font-black tracking-tight text-amber-950">第 {myProject.draw_order} 位</div>
+                    <div className="flex items-baseline gap-1 font-black text-amber-950" aria-label={`第 ${myProject.draw_order} 位`}><span className="text-sm sm:text-xl">第</span><strong className="text-2xl tabular-nums sm:text-6xl">{myProject.draw_order}</strong><span className="text-sm sm:text-xl">位</span></div>
                   </section>
                 </div>
 
