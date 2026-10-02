@@ -692,9 +692,6 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </h2>
               <p className="mt-1 text-xs text-slate-500">管理所有學生登入使用的共用密碼。</p>
             </div>
-            {!sharedPasswordEnabled && (
-              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600">未啟用</span>
-            )}
           </div>
           <div className="grid grid-cols-2 gap-2 lg:w-auto lg:shrink-0 lg:gap-3">
             <button
