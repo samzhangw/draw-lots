@@ -26,9 +26,9 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
         <span className="flex-1 bg-[#4b8a42]" />
         <span className="flex-[2] bg-[#b3487d]" />
       </div>
-      <div className="mx-auto flex min-h-[4.25rem] max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:min-h-[4.75rem] sm:px-6 lg:px-8">
-        <a href="/" className="group flex min-w-0 items-center gap-3 rounded-lg sm:gap-4 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label="返回專題報告場次查詢首頁">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center p-1 sm:h-14 sm:w-14">
+      <div className="mx-auto flex min-h-14 max-w-7xl items-center justify-between gap-3 px-4 py-1.5 sm:min-h-16 sm:px-6 lg:px-8">
+        <a href="/" className="group flex min-w-0 items-center gap-2.5 rounded-lg sm:gap-3 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label="返回專題報告場次查詢首頁">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center p-1 sm:h-11 sm:w-11">
             <img
               src="https://cidsexhibition.nutc.edu.tw/images/logo.png"
               alt=""
@@ -37,12 +37,12 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
             />
           </div>
           <div className="min-w-0">
-            <p className="flex flex-wrap items-center gap-x-1.5 text-[11px] font-medium leading-relaxed text-slate-500 sm:text-xs">
+            <p className="flex flex-wrap items-center gap-x-1.5 text-[10px] font-medium leading-tight text-slate-500 sm:text-[11px]">
               <span>國立臺中科技大學</span>
               <span className="text-[#356a32]">・資訊與流通學院</span>
             </p>
-            <p className="mt-1 text-xl font-bold leading-tight tracking-wide text-[#28518a] transition-colors group-hover:text-[#234574] sm:text-2xl">專題成果展</p>
-            <p className="mt-1 text-xs font-medium tracking-[0.16em] text-[#93466e] sm:text-[13px]">報告抽籤系統</p>
+            <p className="mt-0.5 text-lg font-bold leading-tight tracking-wide text-[#28518a] transition-colors group-hover:text-[#234574] sm:text-xl">專題成果展</p>
+            <p className="mt-0.5 text-[11px] font-medium leading-tight tracking-[0.16em] text-[#93466e] sm:text-xs">報告抽籤系統</p>
           </div>
         </a>
 
