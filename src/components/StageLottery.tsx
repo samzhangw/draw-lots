@@ -615,19 +615,26 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               return (
                 <div key={cfg.id} className="space-y-3.5">
                   {/* Domain Header Banner */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 p-5 sm:p-6 rounded-2xl border border-blue-200 bg-blue-50 text-slate-900">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                      <h4 className="text-xl sm:text-2xl font-black text-blue-950 tracking-tight">
-                        {cfg.field}
-                      </h4>
-                      <span className="text-sm sm:text-base text-slate-700 font-mono">
-                        (劃分 {cfg.groupCount} 組 · 已抽 {domainDrawnProjects.length} 件)
-                      </span>
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                    <div className="h-1 bg-linear-to-r from-[#28518a] via-[#356a32] to-[#93466e]" aria-hidden="true" />
+                    <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="min-w-0">
+                        <p className="mb-1 text-xs font-semibold text-[#28518a]">專題領域</p>
+                        <h4 className="break-words text-lg font-bold leading-snug text-slate-900 sm:text-2xl">
+                          {cfg.field}
+                        </h4>
+                      </div>
+                      <div className="grid shrink-0 grid-cols-2 divide-x divide-slate-200 rounded-xl border border-slate-200 bg-white lg:min-w-52">
+                        <div className="px-4 py-3 text-center">
+                          <p className="text-xs font-medium text-slate-500">分組場次</p>
+                          <p className="mt-1 text-xs text-slate-600"><strong className="mr-1 text-2xl font-bold tabular-nums text-[#28518a]">{cfg.groupCount}</strong>組</p>
+                        </div>
+                        <div className="px-4 py-3 text-center">
+                          <p className="text-xs font-medium text-slate-500">已抽專題</p>
+                          <p className="mt-1 text-xs text-slate-600"><strong className="mr-1 text-2xl font-bold tabular-nums text-[#356a32]">{domainDrawnProjects.length}</strong>件</p>
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-[11px] font-bold text-blue-800 bg-white px-2.5 py-1 rounded-full border border-blue-200">
-                      各組獨立排序
-                    </span>
                   </div>
 
                   {/* Lanes View (Columns per Subgroup) */}
