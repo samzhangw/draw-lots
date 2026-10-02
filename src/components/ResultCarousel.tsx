@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
-  const [pageSize, setPageSize] = useState(4);
+  const pageSize = 5;
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [seconds, setSeconds] = useState(10);
@@ -34,22 +34,7 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
     return () => document.removeEventListener('visibilitychange', update);
   }, []);
   useEffect(() => {
-    const list = listRef.current;
-    if (!list) return;
-    const observer = new ResizeObserver(([entry]) => {
-      // Reserve enough vertical room for long Chinese titles on small projectors/phones.
-      const width = entry.contentRect.width;
-      const fontSize = Math.max(18, Math.min(30, window.innerWidth * 0.02));
-      const longest = Math.max(1, ...projects.map((item) => item.project_title.length));
-      const titleLines = Math.ceil(longest * fontSize / Math.max(80, width - 150));
-      const rowHeight = Math.max(width < 700 ? 112 : 100, titleLines * fontSize * 1.3 + 48);
-      setPageSize(Math.max(1, Math.min(8, Math.floor((entry.contentRect.height + 10) / (rowHeight + 10)))));
-    });
-    observer.observe(list);
-    return () => observer.disconnect();
-  }, [projects]);
-  useEffect(() => {
-    // Keep the currently shown project visible when the viewport changes pagination.
+    // Keep the current project visible when loaded results change.
     const anchor = anchorRef.current;
     if (anchor) {
       const found = slides.findIndex((page) => page.items.some((item) => item.id === anchor));
