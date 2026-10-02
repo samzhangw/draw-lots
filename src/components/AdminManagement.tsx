@@ -798,7 +798,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               <span>專題展領域、分組數與評審委員設定</span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              點選領域的「編輯」，使用顯示順序下拉選單調整位置，儲存後同步至台上抽籤頁。
+              點選領域的「編輯」，使用顯示順序下拉選單調整位置，儲存後同步至「專題報告抽籤現場」。
             </p>
           </div>
 

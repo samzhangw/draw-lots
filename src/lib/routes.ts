@@ -32,7 +32,7 @@ export function canonicalPageUrl(location: PageLocation): string {
 }
 
 export const viewTitles: Record<ViewMode, string> = {
-  student: '學生查榜 | 國立臺中科技大學專題成果展',
-  stage: '台上抽籤展演 | 國立臺中科技大學專題成果展',
+  student: '專題報告場次查詢 | 國立臺中科技大學專題成果展',
+  stage: '專題報告抽籤現場 | 國立臺中科技大學專題成果展',
   admin: '管理後台 | 國立臺中科技大學專題成果展',
 };

@@ -255,7 +255,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] sm:text-xs font-semibold tracking-wide text-blue-700">國立臺中科技大學 · 資訊與流通學院</p>
-                <h1 className="mt-1 text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight">專題報告抽籤展演</h1>
+                <h1 className="mt-1 text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight">專題報告抽籤現場</h1>
                 <p className="mt-1 text-xs sm:text-sm text-slate-600">各領域獨立分組，現場同步公布發表順位</p>
               </div>
             </div>

@@ -63,7 +63,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({
 
           <div>
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              {isStage ? '台上抽籤人員登入' : '管理後台授權登入'}
+              {isStage ? '專題報告抽籤現場登入' : '管理後台授權登入'}
             </h2>
             <p className="text-xs text-slate-500 mt-1">
               {isStage

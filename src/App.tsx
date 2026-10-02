@@ -177,7 +177,7 @@ export default function App() {
 
       {/* Main Content Viewport */}
       <main id="main-content" tabIndex={-1} className="flex-1 pb-16">
-        <span className="sr-only" aria-live="polite">{currentView === 'student' ? '各組報告順序查詢' : currentView === 'stage' ? '台上抽籤展演' : '管理後台'}</span>
+        <span className="sr-only" aria-live="polite">{currentView === 'student' ? '專題報告場次查詢' : currentView === 'stage' ? '專題報告抽籤現場' : '管理後台'}</span>
         {dataError && (
           <FloatingNotice
             type="error"

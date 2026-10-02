@@ -118,7 +118,7 @@ export const StudentPortal: React.FC = () => {
             </div>
             <div className="min-w-0">
               <p className="text-xs sm:text-sm font-semibold text-blue-700">國立臺中科技大學 · 資訊與流通學院</p>
-              <h1 className="mt-2 text-2xl sm:text-4xl font-black tracking-tight text-slate-900">各組報告順序查詢</h1>
+              <h1 className="mt-2 text-2xl sm:text-4xl font-black tracking-tight text-slate-900">專題報告場次查詢</h1>
               <p className="mt-2 max-w-2xl text-sm sm:text-base leading-relaxed text-slate-600">登入後即可查看您的專題名稱、分組場次與上台順序。</p>
             </div>
           </div>

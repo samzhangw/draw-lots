@@ -27,7 +27,7 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
         <span className="flex-[2] bg-[#b3487d]" />
       </div>
       <div className="mx-auto flex min-h-[4.25rem] max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:min-h-[4.75rem] sm:px-6 lg:px-8">
-        <a href="/" className="group flex min-w-0 items-center gap-3 rounded-lg sm:gap-4 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label="返回學生查榜首頁">
+        <a href="/" className="group flex min-w-0 items-center gap-3 rounded-lg sm:gap-4 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label="返回專題報告場次查詢首頁">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center p-1 sm:h-14 sm:w-14">
             <img
               src="https://cidsexhibition.nutc.edu.tw/images/logo.png"
