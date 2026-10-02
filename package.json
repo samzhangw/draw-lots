@@ -15,7 +15,8 @@
     "dev:cloudflare": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy",
     "deploy:check": "npm run build && wrangler deploy --dry-run",
-    "test:cloudflare": "CLOUDFLARE_TEST=1 tsx --test tests/backend.test.ts"
+    "test:cloudflare": "CLOUDFLARE_TEST=1 tsx --test tests/backend.test.ts",
+    "benchmark:student-login": "tsx scripts/benchmark-student-login.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

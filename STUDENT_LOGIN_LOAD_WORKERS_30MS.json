@@ -1,0 +1,83 @@
+{
+  "mode": "Workers",
+  "students": 300,
+  "sameSourceIp": true,
+  "sharedPassword": true,
+  "cacheInitiallyCold": true,
+  "connectionsPrewarmed": true,
+  "simulatedDatabaseDelayMs": 30,
+  "nodeVersion": "v24.19.0",
+  "firstAttempt": {
+    "statuses": {
+      "200": 40,
+      "500": 107,
+      "503": 153
+    },
+    "successful": 40,
+    "successPercent": 13.3,
+    "burstMs": 1335,
+    "successfulLatency": {
+      "p50Ms": 1029,
+      "p95Ms": 1286,
+      "maxMs": 1291
+    },
+    "allLatency": {
+      "p50Ms": 774,
+      "p95Ms": 1116,
+      "maxMs": 1291
+    },
+    "transportOrNonJsonErrors": 107,
+    "sampleErrors": [
+      "non-json: Error: Network connection lost."
+    ],
+    "databaseRequestsIncludingQueries": 160
+  },
+  "oneBusyRetry": {
+    "attempted": 153,
+    "statuses": {
+      "200": 40,
+      "503": 113
+    },
+    "additionalSuccessful": 40,
+    "successfulLatency": {
+      "p50Ms": 644,
+      "p95Ms": 848,
+      "maxMs": 848
+    },
+    "phaseMs": 2888
+  },
+  "final": {
+    "successfulLogins": 80,
+    "successfulQueries": 80,
+    "uniqueCookies": 80,
+    "incorrectStudentResults": 0,
+    "remainingStudents": 220,
+    "elapsedMs": 4223,
+    "queryStatuses": {
+      "200": 80
+    },
+    "queryLatency": {
+      "p50Ms": 44,
+      "p95Ms": 106,
+      "maxMs": 119
+    }
+  },
+  "database": {
+    "totalRequests": 320,
+    "types": {
+      "leaderLookup": 80,
+      "credentialRecheck": 80,
+      "sessionInsert": 80,
+      "resultLookup": 80
+    },
+    "peakConcurrentRequests": 16,
+    "peakRequestsPerSecond": 160,
+    "latency": {
+      "p50Ms": 31,
+      "p95Ms": 32,
+      "maxMs": 44
+    },
+    "persistedSessions": 80
+  },
+  "limitation": "Local API benchmark with simulated Supabase HTTP responses; not production Supabase CPU/IO, campus network, or browser rendering. Login queues and limits unchanged."
+}
