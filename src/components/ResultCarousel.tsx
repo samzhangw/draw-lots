@@ -112,9 +112,6 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
         {!slide && <p className="result-carousel-empty">請先完成抽籤，再開始展示。</p>}
       </div>
       <footer className="result-carousel-footer">
-        <div className="result-carousel-progress" role="progressbar" aria-label="本頁展示倒數" aria-valuemin={0} aria-valuemax={seconds} aria-valuenow={remaining}>
-          <span style={{ width: `${100 * (seconds - remaining) / seconds}%` }} />
-        </div>
         <div className="result-carousel-controls">
           <div className="result-carousel-transport">
             <button className="result-control" onClick={() => move(-1)} disabled={slides.length < 2} aria-label="上一頁"><ChevronLeft /></button>
