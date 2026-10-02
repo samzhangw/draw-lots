@@ -15,7 +15,7 @@ export interface ProjectItem {
   // 抽籤產生的結果
   assigned_group?: number | null; // 分組場次/組別 (第 1 組、第 2 組...)
   draw_order?: number | null; // 組內報告順序 (1, 2, 3...)
-  draw_code?: string | null; // 抽籤後編號 e.g. "企業智慧-第1組-序號01"
+  draw_code?: string | null; // 抽籤後編號 e.g. "A01"，領域內跨組連續編號
   draw_time?: string | null; // 抽籤時間戳記
   evaluators?: string[]; // 負責評分的教授名單 (符合利益迴避)
 }
@@ -34,4 +34,3 @@ export interface DomainConfig {
 }
 
 export type ViewMode = 'student' | 'stage' | 'admin';
-

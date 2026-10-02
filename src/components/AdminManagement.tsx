@@ -501,7 +501,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             ...formData,
             leader_id: cleanLeaderId,
             password: finalPassword,
-            draw_order: formData.draw_code ? parseInt(String(formData.draw_code).replace(/\D/g, ''), 10) || p.draw_order : p.draw_order,
+            draw_order: formData.draw_code === p.draw_code ? p.draw_order : formData.draw_code ? parseInt(String(formData.draw_code).replace(/\D/g, ''), 10) || p.draw_order : p.draw_order,
           } as ProjectItem;
         }
         return p;
@@ -1905,7 +1905,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   type="text"
                   value={formData.draw_code || ''}
                   onChange={(e) => setFormData({ ...formData, draw_code: e.target.value })}
-                  placeholder="留空代表未抽籤，或填寫例如：企業智慧-第1組-序號01"
+                  placeholder="留空代表未抽籤，或填寫例如：A01"
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>

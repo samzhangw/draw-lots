@@ -241,6 +241,10 @@ export const StudentPortal: React.FC = () => {
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
+                  <div className="mb-4">
+                    <div className="text-sm font-semibold text-slate-600">抽籤後編號</div>
+                    <div className="mt-1 text-3xl font-black text-slate-900">{myProject.draw_code || '—'}</div>
+                  </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                       <Layers className="w-4 h-4" />

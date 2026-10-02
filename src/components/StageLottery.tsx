@@ -830,6 +830,9 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                 <li>
                   <strong>各領域獨立排序</strong>：每個領域依其設定的「分組組數」分別獨立產生順序（例如：第 1 組、第 2 組等各自從順序 01 起跳）。
                 </li>
+                <li>
+                  <strong>抽籤後編號</strong>：A 企業智慧化、B 數位內容與多媒體應用、C 網路應用與資通安全、D 嵌入式系統與行動計算、E 智慧運算創新應用、F 智慧流通應用與研究、G 進修部。各領域從 01 連續編號，跨組不重複，例如 A01、A02。
+                </li>
               </ul>
             </div>
 
