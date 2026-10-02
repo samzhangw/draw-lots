@@ -87,7 +87,6 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
       {slide && <div className="result-carousel-meta">
         <div className="result-carousel-group">
           <strong>第 <b>{slide.group}</b> 組</strong>
-          <span className="result-carousel-total">共 {slide.groupTotal} 件</span>
         </div>
         <div className="result-carousel-page-info">
           <span className="result-carousel-group-page" aria-label={`本組第 ${slide.page + 1}／${slide.pages} 頁`}><small>本組頁碼</small><span><b>{slide.page + 1}</b>／{slide.pages} 頁</span></span>
