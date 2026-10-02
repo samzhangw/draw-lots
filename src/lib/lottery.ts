@@ -21,8 +21,10 @@ export function normalizeProfessorName(name: string): string {
 export function isAdvisorConflict(advisor: string, evaluators: string[] = []): boolean {
   if (!advisor || evaluators.length === 0) return false;
   const normAdvisor = normalizeProfessorName(advisor);
+  if (!normAdvisor) return false;
   return evaluators.some((ev) => {
     const normEv = normalizeProfessorName(ev);
+    if (!normEv) return false;
     return normAdvisor === normEv || normAdvisor.includes(normEv) || normEv.includes(normAdvisor);
   });
 }

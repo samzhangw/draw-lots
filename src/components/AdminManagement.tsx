@@ -277,6 +277,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
         .split(/[、,，\s]+/)
         .map((s) => s.trim())
         .filter(Boolean);
+      if (list.some(name => !normalizeProfessorName(name))) {
+        throw new Error(`「${domainForEvaluators.field}」第 ${g} 組的評審姓名不可僅有職稱，請填寫完整姓名。`);
+      }
       parsedEvaluators[g] = list;
     }
 

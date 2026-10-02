@@ -239,6 +239,17 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.ok(ownedDraw.data.project.draw_order);
     assert.equal(ownedDraw.data.project.leader_id, project.leader_id);
     assert.equal((await request('/api/lottery/draw', { field: 'ALL', version: draw.data.version }, stage)).status, 409);
+    // Invalid reviewer names must not overwrite existing settings or drawn results.
+    const beforeInvalidReviewers = structuredClone(state);
+    for (const name of ['', '　 ', '教授', '副教授']) {
+      const invalidReviewers = await request('/api/domain-configs', {
+        domainConfigs: [{ ...domains[0], evaluatorsPerGroup: { 1: ['李教授'], 2: [name] } }],
+        version: state.version,
+      }, admin);
+      assert.equal(invalidReviewers.status, 400);
+      assert.match(invalidReviewers.data.error, /測試領域.*第 2 組.*姓名/);
+      assert.deepEqual(state, beforeInvalidReviewers);
+    }
     const reviewers = await request('/api/domain-configs', { domainConfigs: [{ ...domains[0], evaluatorsPerGroup: { 1: ['新評審'], 2: ['新評審'] } }], version: draw.data.version }, admin);
     assert.equal(reviewers.status, 200); assert.deepEqual(reviewers.data.projects[0].evaluators, ['新評審']);
     const reset = await request('/api/lottery/reset', { field: 'ALL', version: reviewers.data.version }, stage);

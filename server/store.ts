@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { DomainConfig, ProjectItem } from '../src/types';
 import { removeLegacyCredentials, type StoredProject } from './credentials';
 import { normalizeOriginalCodes } from '../src/lib/originalCodes';
+import { normalizeProfessorName } from '../src/lib/lottery';
 import { ApiError } from './errors';
 export { ApiError } from './errors';
 
@@ -72,6 +73,11 @@ export function validateDomains(value: unknown): asserts value is DomainConfig[]
   for (const c of value) {
     if (!c || typeof c.id !== 'string' || !c.id.trim() || typeof c.field !== 'string' || !c.field.trim() || ids.has(c.id) || fields.has(c.field) || !Number.isInteger(c.groupCount) || c.groupCount < 1 || c.groupCount > 50) throw new ApiError(400, '領域 ID、名稱不得重複，組數須為 1 至 50。');
     if (c.evaluatorsPerGroup != null && (typeof c.evaluatorsPerGroup !== 'object' || Array.isArray(c.evaluatorsPerGroup) || Object.entries(c.evaluatorsPerGroup).some(([g, names]) => !/^\d+$/.test(g) || Number(g) < 1 || !Array.isArray(names) || names.some(x => typeof x !== 'string')))) throw new ApiError(400, '評審設定格式不正確。');
+    for (const [group, names] of Object.entries(c.evaluatorsPerGroup || {})) {
+      if (Array.isArray(names) && names.some((name: string) => !normalizeProfessorName(name))) {
+        throw new ApiError(400, `「${c.field}」第 ${group} 組的評審姓名不可空白或僅有職稱，請填寫完整姓名。`);
+      }
+    }
     ids.add(c.id); fields.add(c.field);
   }
 }
