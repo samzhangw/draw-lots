@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Pause, Play, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pause, Play, Settings, X } from 'lucide-react';
 import type { DomainConfig, ProjectItem } from '../types';
 import { buildResultSlides } from '../lib/resultPresentation';
 import { useModalFocus } from '../lib/useModalFocus';
@@ -15,6 +15,7 @@ interface Props {
 export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
   const [pageSize, setPageSize] = useState<5 | 10>(5);
   const [index, setIndex] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [playing, setPlaying] = useState(true);
   const [seconds, setSeconds] = useState(10);
   const [remaining, setRemaining] = useState(10);
@@ -25,9 +26,9 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
   const safeIndex = Math.min(index, Math.max(0, slides.length - 1));
   const slide = slides[safeIndex];
   const next = slides[(safeIndex + 1) % slides.length];
-  const running = playing && visible && slides.length > 1;
+  const running = playing && visible && !settingsOpen && slides.length > 1;
 
-  useModalFocus('result-carousel', onClose);
+  useModalFocus(settingsOpen ? 'carousel-settings' : 'result-carousel', () => settingsOpen ? setSettingsOpen(false) : onClose());
   useEffect(() => {
     const update = () => setVisible(!document.hidden);
     document.addEventListener('visibilitychange', update);
@@ -62,6 +63,7 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
   };
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
+      if (settingsOpen) return;
       const target = event.target as HTMLElement;
       if (target.closest('select, input, textarea')) return;
       if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
@@ -107,15 +109,25 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
             <button className="result-control" onClick={() => move(1)} disabled={slides.length < 2} aria-label="下一頁"><ChevronRight /></button>
             <span className="result-carousel-counter">{slides.length ? safeIndex + 1 : 0}／{slides.length} 頁</span>
           </div>
+          <button type="button" className="result-control result-carousel-settings-trigger" onClick={() => setSettingsOpen(true)} aria-haspopup="dialog"><Settings size={18} />設定</button>
+        </div>
+        <div className="result-carousel-hint"><span>{slides.length < 2 ? '單頁結果' : !visible ? '背景暫停' : settingsOpen ? '設定中 · 暫停換頁' : playing ? `${remaining} 秒後換頁 · 循環播放` : '已暫停'}{next && slides.length > 1 ? ` · 下一頁：${next.field} 第 ${next.group} 組` : ''}</span><span>← → 換頁 · 空白鍵播放／暫停 · Esc 返回</span></div>
+      </footer>
+      {settingsOpen && <div className="result-carousel-settings-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>
+        <div className="result-carousel-settings" role="dialog" aria-modal="true" aria-label="輪播設定">
+          <div className="result-carousel-settings-heading"><h3><Settings size={20} />輪播設定</h3><button type="button" className="result-control" aria-label="關閉輪播設定" onClick={() => setSettingsOpen(false)}><X size={18} /></button></div>
+          <p>設定期間暫停換頁，關閉後依原播放狀態繼續。</p>
+          <div className="result-carousel-settings-fields">
           <label>跳至場次<select aria-label="跳至場次" value={slide ? JSON.stringify([slide.field, slide.group]) : ''} onChange={(event) => {
             const found = groups.find(({ page }) => JSON.stringify([page.field, page.group]) === event.target.value);
             if (found) { setIndex(found.position); setRemaining(seconds); }
           }}>{groups.map(({ page }) => <option key={page.key} value={JSON.stringify([page.field, page.group])}>{page.field} · 第 {page.group} 組</option>)}</select></label>
           <label>每頁筆數<select aria-label="每頁筆數" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value) as 5 | 10)}><option value={5}>5 筆（單欄）</option><option value={10}>10 筆（左右）</option></select></label>
           <label>換頁間隔<select aria-label="換頁間隔" value={seconds} onChange={(event) => setSeconds(Number(event.target.value))}>{[3, 5, 10, 15, 20, 30].map((value) => <option key={value} value={value}>{value} 秒</option>)}</select></label>
+          </div>
+          <button type="button" className="result-control result-control-primary result-carousel-settings-done" onClick={() => setSettingsOpen(false)}>完成設定</button>
         </div>
-        <div className="result-carousel-hint"><span>{slides.length < 2 ? '單頁結果' : !visible ? '背景暫停' : playing ? `${remaining} 秒後換頁 · 循環播放` : '已暫停'}{next && slides.length > 1 ? ` · 下一頁：${next.field} 第 ${next.group} 組` : ''}</span><span>← → 換頁 · 空白鍵播放／暫停 · Esc 返回</span></div>
-      </footer>
+      </div>}
     </section>
   );
 }

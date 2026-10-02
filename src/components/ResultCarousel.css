@@ -91,3 +91,20 @@
  .result-carousel-list--two-columns .result-carousel-project span { font-size:11px; }
  .result-carousel-controls label:first-of-type { flex-basis:100%; }
 }
+
+.result-carousel-settings-trigger { margin-left:auto; }
+.result-carousel-settings-backdrop { position:fixed; inset:0; z-index:90; display:flex; align-items:center; justify-content:center; padding:16px; background:#172b4566; backdrop-filter:blur(4px); }
+.result-carousel-settings { width:100%; max-width:440px; max-height:calc(100dvh - 32px); overflow:auto; padding:24px; background:white; border:1px solid #d9e3ed; border-radius:22px; box-shadow:0 20px 60px #172b4526; }
+.result-carousel-settings-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.result-carousel-settings-heading h3 { display:flex; gap:8px; align-items:center; font-size:20px; font-weight:800; }
+.result-carousel-settings>p { margin-top:12px; color:#52657a; font-size:12px; line-height:1.6; }
+.result-carousel-settings-fields { display:grid; gap:16px; margin:22px 0; }
+.result-carousel-settings-fields label { display:grid; gap:7px; font-size:14px; font-weight:700; color:#52657a; }
+.result-carousel-settings-fields select { width:100%; max-width:none; font-weight:600; }
+.result-carousel-settings-done { width:100%; }
+@media(max-width:700px) {
+ .result-carousel-transport { width:auto; flex:1; justify-content:flex-start; gap:6px; }
+ .result-carousel-settings-trigger { padding:8px 10px; }
+ .result-carousel-counter { font-size:12px; }
+ .result-carousel-settings { padding:18px; }
+}
