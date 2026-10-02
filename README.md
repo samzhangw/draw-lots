@@ -88,6 +88,7 @@ NODE_ENV=production npm start
 
 - 儲存庫：`ymhs0208/Special-Exhibition-Lottery`，分支：`main`，根目錄：`/`。
 - 建置命令：`npm run build`；部署命令：`npx wrangler deploy`。
+- 使用 Bun 的 Workers Builds 可保留建置命令 `bun run build`。`bun.lock` 採用 Bun 1.2.15 可讀取的版本 1 格式，套件版本與完整性保持鎖定；更新依賴時須確認 `bun install --frozen-lockfile` 可在建置環境使用的 Bun 版本通過，避免產生舊版 Bun 無法解析的鎖定檔。
 - 在 Worker 的 Settings → Variables and Secrets 設定 `SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY`；`SUPABASE_SECRET_KEY` 必須選 **Secret**。這些是執行階段設定，不只是在 Builds 裡的建置變數。
 - `wrangler.jsonc` 配置 API、前端 SPA 路由、自訂網域與 Durable Object migration；不含任何實際金鑰。`keep_vars` 保留 Dashboard 中已設定的執行階段變數，避免後續部署移除連線設定。`/api/*` 優先執行後端，即使直接從網址列開啟也不會回傳前端 HTML。
 - 管理員與學生 cookie 在 Workers 正式環境一律使用 Secure / HttpOnly / SameSite=Strict；前端與 API 共用網域，不需開放跨站 CORS。
