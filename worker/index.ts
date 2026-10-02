@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { handleAsNodeRequest } from 'cloudflare:node';
 import type { DurableObjectNamespace, DurableObjectState, Fetcher } from '@cloudflare/workers-types/index.ts';
 import { app } from '../server/app';
+import { frontendCacheControl } from '../server/frontendAssets';
 import { withRuntime, type RuntimeEnvironment } from '../server/runtime';
 
 interface Env extends RuntimeEnvironment { ASSETS: Fetcher; LOGIN_LIMITER: DurableObjectNamespace; API_BACKEND: DurableObjectNamespace; }
@@ -20,6 +21,9 @@ export default {
     let response;
     if (!isApi) {
       response = await env.ASSETS.fetch(request.url, forward);
+      if (url.pathname.startsWith('/assets/') && /text\/html/i.test(response.headers.get('Content-Type') || '')) {
+        response = new Response('Page asset not found', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
+      }
     } else {
       // Keep users behind one campus NAT from queuing on a single API object.
       // These objects are stateless; the shared login counter lives in LOGIN_LIMITER.
@@ -27,6 +31,10 @@ export default {
       response = await env.API_BACKEND.get(env.API_BACKEND.idFromName(`api-${shard}`)).fetch(request.url, { ...forward, body: request.body });
     }
     const secureResponse = new Response(response.body as unknown as ReadableStream<Uint8Array> | null, response as unknown as Response);
+    if (!isApi && secureResponse.ok) {
+      const cache = frontendCacheControl(url.pathname, secureResponse.headers.get('Content-Type') || '');
+      if (cache) secureResponse.headers.set('Cache-Control', cache);
+    }
     secureResponse.headers.set('Strict-Transport-Security', 'max-age=31536000');
     secureResponse.headers.set('X-Content-Type-Options', 'nosniff');
     secureResponse.headers.set('X-Frame-Options', 'DENY');

@@ -214,8 +214,22 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       for (const page of ['/', '/admin', '/stage', '/student']) {
         const response = await fetch(`${base}${page}`, { headers: { 'Sec-Fetch-Mode': 'navigate' } });
         assert.equal(response.status, 200);
-        assert.match(await response.text(), /<div id="root">/);
+        assert.equal(response.headers.get('cache-control'), 'no-cache');
+        const html = await response.text();
+        assert.match(html, /<div id="root">/);
+        if (page === '/') {
+          const script = html.match(/src="(\/assets\/[^"\s]+\.js)"/);
+          assert.ok(script, 'built HTML must reference its versioned entry module');
+          const asset = await fetch(`${base}${script[1]}`);
+          assert.equal(asset.status, 200);
+          assert.match(asset.headers.get('cache-control')!, /immutable/);
+          await asset.arrayBuffer();
+        }
       }
+      const missingAsset = await fetch(`${base}/assets/previous-version-missing.js`);
+      assert.equal(missingAsset.status, 404);
+      assert.equal(missingAsset.headers.get('cache-control'), 'no-store');
+      assert.doesNotMatch(missingAsset.headers.get('content-type')!, /html/);
       const healthNavigation = await fetch(`${base}/api/health`, { headers: { 'Sec-Fetch-Mode': 'navigate' } });
       assert.equal((await readJson(healthNavigation) as any).status, 'ok');
     }
