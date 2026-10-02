@@ -791,7 +791,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       <div
         className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 p-4 sm:p-6 shadow-xs"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className="mb-4 space-y-4 sm:mb-6">
           <div>
             <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
               <Layers className="w-4 h-4 text-rose-600 shrink-0" />
@@ -802,17 +802,23 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <LotteryTestPanel version={dataVersion} configs={domainConfigs} disabled={!!pendingAction || draftOpen || !projects.length} />
-            <button
-              onClick={handleOpenAddDomain}
-              className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:bg-black text-white text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
-            >
-              <FolderPlus className="w-3.5 h-3.5 text-amber-300" />
-              <span>新增展覽領域</span>
-            </button>
-            <div className="text-xs text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 font-mono">
-              總計：<strong className="text-slate-900 font-bold">{totalProjectsCount}</strong> 件 · <strong className="text-slate-900 font-bold">{totalGroupCount}</strong> 組
+          <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+            <div className="flex items-center gap-3 text-sm text-slate-600" aria-label="領域與分組統計">
+              <span className="text-xs font-medium text-slate-500">總計</span>
+              <span><strong className="mr-1 text-xl font-bold tabular-nums text-[#28518a]">{totalProjectsCount}</strong>件</span>
+              <span className="h-5 w-px bg-slate-300" aria-hidden="true" />
+              <span><strong className="mr-1 text-xl font-bold tabular-nums text-[#356a32]">{totalGroupCount}</strong>組</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+              <LotteryTestPanel version={dataVersion} configs={domainConfigs} disabled={!!pendingAction || draftOpen || !projects.length} />
+              <button
+                type="button"
+                onClick={handleOpenAddDomain}
+                className="flex h-10 items-center justify-center gap-1 whitespace-nowrap rounded-xl bg-slate-900 px-2 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-slate-800 active:bg-black cursor-pointer sm:gap-1.5 sm:px-3"
+              >
+                <FolderPlus className="h-3.5 w-3.5 shrink-0 text-amber-300 sm:h-4 sm:w-4" />
+                <span>新增展覽領域</span>
+              </button>
             </div>
           </div>
         </div>

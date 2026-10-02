@@ -23,7 +23,7 @@ export function LotteryTestPanel({ version, configs, disabled }: { version: numb
   };
   return <>
     <button type="button" disabled={disabled || loading || version === null} onClick={() => { setField('ALL'); setReport(null); setError(null); setOpen(true); }}
-      className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-100 disabled:opacity-40">
+      className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-semibold text-blue-800 hover:bg-blue-100 disabled:opacity-40 sm:w-auto">
       <FlaskConical className="h-4 w-4" />測試抽籤
     </button>
     {open && <div role="dialog" aria-modal="true" aria-label="抽籤測試報告" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-xs">
