@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ProjectItem, DomainConfig } from '../types';
 import { apiRequest, StoreState } from '../lib/api';
 import { useModalFocus } from '../lib/useModalFocus';
+import { ResultCarousel } from './ResultCarousel';
 import { FloatingNotice } from './FloatingNotice';
 import confetti from 'canvas-confetti';
 import './StageLottery.css';
@@ -19,7 +20,8 @@ import {
   ArrowRight,
   Search,
   Table,
-  LayoutGrid
+  LayoutGrid,
+  Play
 } from 'lucide-react';
 
 interface StageLotteryProps {
@@ -60,6 +62,11 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   const [selectedField, setSelectedField] = useState<string>('ALL');
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [autoCarousel, setAutoCarousel] = useState(true);
+  const [carouselScope, setCarouselScope] = useState<string | null>(null);
+  const fullscreenRef = useRef(false);
+  const autoCarouselRef = useRef(true);
+  autoCarouselRef.current = autoCarousel;
 
   const [batchDrawSummary, setBatchDrawSummary] = useState<string | null>(null);
 
@@ -97,20 +104,34 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       return (a.draw_order || 0) - (b.draw_order || 0);
     });
 
-  // Toggle fullscreen
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      stageContainerRef.current?.requestFullscreen?.().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen?.().catch(() => {});
-      setIsFullscreen(false);
+  const enterFullscreen = async () => {
+    fullscreenRef.current = true;
+    setIsFullscreen(true);
+    try {
+      if (stageContainerRef.current?.requestFullscreen) await stageContainerRef.current.requestFullscreen();
+      else setNoticeMessage('此瀏覽器不支援全螢幕，已改為視窗展示。');
+    } catch {
+      setNoticeMessage('無法進入瀏覽器全螢幕，已改為視窗展示。');
     }
   };
-
+  const toggleFullscreen = async () => {
+    if (!fullscreenRef.current) { await enterFullscreen(); return; }
+    fullscreenRef.current = false;
+    setIsFullscreen(false);
+    setCarouselScope(null);
+    if (document.fullscreenElement === stageContainerRef.current) await document.exitFullscreen().catch(() => {});
+  };
+  const openCarousel = () => {
+    setIsBoardPresentation(false);
+    setCarouselScope(selectedField);
+    if (!fullscreenRef.current) void enterFullscreen();
+  };
   useEffect(() => {
     const handleFsChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const active = document.fullscreenElement === stageContainerRef.current;
+      fullscreenRef.current = active;
+      setIsFullscreen(active);
+      if (!active) setCarouselScope(null);
     };
     document.addEventListener('fullscreenchange', handleFsChange);
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
@@ -194,6 +215,10 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       );
       onApplyState(backendResult);
       triggerCelebration();
+      if (fullscreenRef.current && autoCarouselRef.current) {
+        setIsBoardPresentation(false);
+        setCarouselScope(selectedField);
+      }
     } catch (apiErr) {
       setNoticeMessage(apiErr instanceof Error ? apiErr.message : '抽籤失敗，請重新整理後再試。');
     } finally {
@@ -243,6 +268,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
           : 'py-4 sm:py-7 px-3 sm:px-6 max-w-[1600px] mx-auto space-y-5 sm:space-y-7'
       }`}
     >
+      <div hidden={carouselScope !== null} className="space-y-5 sm:space-y-7">
       {/* Presentation control header */}
       <section className="relative overflow-hidden rounded-[1.75rem] border border-blue-100 bg-white text-slate-900 shadow-sm">
         <div className="absolute -right-20 -top-28 h-72 w-72 rounded-full bg-blue-100/80 blur-3xl pointer-events-none" />
@@ -442,7 +468,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
         </div>
 
         {/* Action Button: One-Click School-Wide Automatic Draw */}
-        <div className="relative z-10 mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-slate-100 flex justify-center">
+        <div className="relative z-10 mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-slate-100 flex flex-col items-center gap-3">
           <button
             onClick={handleOpenBatchModal}
             disabled={isAnimating || undrawnPool.length === 0}
@@ -455,6 +481,10 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                 : `開始「${selectedField}」抽籤`}
             </span>
           </button>
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-600 cursor-pointer">
+            <input type="checkbox" checked={autoCarousel} onChange={(event) => setAutoCarousel(event.target.checked)} className="h-4 w-4 accent-blue-700" />
+            全螢幕展示時，抽籤完成自動輪播結果
+          </label>
         </div>
       </section>
 
@@ -480,6 +510,11 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                 依領域與場次排列；各組報告順位由第一位起算
               </p>
             </div>
+            <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={openCarousel} disabled={isAnimating || drawnPool.length === 0}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100 disabled:opacity-40 cursor-pointer">
+              <Play className="h-4 w-4" />輪播結果
+            </button>
             <button
               type="button"
               onClick={() => setIsBoardPresentation((value) => !value)}
@@ -489,6 +524,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               {isBoardPresentation ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
               {isBoardPresentation ? '返回抽籤畫面' : '放大看板'}
             </button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -908,6 +944,8 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       {noticeMessage && (
         <FloatingNotice message={noticeMessage} type="error" onClose={() => setNoticeMessage(null)} />
       )}
+      </div>
+      {carouselScope !== null && <ResultCarousel projects={projects} domains={domainConfigs} scope={carouselScope} onClose={() => setCarouselScope(null)} />}
     </div>
   );
 };
