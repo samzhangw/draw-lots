@@ -20,32 +20,10 @@ import {
   AuthSession,
 } from './lib/auth';
 
-// Helper to determine active view from URL path, hash, or query parameter
-function getViewFromLocation(): ViewMode {
-  if (typeof window === 'undefined') return 'student';
-
-  const path = window.location.pathname.toLowerCase();
-  const hash = window.location.hash.toLowerCase();
-  const searchParams = new URLSearchParams(window.location.search);
-  const queryView = searchParams.get('view')?.toLowerCase();
-
-  if (queryView === 'admin' || queryView === 'stage' || queryView === 'student') {
-    return queryView as ViewMode;
-  }
-
-  if (hash.includes('admin') || hash.includes('manage')) return 'admin';
-  if (hash.includes('stage') || hash.includes('lottery')) return 'stage';
-  if (hash.includes('student') || hash.includes('inquiry')) return 'student';
-
-  if (path.includes('/admin') || path.includes('/manage')) return 'admin';
-  if (path.includes('/stage') || path.includes('/lottery')) return 'stage';
-  if (path.includes('/student') || path.includes('/inquiry')) return 'student';
-
-  return 'student';
-}
+import { getViewFromLocation, canonicalPageUrl, viewPath, viewTitles } from './lib/routes';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<ViewMode>(() => getViewFromLocation());
+  const [currentView, setCurrentView] = useState<ViewMode>(() => getViewFromLocation(window.location));
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [domainConfigs, setDomainConfigs] = useState<DomainConfig[]>([]);
@@ -80,60 +58,33 @@ export default function App() {
     handleSelectView('student');
   }, []);
 
-  // Navigate to view and update URL path and hash
   const handleSelectView = useCallback((view: ViewMode) => {
-    setCurrentView(view);
-    if (typeof window !== 'undefined') {
-      const targetHash = `#/${view}`;
-      const targetPath = `/${view}`;
-      try {
-        window.history.pushState({ view }, '', `${targetPath}${targetHash}`);
-      } catch {
-        window.location.hash = targetHash;
-      }
-
-      if (view === 'student') {
-        document.title = '學生查榜 | 國立臺中科技大學專題成果展';
-      } else if (view === 'stage') {
-        document.title = '台上抽籤展演 | 國立臺中科技大學專題成果展';
-      } else if (view === 'admin') {
-        document.title = '管理後台 | 國立臺中科技大學專題成果展';
-      }
+    const target = viewPath(view);
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== target) {
+      window.history.pushState({ view }, '', target);
     }
+    setCurrentView(view);
     requestAnimationFrame(() => document.getElementById('main-content')?.focus());
   }, []);
 
-  // Listen to browser URL changes (back/forward and hash changes)
   useEffect(() => {
-    const handleUrlChange = () => {
-      const detected = getViewFromLocation();
-      setCurrentView(detected);
+    const syncLocation = () => {
+      const view = getViewFromLocation(window.location);
+      const canonical = canonicalPageUrl(window.location);
+      const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (canonical !== current) window.history.replaceState({ view }, '', canonical);
+      setCurrentView(view);
     };
-
-    window.addEventListener('popstate', handleUrlChange);
-    window.addEventListener('hashchange', handleUrlChange);
-
-    // Initial page title sync
-    const initialView = getViewFromLocation();
-    if (initialView === 'student') {
-      document.title = '學生查榜 | 國立臺中科技大學專題成果展';
-    } else if (initialView === 'stage') {
-      document.title = '台上抽籤展演 | 國立臺中科技大學專題成果展';
-    } else if (initialView === 'admin') {
-      document.title = '管理後台 | 國立臺中科技大學專題成果展';
-    }
-
-    if (window.location.pathname === '/' && !window.location.hash) {
-      try {
-        window.history.replaceState({ view: initialView }, '', `/${initialView}#/${initialView}`);
-      } catch {}
-    }
-
+    syncLocation();
+    window.addEventListener('popstate', syncLocation);
+    window.addEventListener('hashchange', syncLocation);
     return () => {
-      window.removeEventListener('popstate', handleUrlChange);
-      window.removeEventListener('hashchange', handleUrlChange);
+      window.removeEventListener('popstate', syncLocation);
+      window.removeEventListener('hashchange', syncLocation);
     };
   }, []);
+
+  useEffect(() => { document.title = viewTitles[currentView]; }, [currentView]);
 
   const applyState = (state: StoreState) => {
     // Keep the version and displayed data in the same snapshot. An older GET

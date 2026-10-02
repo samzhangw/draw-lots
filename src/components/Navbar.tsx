@@ -23,7 +23,7 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-[0_3px_16px_rgba(15,23,42,0.04)] backdrop-blur-xl">
       <div className="h-1 bg-gradient-to-r from-blue-700 via-sky-500 to-rose-500" aria-hidden="true" />
       <div className="mx-auto flex min-h-[4.25rem] max-w-7xl items-center justify-between gap-3 px-4 sm:min-h-[4.75rem] sm:px-6 lg:px-8">
-        <div className="flex min-w-0 items-center gap-3 sm:gap-4" aria-label="國立臺中科技大學資訊與流通學院專題成果展">
+        <a href="/" className="flex min-w-0 items-center gap-3 rounded-lg sm:gap-4 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label="返回學生查榜首頁">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 p-1.5 shadow-sm sm:h-12 sm:w-12">
             <img
               src="https://cidsexhibition.nutc.edu.tw/images/logo.png"
@@ -40,7 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
               <span className="truncate text-[11px] font-semibold text-slate-500 sm:text-sm">報告抽籤系統</span>
             </div>
           </div>
-        </div>
+        </a>
 
         {authSession && onLogout && (
           <details className="group relative shrink-0">

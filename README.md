@@ -86,7 +86,9 @@ NODE_ENV=production npm start
 
 ### Cloudflare Workers 部署
 
-目前部署網址：[學生查榜](https://nutc.cc.cd/student)、[管理後台](https://nutc.cc.cd/admin)、[台上抽籤](https://nutc.cc.cd/stage)。備用網域：`special-exhibition-lottery.ymhs0208.workers.dev`。
+目前部署網址：[學生查榜首頁](https://nutc.cc.cd/)、[管理後台](https://nutc.cc.cd/admin)、[台上抽籤](https://nutc.cc.cd/stage)。備用網域：`special-exhibition-lottery.ymhs0208.workers.dev`。
+
+首頁固定使用 `/`，管理後台使用 `/admin`，台上抽籤使用 `/stage`，不再附加重複的 `#/...`。舊 `/student`、`/manage`、`/lottery`、`/inquiry`、`?view=...` 與角色 hash 網址會整理為對應路徑；明確頁面路徑優先於 query/hash。其他查詢參數與 `#main-content` 等內容錨點保留，瀏覽器上一頁／下一頁會同步畫面與標題。點擊頁首標誌可返回首頁。
 
 使用 Workers，並在 Workers & Pages 建立 Worker、連接本 GitHub 儲存庫。不要選擇只部署 `dist` 的純靜態 Pages。
 
