@@ -656,15 +656,6 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             </button>
             <button
               type="button"
-              onClick={handleOpenAddProject}
-              className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-2 py-2.5 text-xs sm:px-4 sm:text-sm font-bold text-white shadow-xs transition-colors hover:bg-slate-800 cursor-pointer"
-              title="手動新增單一專題"
-            >
-              <Plus className="h-4 w-4 shrink-0" />
-              <span className="sm:hidden">新增專題</span><span className="hidden sm:inline">手動新增專題</span>
-            </button>
-            <button
-              type="button"
               onClick={downloadInputTemplate}
               className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2.5 text-xs sm:px-4 sm:text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 cursor-pointer"
               title="下載標準 Excel 名冊匯入範本"
@@ -680,6 +671,15 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             >
               <FileSpreadsheet className="h-4 w-4 shrink-0" />
               <span>匯出結果 Excel</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenAddProject}
+              className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-2 py-2.5 text-xs sm:px-4 sm:text-sm font-bold text-white shadow-xs transition-colors hover:bg-slate-800 cursor-pointer"
+              title="手動新增單一專題"
+            >
+              <Plus className="h-4 w-4 shrink-0" />
+              <span className="sm:hidden">新增專題</span><span className="hidden sm:inline">手動新增專題</span>
             </button>
           </div>
         </section>
