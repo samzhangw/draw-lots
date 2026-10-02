@@ -99,9 +99,7 @@ app.post('/api/auth/logout', route(async (req, res) => {
 app.post('/api/student/verify', loginLimiter('student', 10, 600), route(async (req, res) => {
   const { leaderId, password } = req.body;
   if (typeof leaderId !== 'string' || leaderId.length > 128 || typeof password !== 'string' || password.length > 128) throw new ApiError(400, '請輸入有效的組長學號與密碼。');
-  const state = await createStore().load();
-  sharedPasswordHash(state.projects);
-  const project = state.projects.find(p => p.leader_id.trim().toLowerCase() === leaderId.trim().toLowerCase());
+  const project = await createStore().findProject('leader_key', leaderId.trim().toLowerCase());
   const valid = await verifyPassword(password, project?.password ? undefined : project?.password_hash);
   if (!valid || !project) throw new ApiError(401, '學號或密碼不正確，尚未設定密碼者請洽大會管理員。');
   await createStudentSession(req, res, project);

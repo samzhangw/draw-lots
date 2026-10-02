@@ -1,7 +1,7 @@
 import { runtimeEnv } from './runtime';
 import { createClient } from '@supabase/supabase-js';
 import type { DomainConfig, ProjectItem } from '../src/types';
-import { removeLegacyCredentials, type StoredProject } from './credentials';
+import { removeLegacyCredentials, sharedPasswordHash, type StoredProject } from './credentials';
 import { normalizeOriginalCodes } from '../src/lib/originalCodes';
 import { normalizeProfessorName } from '../src/lib/lottery';
 import { LotteryAllocationError, validateGroupCapacities } from '../src/lib/groupCapacities';
@@ -22,22 +22,47 @@ export function createStore() {
   const client = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
+  // Deploy the API before applying migration 005. Only a missing schema enables
+  // this temporary adapter; outages/permission errors must never fall back.
+  const load = async (): Promise<DatabaseState> => {
+    let result = await client.rpc('ntcust_load_lottery_state');
+    if (result.error?.code === 'PGRST202') {
+      result = await client.from('ntcust_lottery_state').select('*').eq('id', 1).single();
+    }
+    const { data, error } = result;
+    if (error || !data) throw new ApiError(503, '資料庫暫時無法讀取，請稍後再試。');
+    return { projects: normalizeOriginalCodes<StoredProject>(data.projects), domainConfigs: data.domain_configs, version: data.version, lastUpdated: data.updated_at };
+  };
   return {
     client,
-    async load(): Promise<DatabaseState> {
-      const { data, error } = await client.from('ntcust_lottery_state').select('*').eq('id', 1).single();
+    load,
+    async findProject(key: 'id' | 'leader_key', value: string): Promise<StoredProject | undefined> {
+      const { data, error } = await client.from('ntcust_projects').select('document').eq(key, value).maybeSingle();
+      if (error?.code === 'PGRST205' || error?.code === '42P01') {
+        const state = await load();
+        sharedPasswordHash(state.projects);
+        return state.projects.find(p => key === 'id' ? p.id === value : p.leader_id.trim().toLowerCase() === value);
+      }
       if (error) throw new ApiError(503, '資料庫暫時無法讀取，請稍後再試。');
-      return { projects: normalizeOriginalCodes<StoredProject>(data.projects), domainConfigs: data.domain_configs, version: data.version, lastUpdated: data.updated_at };
+      return data?.document;
     },
     async save(state: DatabaseState, expectedVersion: number): Promise<DatabaseState> {
-      const { data, error } = await client.from('ntcust_lottery_state').update({
-        projects: normalizeOriginalCodes(removeLegacyCredentials(state.projects)),
-        domain_configs: state.domainConfigs,
-        version: expectedVersion + 1,
-        updated_at: new Date().toISOString(),
-      }).eq('id', 1).eq('version', expectedVersion).select('*').maybeSingle();
-      if (error) throw new ApiError(503, '資料庫暫時無法儲存，請稍後再試。');
-      if (!data) throw new ApiError(409, '資料已由其他人更新，請重新整理後再操作。');
+      const projects = normalizeOriginalCodes(removeLegacyCredentials(state.projects));
+      let result = await client.rpc('ntcust_save_lottery_state', {
+        p_projects: projects,
+        p_domain_configs: state.domainConfigs,
+        p_expected_version: expectedVersion,
+      });
+      if (result.error?.code === 'PGRST202') {
+        result = await client.from('ntcust_lottery_state').update({
+          projects, domain_configs: state.domainConfigs, version: expectedVersion + 1,
+          updated_at: new Date().toISOString(),
+        }).eq('id', 1).eq('version', expectedVersion).select('*').maybeSingle();
+        if (!result.error && !result.data) throw new ApiError(409, '資料已由其他人更新，請重新整理後再操作。');
+      }
+      const { data, error } = result;
+      if (error?.code === '40001') throw new ApiError(409, '資料已由其他人更新，請重新整理後再操作。');
+      if (error || !data) throw new ApiError(503, '資料庫暫時無法儲存，請稍後再試。');
       return { projects: data.projects, domainConfigs: data.domain_configs, version: data.version, lastUpdated: data.updated_at };
     },
   };

@@ -2,7 +2,7 @@ import { runtimeEnv } from './runtime';
 import { randomBytes } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { createStore } from './store';
-import { fingerprint, sharedPasswordHash, type StoredProject } from './credentials';
+import { fingerprint, type StoredProject } from './credentials';
 import { ApiError } from './errors';
 
 const COOKIE = 'ntcust_student_session';
@@ -37,9 +37,7 @@ export async function getStudentProject(req: Request): Promise<StoredProject> {
   const { data, error } = await store.client.from('ntcust_student_sessions').select('project_id, credential_version, expires_at').eq('token_hash', fingerprint(token)).maybeSingle();
   if (error) throw new ApiError(503, '登入服務暫時無法使用。');
   if (!data || Date.parse(data.expires_at) <= Date.now()) throw new ApiError(401, '學生登入已過期，請重新登入。');
-  const state = await store.load();
-  sharedPasswordHash(state.projects);
-  const p = state.projects.find(p => p.id === data.project_id);
+  const p = await store.findProject('id', data.project_id);
   if (!p?.password_hash || p.password || fingerprint(p.password_hash) !== data.credential_version) throw new ApiError(401, '學生登入已失效，請重新登入。');
   return p;
 }

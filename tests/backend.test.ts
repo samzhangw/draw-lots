@@ -43,6 +43,9 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   let state = { id: 1, projects: [] as StoredProject[], domain_configs: domains, version: 0, updated_at: new Date().toISOString() };
   let unavailable = false;
   let malformedState = false;
+  let rosterReads = 0;
+  let indexedReads = 0;
+  let legacySchema = false;
   const staffSessions = new Map<string, any>();
   const sessions = new Map<string, { token_hash: string; project_id: string; credential_version: string; expires_at: string }>();
   const mock = http.createServer(async (req, res) => {
@@ -78,12 +81,38 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       if (req.method === 'DELETE') { if (key) sessions.delete(key); res.writeHead(204); res.end(); return; }
       res.end(JSON.stringify(key ? sessions.get(key) || null : null)); return;
     }
+    if (legacySchema && url.pathname.startsWith('/rest/v1/rpc/ntcust_')) {
+      res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST202', message: 'function not found' })); return;
+    }
+    if (legacySchema && url.pathname === '/rest/v1/ntcust_projects') {
+      res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST205', message: 'table not found' })); return;
+    }
     if (url.pathname === '/rest/v1/ntcust_lottery_state') {
+      rosterReads++;
       if (req.method === 'PATCH') {
         if (url.searchParams.get('version') !== `eq.${state.version}`) { res.end('null'); return; }
         state = { ...state, ...body };
       }
+      res.end(JSON.stringify(state)); return;
+    }
+    if (url.pathname === '/rest/v1/rpc/ntcust_load_lottery_state') {
+      rosterReads++;
       res.end(JSON.stringify(malformedState ? { ...state, projects: null } : state)); return;
+    }
+    if (url.pathname === '/rest/v1/rpc/ntcust_save_lottery_state') {
+      if (body.p_expected_version !== state.version) {
+        res.writeHead(409); res.end(JSON.stringify({ code: '40001', message: 'version conflict' })); return;
+      }
+      state = { ...state, projects: body.p_projects, domain_configs: body.p_domain_configs,
+        version: state.version + 1, updated_at: new Date().toISOString() };
+      res.end(JSON.stringify(state)); return;
+    }
+    if (url.pathname === '/rest/v1/ntcust_projects') {
+      indexedReads++;
+      const id = url.searchParams.get('id')?.slice(3);
+      const leader = url.searchParams.get('leader_key')?.slice(3);
+      const row = state.projects.find(p => id !== undefined ? p.id === id : p.leader_id.trim().toLowerCase() === leader);
+      res.end(JSON.stringify(row ? { document: row } : null)); return;
     }
     res.writeHead(404); res.end('{}');
   });
@@ -193,7 +222,9 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal((await request('/api/projects', { projects: [{ ...project, password: '5678' }], version: saved.data.version }, admin)).status, 400);
     assert.equal((await request('/api/projects', { projects: [{ ...project, password_hash: 'forged' }], version: saved.data.version }, admin)).status, 400);
     assert.equal((await request('/api/student/verify', { leaderId: project.leader_id, password: '5678' })).status, 401);
-    const student = await request('/api/student/verify', { leaderId: project.leader_id, password: project.password });
+    const readsBeforeLogin = rosterReads;
+    const student = await request('/api/student/verify', { leaderId: `  ${project.leader_id}  `, password: project.password });
+    assert.equal(rosterReads, readsBeforeLogin, 'student login must not read the full roster');
     assert.equal(student.status, 200); assert.equal(student.data.project.password, undefined);
     assert.equal(student.data.project.password_hash, undefined);
     assert.equal(student.data.project.leader_id, project.leader_id);
@@ -202,10 +233,14 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const studentCookie = student.cookie!.split(';')[0];
     const sessionToken = studentCookie.split('=')[1];
     assert.equal(sessions.has(sessionToken), false); // Supabase only holds token digests.
-    if (cloudflareTest) {
-      const results = await Promise.all(Array.from({ length: 300 }, () => request('/api/student/me', undefined, undefined, studentCookie)));
-      assert.equal(results.filter(result => result.status === 200).length, 300);
-    }
+    const readsBeforeLookup = rosterReads;
+    const indexedBeforeLookup = indexedReads;
+    const lookupCount = cloudflareTest ? 300 : 20;
+    const results = await Promise.all(Array.from({ length: lookupCount }, () => request('/api/student/me', undefined, undefined, studentCookie)));
+    assert.equal(results.filter(result => result.status === 200).length, lookupCount);
+    assert.equal(rosterReads, readsBeforeLookup, 'student lookup must not read the full roster');
+    assert.equal(indexedReads - indexedBeforeLookup, lookupCount);
+    assert.ok(results.every(result => result.data.project.leader_id === project.leader_id));
     const blockedLogout = await fetch(`${base}/api/student/logout`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: studentCookie, Origin: 'https://attacker.invalid' }, body: '{}' });
     assert.equal(blockedLogout.status, 403);
     assert.equal((await request('/api/student/me?projectId=p2', undefined, undefined, studentCookie)).data.project.id, project.id);
@@ -316,6 +351,17 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     unavailable = true;
     await assert.rejects(store.save(fullSaved, fullSaved.version), /無法儲存/);
     unavailable = false;
+    // Deployment can precede the SQL migration without taking the site offline.
+    legacySchema = true;
+    const legacySnapshot = await store.load();
+    assert.equal(legacySnapshot.version, fullSaved.version);
+    assert.deepEqual(await store.findProject('id', full.id), full);
+    assert.deepEqual(await store.findProject('leader_key', full.leader_id.toLowerCase()), full);
+    const adapterSaved = await store.save(legacySnapshot, legacySnapshot.version);
+    assert.equal(adapterSaved.version, legacySnapshot.version + 1);
+    await assert.rejects(store.save(legacySnapshot, legacySnapshot.version), /其他人更新/);
+    legacySchema = false;
+    assert.deepEqual(await store.load(), adapterSaved);
     const fields = ['__proto__', 'constructor', 'toString'];
     const dangerousNames = fields.map((field, index) => ({ ...projectDto(project), id: `special-${index}`, leader_id: `student-${index}`, field }));
     const uploaded = await request('/api/projects', { projects: dangerousNames, version: state.version }, admin);
