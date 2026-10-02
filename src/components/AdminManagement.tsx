@@ -62,7 +62,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
   const [selectedFieldFilter, setSelectedFieldFilter] = useState<string>('ALL');
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadFeedback, setUploadFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [adminProjectDisplayMode, setAdminProjectDisplayMode] = useState<'table' | 'cards'>('table');
+  const [adminProjectDisplayMode, setAdminProjectDisplayMode] = useState<'table' | 'cards'>('cards');
   const [projectSort, setProjectSort] = useState<{ key: ProjectSortKey; direction: ProjectSortDirection } | null>(null);
   const [sharedAction, setSharedAction] = useState<'generate' | 'clear' | null>(null);
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
@@ -1119,6 +1119,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs">
               <button
                 onClick={() => setAdminProjectDisplayMode('table')}
+                aria-pressed={adminProjectDisplayMode === 'table'}
                 className={`px-2.5 py-1 rounded-md transition-all cursor-pointer font-medium ${
                   adminProjectDisplayMode === 'table'
                     ? 'bg-white text-emerald-800 shadow-xs font-semibold'
@@ -1129,6 +1130,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </button>
               <button
                 onClick={() => setAdminProjectDisplayMode('cards')}
+                aria-pressed={adminProjectDisplayMode === 'cards'}
                 className={`px-2.5 py-1 rounded-md transition-all cursor-pointer font-medium ${
                   adminProjectDisplayMode === 'cards'
                     ? 'bg-white text-emerald-800 shadow-xs font-semibold'
