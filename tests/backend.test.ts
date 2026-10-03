@@ -369,6 +369,12 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const indexedBeforeLookup = indexedReads;
     const rpcBeforeLookup = studentLookupReads;
     const lookupCount = cloudflareTest ? 300 : 20;
+    // Wrangler's local TLS proxy can drop a burst of newly opened connections.
+    // Warm only static transport, then retain all 300 concurrent API assertions.
+    if (cloudflareTest) await Promise.allSettled(Array.from({ length: lookupCount }, async () => {
+      const response = await fetch(`${base}/`);
+      await response.arrayBuffer();
+    }));
     const settledLookups = await Promise.allSettled(Array.from({ length: lookupCount }, () => request('/api/student/me', undefined, undefined, studentCookie)));
     const lookupFailures = settledLookups.filter(result => result.status === 'rejected');
     assert.equal(lookupFailures.length, 0, `lookup failures: ${lookupFailures.map(result => String((result as PromiseRejectedResult).reason)).join('; ')}`);
@@ -642,11 +648,11 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const reorderedConfigs = [...beforeReorder.domainConfigs].reverse();
     const reordered = await request('/api/domain-configs', { domainConfigs: reorderedConfigs, version: beforeReorder.version }, adminAgain);
     assert.equal(reordered.status, 200);
-    assert.deepEqual(reordered.data.domainConfigs, reorderedConfigs);
+    assert.deepEqual(reordered.data.domainConfigs, beforeReorder.domainConfigs);
     assert.deepEqual(reordered.data.projects, beforeReorder.projects);
     assert.equal(reordered.data.version, beforeReorder.version + 1);
-    assert.deepEqual((await request('/api/state', undefined, adminAgain)).data.domainConfigs, reorderedConfigs);
-    assert.deepEqual((await request('/api/state', undefined, stage)).data.domainConfigs.map((c: { id: string }) => c.id), reorderedConfigs.map((c: { id: string }) => c.id));
+    assert.deepEqual((await request('/api/state', undefined, adminAgain)).data.domainConfigs, beforeReorder.domainConfigs);
+    assert.deepEqual((await request('/api/state', undefined, stage)).data.domainConfigs.map((c: { id: string }) => c.id), beforeReorder.domainConfigs.map((c: { id: string }) => c.id));
     assert.equal((await request('/api/domain-configs', { domainConfigs: beforeReorder.domainConfigs, version: beforeReorder.version }, adminAgain)).status, 409);
 
     // Reject code namespaces at every write entry point, including legacy data

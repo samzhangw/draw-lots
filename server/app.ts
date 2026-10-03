@@ -16,7 +16,7 @@ import { LotteryAllocationError } from '../src/lib/groupCapacities';
 import { resolveLotteryFields } from './lotteryScope';
 import { domainDeletionError } from '../src/lib/domainDeletion';
 import { testLottery } from '../src/lib/lotteryTest';
-import { domainCodeCollisionError, getDrawCodeNamespace } from '../src/lib/domainCodes';
+import { domainCodeCollisionError, getDrawCodeNamespace, sortDomainConfigs } from '../src/lib/domainCodes';
 
 export const app = express();
 const SHARED_PASSWORD_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -223,7 +223,7 @@ app.post('/api/domain-configs', route(async (req, res) => {
   if (deletionError) throw new ApiError(409, deletionError);
   if (renamed) state.projects = state.projects.map(p => p.field === renamed.oldName ? { ...p, field: renamed.newName } : p);
   const removedFields = state.domainConfigs.filter(c => !req.body.domainConfigs.some((next: { id: string }) => next.id === c.id)).map(c => c.field);
-  state.domainConfigs = req.body.domainConfigs;
+  state.domainConfigs = sortDomainConfigs(req.body.domainConfigs);
   state.projects = state.projects.map(p => {
     const updated = removedFields.includes(p.field) ? { ...p, field: state.domainConfigs[0]?.field || '未分類領域' } : p;
     const cfg = state.domainConfigs.find(c => c.field === updated.field);

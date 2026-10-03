@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { sortDomainConfigs } from './lib/domainCodes';
 import { useApiRequest } from './lib/useApiRequest';
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { ProjectItem, ViewMode, DomainConfig } from './types';
@@ -103,7 +104,7 @@ export default function App() {
     dataVersionRef.current = state.version;
     setDataVersion(state.version);
     setProjects(state.projects);
-    setDomainConfigs(state.domainConfigs);
+    setDomainConfigs(sortDomainConfigs(state.domainConfigs));
     setSharedPasswordEnabled(state.sharedPasswordEnabled);
     setDataError(null);
   };

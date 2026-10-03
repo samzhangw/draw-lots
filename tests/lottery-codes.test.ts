@@ -4,7 +4,7 @@ import { allocateDomainSubgroups, executeAllDomainsIndependentLottery, getDomain
 import { createExportWorkbook } from '../src/lib/excel';
 import * as XLSX from 'xlsx';
 import type { ProjectItem } from '../src/types';
-import { domainCodeCollisionError } from '../src/lib/domainCodes';
+import { domainCodeCollisionError, sortDomainConfigs } from '../src/lib/domainCodes';
 import { validateDomains } from '../server/store';
 import { LotteryAllocationError } from '../src/lib/groupCapacities';
 import { normalizeOriginalCodes } from '../src/lib/originalCodes';
@@ -14,6 +14,24 @@ const fields = ['企業智慧化', '數位內容與多媒體應用', '網路應�
 const makeProject = (field: string, index: number): ProjectItem => ({
   id: `${field}-${index}`, seq_no: String(index + 1), field, leader_id: `${field}-${index}`,
   education_system: '', department: '', class_name: '', advisor: '', original_code: '', project_title: '測試',
+});
+
+test('domain order follows configured letters, preserves data and ignores former array position', () => {
+  const configs = [
+    { id: 'custom', field: '舊自訂領域', groupCount: 2 },
+    { id: 'z', field: '企業智慧化', code: 'Z', groupCount: 3 },
+    { id: 'h', field: '其他領域', code: 'H', groupCount: 1 },
+    { id: 'a', field: 'A.企業智慧化', groupCount: 2 },
+    { id: 'g', field: '進修部', groupCount: 1 },
+  ];
+  const before = structuredClone(configs);
+  const sorted = sortDomainConfigs(configs);
+  assert.deepEqual(sorted.map(c => c.id), ['a', 'g', 'h', 'z', 'custom']);
+  assert.deepEqual(configs, before);
+  assert.deepEqual(sortDomainConfigs([...configs].reverse()), sorted);
+  assert.deepEqual(sortDomainConfigs(sorted), sorted);
+  const changed = configs.map(c => c.id === 'z' ? { ...c, code: 'B' } : c);
+  assert.deepEqual(sortDomainConfigs(changed).map(c => c.id), ['a', 'z', 'g', 'h', 'custom']);
 });
 
 test('aliases and custom prefix collisions reject configuration and formal allocation without changing data', () => {

@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { DomainConfig, ProjectItem } from '../src/types';
 import { removeLegacyCredentials, sharedPasswordHash, type StoredProject } from './credentials';
 import { normalizeOriginalCodes } from '../src/lib/originalCodes';
-import { domainCodeCollisionError } from '../src/lib/domainCodes';
+import { domainCodeCollisionError, sortDomainConfigs } from '../src/lib/domainCodes';
 import { normalizeProfessorName } from '../src/lib/lottery';
 import { LotteryAllocationError, validateGroupCapacities } from '../src/lib/groupCapacities';
 import { ApiError } from './errors';
@@ -41,7 +41,7 @@ export function createStore() {
     }
     const { data, error } = result;
     if (error || !data) throw new ApiError(503, '資料庫暫時無法讀取，請稍後再試。');
-    return { projects: normalizeOriginalCodes<StoredProject>(data.projects, data.domain_configs), domainConfigs: data.domain_configs, version: data.version, lastUpdated: data.updated_at };
+    return { projects: normalizeOriginalCodes<StoredProject>(data.projects, data.domain_configs), domainConfigs: sortDomainConfigs(data.domain_configs), version: data.version, lastUpdated: data.updated_at };
   };
   return {
     client,
@@ -94,15 +94,16 @@ export function createStore() {
       return data?.document;
     },
     async save(state: DatabaseState, expectedVersion: number): Promise<DatabaseState> {
+      const domainConfigs = sortDomainConfigs(state.domainConfigs);
       const projects = normalizeOriginalCodes(removeLegacyCredentials(state.projects), state.domainConfigs);
       let result = await client.rpc('ntcust_save_lottery_state', {
         p_projects: projects,
-        p_domain_configs: state.domainConfigs,
+        p_domain_configs: domainConfigs,
         p_expected_version: expectedVersion,
       });
       if (result.error?.code === 'PGRST202') {
         result = await client.from('ntcust_lottery_state').update({
-          projects, domain_configs: state.domainConfigs, version: expectedVersion + 1,
+          projects, domain_configs: domainConfigs, version: expectedVersion + 1,
           updated_at: new Date().toISOString(),
         }).eq('id', 1).eq('version', expectedVersion).select('*').maybeSingle();
         if (!result.error && !result.data) throw new ApiError(409, '資料已由其他人更新，請重新整理後再操作。');
@@ -112,7 +113,7 @@ export function createStore() {
       if (error || !data) throw new ApiError(503, '資料庫暫時無法儲存，請稍後再試。');
       publicResultsCache.invalidate(url);
       healthCache.invalidate(url);
-      return { projects: data.projects, domainConfigs: data.domain_configs, version: data.version, lastUpdated: data.updated_at };
+      return { projects: data.projects, domainConfigs: sortDomainConfigs(data.domain_configs), version: data.version, lastUpdated: data.updated_at };
     },
   };
 }

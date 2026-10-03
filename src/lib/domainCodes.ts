@@ -35,3 +35,14 @@ export function domainCodeCollisionError(fields: Iterable<string>, configs: Doma
   }
   return null;
 }
+
+/** Letter domains first (A-Z), then legacy custom prefixes; never mutate input. */
+export function sortDomainConfigs(configs: DomainConfig[]): DomainConfig[] {
+  return [...configs].sort((a, b) => {
+    const left = getDrawCodeNamespace(a.field, configs);
+    const right = getDrawCodeNamespace(b.field, configs);
+    const letterOrder = Number(!/^[A-Z]$/.test(left)) - Number(!/^[A-Z]$/.test(right));
+    return letterOrder || left.localeCompare(right, 'en', { numeric: true })
+      || a.field.localeCompare(b.field, 'zh-Hant-TW') || a.id.localeCompare(b.id, 'en');
+  });
+}
