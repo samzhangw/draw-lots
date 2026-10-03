@@ -114,7 +114,7 @@ export const StudentPortal: React.FC = () => {
       return;
     }
 
-    if (!pwd) {
+    if (!pwd.trim()) {
       setErrorMessage('請輸入大會提供的組長登入密碼');
       return;
     }

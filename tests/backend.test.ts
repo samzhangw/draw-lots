@@ -56,6 +56,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   let malformedState = false;
   let rosterReads = 0;
   let databaseRequests = 0;
+  let authRequests = 0;
   let indexedReads = 0;
   let studentLookupReads = 0;
   let missingLookup = false;
@@ -79,6 +80,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     res.setHeader('Content-Type', 'application/json');
     if (unavailable) { res.writeHead(503); res.end(JSON.stringify({ message: 'private database detail: ntcust_lottery_state password=private-test' })); return; }
     if (url.pathname === '/auth/v1/token') {
+      authRequests++;
       if (body.password !== 'valid-password') { res.writeHead(400); res.end(JSON.stringify({ message: 'Invalid login credentials', error_code: 'invalid_credentials' })); return; }
       const role = body.email.startsWith('admin') ? 'admin' : body.email.startsWith('stage') ? 'stage' : 'student';
       const token = `${Buffer.from('{"alg":"HS256"}').toString('base64url')}.${Buffer.from(JSON.stringify({ role, exp: Math.floor(Date.now()/1000) + 3600 })).toString('base64url')}.signature`;
@@ -315,6 +317,23 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       const oversized = await request(endpoint, { leaderId: 'test', username: 'test', password: 'x'.repeat(5000), targetView: 'admin' });
       assert.equal(oversized.status, 413);
     }
+    const beforeBlankDatabase = databaseRequests;
+    const beforeBlankAuth = authRequests;
+    for (const endpoint of ['/api/auth/verify', '/api/student/verify', '/api/AUTH/VERIFY/']) {
+      for (const blank of ['', ' \t\n　', undefined]) {
+        const emptyAccount = await request(endpoint, { username: blank, leaderId: blank, password: 'valid-password', targetView: 'admin' });
+        assert.equal(emptyAccount.status, 400);
+        assert.match(emptyAccount.data.error, /請輸入/);
+        for (let n = 0; n < 11; n++) {
+          const emptyPassword = await request(endpoint, { username: 'admin@test.local', leaderId: project.leader_id, password: blank, targetView: 'admin' });
+          assert.equal(emptyPassword.status, 400, 'blank attempts must not consume account login limits');
+          assert.match(emptyPassword.data.error, /密碼/);
+          assert.equal(emptyPassword.cookie, undefined);
+        }
+      }
+    }
+    assert.equal(databaseRequests, beforeBlankDatabase, 'blank fields must not read/write Supabase');
+    assert.equal(authRequests, beforeBlankAuth, 'blank fields must not invoke Supabase Auth');
     const adminLogin = await request('/api/auth/verify', { username: 'admin@test.local', password: 'valid-password', targetView: 'admin' });
     assert.equal(adminLogin.status, 200);
     assert.equal(adminLogin.data.accessToken, undefined);

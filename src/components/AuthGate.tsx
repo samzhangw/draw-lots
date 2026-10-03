@@ -33,7 +33,16 @@ export const AuthGate: React.FC<AuthGateProps> = ({
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setErrorMessage(null);
+    if (!username.trim()) {
+      setErrorMessage('請輸入登入 Email');
+      return;
+    }
+    if (!password.trim()) {
+      setErrorMessage('請輸入通行密碼');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const data = await request<{ session: AuthSession }>('/api/auth/verify', {

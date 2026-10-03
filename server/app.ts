@@ -69,6 +69,20 @@ app.use('/api', (req, res, next) => {
   }
   next();
 });
+// Reject blank login fields before rate-limit buckets, queues or upstream work.
+app.use((req, _res, next) => {
+  const path = req.path.toLowerCase().replace(/\/+$/, '');
+  if (req.method !== 'POST' || !['/api/auth/verify', '/api/student/verify'].includes(path)) return next();
+  const staff = path === '/api/auth/verify';
+  const account = staff ? req.body?.username : req.body?.leaderId;
+  if (typeof account !== 'string' || !account.trim()) {
+    return next(new ApiError(400, staff ? '請輸入登入 Email。' : '請輸入組長學號。'));
+  }
+  if (typeof req.body?.password !== 'string' || !req.body.password.trim()) {
+    return next(new ApiError(400, staff ? '請輸入通行密碼。' : '請輸入大會提供的組長登入密碼。'));
+  }
+  next();
+});
 const route = (handler: (req: Request, res: Response) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => { Promise.resolve(handler(req, res)).catch(next); };
 
