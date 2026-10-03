@@ -1264,12 +1264,13 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               <span>可橫向滑動查看完整名冊欄位與操作</span>
             </div>
             <div className="overflow-x-auto max-h-[550px] overflow-y-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-              <table className="w-full text-left text-xs sm:text-sm min-w-[820px]">
+              <table className="w-full text-left text-xs sm:text-sm min-w-[900px]">
                 <thead className="sticky top-0 bg-slate-100/90 text-slate-700 z-10 border-b border-slate-200">
                   <tr className="text-xs font-semibold">
                     {sortableHeader('seq_no', '序號')}
                     {sortableHeader('draw_code', '+編號(抽籤後)')}
                     {sortableHeader('assigned_group', '分組場次')}
+                    {sortableHeader('draw_order', '組內順序')}
                     {sortableHeader('evaluators', '評審委員')}
                     {sortableHeader('field', '領域')}
                     {sortableHeader('original_code', '編號')}
@@ -1283,7 +1284,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {filteredProjects.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="py-12 text-center text-slate-400">
+                      <td colSpan={12} className="py-12 text-center text-slate-400">
                         <div className="space-y-1">
                           <p className="font-medium text-slate-600 text-sm">
                             {projects.length === 0
@@ -1340,6 +1341,13 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                               </span>
                             ) : (
                               <span className="text-slate-400 italic text-xs">待分配</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap font-medium">
+                            {p.draw_order ? (
+                              <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-xs border border-amber-200">第 {p.draw_order} 位</span>
+                            ) : (
+                              <span className="text-slate-400 italic text-xs">待抽籤</span>
                             )}
                           </td>
                           <td className="py-2.5 px-3 whitespace-nowrap text-xs">

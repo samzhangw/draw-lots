@@ -1,7 +1,7 @@
 import type { ProjectItem } from '../types';
 
 export type ProjectSortKey =
-  | 'seq_no' | 'draw_code' | 'assigned_group' | 'evaluators' | 'field'
+  | 'seq_no' | 'draw_code' | 'assigned_group' | 'draw_order' | 'evaluators' | 'field'
   | 'original_code' | 'project_title' | 'leader_id' | 'password_set' | 'advisor';
 export type ProjectSortDirection = 'ascending' | 'descending';
 
