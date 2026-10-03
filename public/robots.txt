@@ -4,3 +4,4 @@ Disallow: /admin
 Disallow: /stage
 Disallow: /student
 Disallow: /api/
+Disallow: /auth/

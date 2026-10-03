@@ -15,6 +15,7 @@ import { executeAllDomainsIndependentLottery } from '../src/lib/lottery';
 import { LotteryAllocationError } from '../src/lib/groupCapacities';
 import { resolveLotteryFields } from './lotteryScope';
 import { domainDeletionError } from '../src/lib/domainDeletion';
+import { acceptStaffInvitation } from './staffInvitation';
 import { testLottery } from '../src/lib/lotteryTest';
 
 export const app = express();
@@ -58,7 +59,7 @@ const rosterJson = express.json({ limit: '5mb' });
 const smallJson = express.json({ limit: '64kb' });
 app.use((req, res, next) => {
   const path = req.path.toLowerCase().replace(/\/+$/, '');
-  const parser = ['/api/auth/verify', '/api/student/verify'].includes(path) ? loginJson
+  const parser = ['/api/auth/verify', '/api/student/verify', '/api/auth/invite'].includes(path) ? loginJson
     : path === '/api/projects' && req.method === 'POST' ? rosterJson : smallJson;
   parser(req, res, next);
 });
@@ -117,6 +118,9 @@ app.post('/api/auth/verify', loginLimiter('staff'), loginRoute('staff', async (r
   if (!['admin', 'stage'].includes(role) || (targetView === 'admin' && role !== 'admin')) throw new ApiError(403, '此帳號尚未獲得操作權限。');
   await createStaffSession(req, res, data.session.access_token, data.user.id, data.session.expires_at!, req.body.remember === true);
   res.json({ success: true, session: { role, username: data.user.email || '', displayName: role === 'admin' ? '大會系統管理員' : '抽籤展演人員', loginTime: new Date().toISOString(), expiresAt: data.session.expires_at } });
+}));
+app.post('/api/auth/invite', anonymousLimiter('invite', 10, 60), loginRoute('staff', async (req, res) => {
+  res.json(await acceptStaffInvitation(req.body));
 }));
 app.get('/api/auth/me', route(async (req, res) => {
   res.json({ success: true, session: (await getStaffSession(req))!.profile });
