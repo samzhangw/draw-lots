@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { fingerprint } from '../server/credentials';
 import { readFile, readdir } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 
@@ -14,7 +15,7 @@ const project = (id: string, leader = id) => ({
 async function database() {
   const db = new PGlite();
   await db.exec('create role anon; create role authenticated; create role service_role; create schema auth; create table auth.users(id uuid primary key);');
-  for (const file of (await readdir(directory)).sort().filter(file => file.endsWith('.sql') && !file.startsWith('20261002'))) {
+  for (const file of (await readdir(directory)).sort().filter(file => file.endsWith('.sql') && file.startsWith('20261001'))) {
     await db.exec(await readFile(new URL(file, directory), 'utf8'));
   }
   return db;
@@ -141,5 +142,60 @@ test('student lookup joins only the token owner, excludes expired/revoked sessio
     await db.exec('set role service_role');
     assert.equal(await lookup(token), null);
     await db.exec('reset role');
+  } finally { await db.close(); }
+});
+
+
+test('student login finalization rechecks credentials, replaces sessions atomically and denies public execution', async () => {
+  const db = await database();
+  try {
+    const p = { ...project('01', ' Student-A '), shared_password_mode: true };
+    await db.query('update public.ntcust_lottery_state set projects = $1::jsonb', [JSON.stringify([p])]);
+    await migrate(db);
+    await db.exec(await readFile(new URL('202610030001_student_login_finalize.sql', directory), 'utf8'));
+    const old = 'a'.repeat(64); const fresh = 'b'.repeat(64); const other = 'c'.repeat(64);
+    await db.query("insert into public.ntcust_student_sessions values ($1, '01', $2, now() + interval '1 hour')", [old, fingerprint(p.password_hash)]);
+    const finalize = async (overrides: any = {}) => {
+      const params = { id: p.id, leader: 'student-a', hash: p.password_hash, shared: true,
+        token: fresh, version: fingerprint(p.password_hash), old, ...overrides };
+      return (await db.query<{ result: any }>('select public.ntcust_student_login_finalize($1,$2,$3,$4,$5,$6,$7) as result',
+        [params.id, params.leader, params.hash, params.shared, params.token, params.version, params.old])).rows[0].result;
+    };
+    const sessions = async () => (await db.query<{ token_hash: string; credential_version: string; expires_at: string }>('select * from public.ntcust_student_sessions order by token_hash')).rows;
+    for (const role of ['anon', 'authenticated']) {
+      await db.exec(`set role ${role}`);
+      await assert.rejects(finalize(), (e: any) => e.code === '42501');
+      await db.exec('reset role');
+    }
+    const before = await sessions();
+    for (const changes of [{ id: 'missing' }, { leader: 'changed' }, { shared: false },
+      { hash: p.password_hash.replace(/b/g, 'c'), version: fingerprint(p.password_hash.replace(/b/g, 'c')) }]) {
+      await assert.rejects(finalize(changes), (e: any) => e.code === 'PT401');
+      assert.deepEqual(await sessions(), before);
+    }
+    for (const changes of [{ token: 'invalid' }, { version: 'd'.repeat(64) }, { old: fresh }]) {
+      await assert.rejects(finalize(changes), (e: any) => e.code === '22023');
+      assert.deepEqual(await sessions(), before);
+    }
+    // Simulate a credential edit after backend verification.
+    await db.query("update public.ntcust_projects set document = document - 'password_hash' - 'shared_password_mode' where id = '01'");
+    await assert.rejects(finalize(), (e: any) => e.code === 'PT401');
+    assert.deepEqual(await sessions(), before);
+    await db.query("update public.ntcust_projects set document = $1::jsonb where id = '01'", [JSON.stringify(p)]);
+    await db.exec('set role service_role');
+    assert.deepEqual(await finalize(), p);
+    await db.exec('reset role');
+    const replaced = await sessions();
+    assert.equal(replaced.length, 1); assert.equal(replaced[0].token_hash, fresh);
+    assert.equal(replaced[0].credential_version, fingerprint(p.password_hash));
+    const expiry = Date.parse(String(replaced[0].expires_at));
+    assert.ok(Math.abs(expiry - Date.now() - 3600000) < 5000);
+    await assert.rejects(finalize({ old: null }), (e: any) => e.code === '23505');
+    assert.deepEqual(await sessions(), replaced);
+    assert.deepEqual(await finalize({ token: other, old: null }), p);
+    // Duplicate insertion must preserve another valid session selected for removal.
+    const concurrent = await sessions();
+    await assert.rejects(finalize({ old: other }), (e: any) => e.code === '23505');
+    assert.deepEqual(await sessions(), concurrent);
   } finally { await db.close(); }
 });

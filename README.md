@@ -5,7 +5,7 @@ React + Vite 前端，Express API 統一使用 Supabase Database 與 Supabase Au
 ## 啟動
 
 1. 安裝 Node.js 22.12 以上版本與相依套件：`npm install`（或 `pnpm install`）。
-2. 在 Supabase 專案的 SQL Editor 依序執行 [初始資料庫 migration](supabase/migrations/202610010001_lottery_state.sql)、[學生資安 migration](supabase/migrations/202610010002_student_security.sql)、[工作人員 session migration](supabase/migrations/202610010003_staff_sessions_and_preferences.sql)、[移除音效偏好資料表 migration](supabase/migrations/202610010004_remove_staff_preferences.sql)、[專題獨立資料列 migration](supabase/migrations/202610020001_project_rows.sql) 與 [學生查榜單次查詢 migration](supabase/migrations/202610020002_student_lookup.sql)。已有資料庫請依序執行尚未套用的 migration；第二份會移除所有舊明文學生密碼，之後須重新設定。
+2. 在 Supabase 專案的 SQL Editor 依序執行 [初始資料庫 migration](supabase/migrations/202610010001_lottery_state.sql)、[學生資安 migration](supabase/migrations/202610010002_student_security.sql)、[工作人員 session migration](supabase/migrations/202610010003_staff_sessions_and_preferences.sql)、[移除音效偏好資料表 migration](supabase/migrations/202610010004_remove_staff_preferences.sql)、[專題獨立資料列 migration](supabase/migrations/202610020001_project_rows.sql)、[學生查榜單次查詢 migration](supabase/migrations/202610020002_student_lookup.sql) 與 [學生登入交易 migration](supabase/migrations/202610030001_student_login_finalize.sql)。已有資料庫請依序執行尚未套用的 migration；第二份會移除所有舊明文學生密碼，之後須重新設定。
 3. 複製 `.env.example` 為 `.env.local`，填入：
 
    ```dotenv
@@ -159,7 +159,7 @@ npm run dev:cloudflare
 
 一般 Node.js 部署仍可用 `NODE_ENV=production npm start`。`vite preview` 僅供靜態預覽，不提供 API。
 
-學生共用密碼驗證：同一 process／isolate 內，相同共用密碼與目前儲存 hash 的請求合併驗證，成功結果快取 30 秒，最多保留 32 個項目。快取鍵為程序隨機 key 的 HMAC，不儲存明文密碼；錯誤密碼與服務錯誤不保留。個別密碼及不存在的帳號維持原驗證流程。共用密碼更換／停用後清除本地快取，其他 shards 透過每次讀取的最新 hash 隔離舊快取；建立 Session 前另查核最新密碼版本。每位學生仍獨立查核學號、建立 Session，登入限流與排隊上限不變。此最佳化不代表已通過正式環境 300 人同時登入壓測。
+學生共用密碼驗證：同一 process／isolate 內，相同共用密碼與目前儲存 hash 的請求合併驗證，成功結果快取 30 秒，最多保留 32 個項目。快取鍵為程序隨機 key 的 HMAC，不儲存明文密碼；錯誤密碼與服務錯誤不保留。個別密碼及不存在的帳號維持原驗證流程。共用密碼更換／停用後清除本地快取，其他 shards 透過每次讀取的最新 hash 隔離舊快取；建立 Session 時由登入 RPC 在同一交易內核對最新密碼版本（未套新 SQL 時仍另查核）。每位學生仍獨立查核學號、建立 Session，登入限流與排隊上限不變。此最佳化不代表已通過正式環境 300 人同時登入壓測。
 
 Session 負載防護（S09）：學生與工作人員 Cookie 使用綁定用途的 HMAC 簽章，簽章 key 從後端 `SUPABASE_SECRET_KEY`（或 `SUPABASE_SERVICE_ROLE_KEY`）以獨立標記派生，不需新增環境變數。假簽章、舊版無簽章 Cookie 不會查詢或刪除資料庫 session；上線後既有使用者需重新登入，輪替後端 secret 也會使既有 Cookie 失效。所有 Node instances／Workers shards 應使用相同後端 key；簽章有效仍需驗證資料庫到期、密碼版本與角色，不能代替權限驗證。
 
@@ -206,3 +206,11 @@ API 內部錯誤僅回傳固定訊息與事件 ID；5xx 不會回傳資料庫錯
 Cloudflare Workers 以 Cron Trigger 每 10 分鐘清理學生與工作人員的過期 Session；Node 正式環境啟動時先清理一次，之後每 10 分鐘清理，開發環境不啟動。每張 Session 表每次最多處理 5 批、每批 100 筆（共 500 筆），剩餘過期資料留待下次。以到期索引挑選過期紀錄，刪除時再次核對期限且限定選出的 token 雜湊，保留有效或已延長期限的 Session。不存取名冊、抽籤結果或帳號資料，不增加公開清理 API；沿用伺服器端資料庫權限，無須新增密鑰或 migration。
 
 Node 定時工作不重疊，失敗後下次排程再試，不中斷網站服務。Workers 排程失敗會回報給 Cloudflare，兩者日誌僅記錄清理數量或一般錯誤，不輸出 token、Cookie 或 access token。Cron 新增／修改可能需最多 15 分鐘傳播，首次排程成功可由 Cloudflare Observability 的「Expired session cleanup completed」日誌確認；部署成功本身不等同已跑過首次清理。
+
+## 學生首次登入 RPC
+
+套用 `supabase/migrations/202610030001_student_login_finalize.sql` 後，共用密碼首次登入由三次資料庫請求減為兩次：依學號查單筆專題、後端驗證密碼，最後 RPC 重新核對學號／密碼 hash／共用模式，並在同一交易建立新 Session、撤銷有效簽名 Cookie 的舊 Session。回傳最新專題，成功後才設定 Cookie。個別密碼亦保留交易內版本核對；SQL 僅鎖該專題，所有學生不共用全域鎖。Session 為獨立安全亂數，資料庫僅存雜湊且自行設定一小時期限。函式只授權 service_role，anon／authenticated 禁止執行。
+
+既有資料庫只需新增這份 migration，不需重跑或重設名冊、密碼及結果。可先套 SQL 再部署 API；API 先上線時僅在 PostgREST 回傳 PGRST202（函式不存在）使用原單筆查詢相容流程。尚未套 SQL 時不能宣稱已啟用兩次請求及交易保護；權限錯誤、服務錯誤或密碼版本不符均不降級。
+
+2026-10-03 登入 RPC 模擬測試：300 個不同學號、同一 IP、相同共用密碼、每次資料庫請求延遲 100 ms，在 Node／Workers 皆首次登入 300／300、查詢 300／300、300 個獨立 Cookie，錯誤專題結果 0。每人登入 2 次、查詢 1 次，共 900 次請求；登入 P95 約 Node 4.22 秒、Workers 5.00 秒。本機代理連線已預熱、密碼驗證快取初始為冷；不代表正式 Supabase／校園網路的吞吐或延遲。

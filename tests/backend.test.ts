@@ -7,7 +7,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createStore, validateDomains, validateProjects } from '../server/store';
-import { projectDto, hashPassword, verifyPassword, type StoredProject } from '../server/credentials';
+import { projectDto, hashPassword, verifyPassword, fingerprint, type StoredProject } from '../server/credentials';
 import type { ProjectItem, DomainConfig } from '../src/types';
 
 const cloudflareTest = process.env.CLOUDFLARE_TEST === '1';
@@ -59,7 +59,9 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   let indexedReads = 0;
   let studentLookupReads = 0;
   let missingLookup = false;
-  let changedSharedCredential: 'hash' | 'leader' | undefined;
+  let finalizeReads = 0;
+  let finalizeError: string | undefined;
+  let changedSharedCredential: 'hash' | 'leader' | 'disabled' | 'deleted' | undefined;
   let publicReads = 0;
   let metadataReads = 0;
   let activeCapacityReads = 0;
@@ -121,6 +123,20 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     }
     if (legacySchema && url.pathname === '/rest/v1/ntcust_projects') {
       res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST205', message: 'table not found' })); return;
+    }
+    if (url.pathname === '/rest/v1/rpc/ntcust_student_login_finalize') {
+      finalizeReads++;
+      if (finalizeError) { res.writeHead(finalizeError === 'PGRST202' ? 404 : 500); res.end(JSON.stringify({ code: finalizeError })); return; }
+      const p = state.projects.find(p => p.id === body.p_project_id);
+      if (!p || changedSharedCredential || p.password || p.password_hash !== body.p_password_hash ||
+        p.leader_id.trim().toLowerCase() !== body.p_leader_key || (p.shared_password_mode === true) !== body.p_shared_password_mode) {
+        res.writeHead(401); res.end(JSON.stringify({ code: 'PT401' })); return;
+      }
+      assert.equal(body.p_credential_version, fingerprint(p.password_hash!));
+      sessions.set(body.p_token_hash, { token_hash: body.p_token_hash, project_id: p.id,
+        credential_version: body.p_credential_version, expires_at: new Date(Date.now() + 3600000).toISOString() });
+      if (body.p_old_token_hash) sessions.delete(body.p_old_token_hash);
+      res.end(JSON.stringify(p)); return;
     }
     if (url.pathname === '/rest/v1/rpc/ntcust_student_lookup') {
       if (missingLookup) { res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST202' })); return; }
@@ -606,13 +622,40 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(generated.data.projects[0].shared_password_mode, undefined);
     assert.equal(state.projects[0].shared_password_mode, true);
     assert.equal(await verifyPassword(generated.data.password, state.projects[0].password_hash), true);
-    const appended = await request('/api/projects', { projects: [projectDto(project), { ...projectDto(project), id: 'new', leader_id: 'new-student', project_title: '私人新專題' }], version: state.version }, adminAgain);
+    const appended = await request('/api/projects', { projects: [projectDto(project), { ...projectDto(project), id: 'new', leader_id: 'new-student', project_title: '私人新專題' }, { ...projectDto(project), id: 'rpc-test', leader_id: 'rpc-test', project_title: 'RPC 測試專題' }], version: state.version }, adminAgain);
     assert.equal(appended.status, 200);
     assert.equal(state.projects[1].password_hash, state.projects[0].password_hash);
     // Start distinct student logins together before the shared verification cache is warm.
     const firstCommonLogins = await Promise.all(state.projects.map(p => request('/api/student/verify', { leaderId: p.leader_id, password: generated.data.password })));
     assert.ok(firstCommonLogins.every(r => r.status === 200));
     assert.equal(new Set(firstCommonLogins.map(r => r.cookie!.split(';')[0])).size, state.projects.length);
+    const beforeReplace = databaseRequests;
+    const oldCookie = firstCommonLogins[2].cookie!.split(';')[0];
+    const oldDigest = fingerprint(oldCookie.split('=')[1].split('.')[0]);
+    const replacement = await request('/api/student/verify', { leaderId: state.projects[2].leader_id, password: generated.data.password }, undefined, oldCookie);
+    assert.equal(replacement.status, 200);
+    assert.equal(databaseRequests - beforeReplace, 2, 'leader lookup plus one finalize RPC');
+    assert.equal(sessions.has(oldDigest), false);
+    // Keep the subsequent assertions using the replaced cookie.
+    firstCommonLogins[2] = replacement;
+    const retainedCookie = replacement.cookie!.split(';')[0];
+    const retainedDigest = fingerprint(retainedCookie.split('=')[1].split('.')[0]);
+    for (const code of ['42501', 'XX000', 'PT401']) {
+      finalizeError = code;
+      const beforeFailure = databaseRequests;
+      const beforeSessions = structuredClone([...sessions]);
+      const failed = await request('/api/student/verify', { leaderId: 'rpc-test', password: generated.data.password }, undefined, retainedCookie);
+      assert.equal(failed.status, code === 'PT401' ? 401 : 503);
+      assert.equal(failed.cookie, undefined);
+      assert.deepEqual([...sessions], beforeSessions);
+      assert.equal(databaseRequests - beforeFailure, 2, 'RPC errors must never use fallback');
+    }
+    finalizeError = 'PGRST202';
+    const fallback = await request('/api/student/verify', { leaderId: 'rpc-test', password: generated.data.password });
+    assert.equal(fallback.status, 200, 'only missing RPC allows rolling-deployment compatibility');
+    finalizeError = undefined;
+    assert.ok(sessions.has(retainedDigest));
+    assert.ok(finalizeReads > 0);
     const commonLogin = firstCommonLogins.find(r => r.data.project.leader_id === project.leader_id)!;
     assert.equal(commonLogin.status, 200);
     assert.equal(commonLogin.data.sharedPasswordMode, true);
@@ -633,7 +676,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       assert.equal(lookup.status, 200);
       assert.equal(lookup.data.project.leader_id, state.projects[n].leader_id);
     }
-    for (const change of ['hash', 'leader'] as const) {
+    for (const change of ['hash', 'leader', 'disabled', 'deleted'] as const) {
       changedSharedCredential = change;
       const sessionsBeforeChange = sessions.size;
       const staleLogin = await request('/api/student/verify', { leaderId: 'new-student', password: generated.data.password });

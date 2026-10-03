@@ -56,6 +56,18 @@ const mock = http.createServer(async (req, res) => {
       type = 'sessionInsert'; sessions.set(body.token_hash, body);
       res.writeHead(201); res.end('{}'); return;
     }
+    if (url.pathname === '/rest/v1/rpc/ntcust_student_login_finalize') {
+      type = 'loginFinalize';
+      const p = byId.get(body.p_project_id);
+      if (!p || p.leader_id !== body.p_leader_key || p.password_hash !== body.p_password_hash ||
+        (p.shared_password_mode === true) !== body.p_shared_password_mode) {
+        res.writeHead(401); res.end(JSON.stringify({ code: 'PT401' })); return;
+      }
+      sessions.set(body.p_token_hash, { project_id: p.id, credential_version: body.p_credential_version,
+        expires_at: new Date(Date.now() + 3600000).toISOString() });
+      if (body.p_old_token_hash) sessions.delete(body.p_old_token_hash);
+      res.end(JSON.stringify(p)); return;
+    }
     if (url.pathname === '/rest/v1/rpc/ntcust_student_lookup') {
       type = 'resultLookup';
       const session = sessions.get(body.p_token_hash);

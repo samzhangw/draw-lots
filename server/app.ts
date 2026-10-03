@@ -133,15 +133,8 @@ app.post('/api/student/verify', loginLimiter('student', 10, 1200), loginRoute('s
   let project = await store.findProject('leader_key', leaderId.trim().toLowerCase());
   const valid = await verifyStudentPassword(password, project);
   if (!valid || !project) throw new ApiError(401, '學號或密碼不正確，尚未設定密碼者請洽大會管理員。');
-  if (project.shared_password_mode === true) {
-    // Other shards may rotate/disable credentials while this request waits.
-    const current = await store.findProject('id', project.id);
-    if (!current || current.password || current.shared_password_mode !== true || current.password_hash !== project.password_hash || current.leader_id.trim().toLowerCase() !== leaderId.trim().toLowerCase()) {
-      throw new ApiError(401, '共用密碼已更新或停用，請使用最新密碼重新登入。');
-    }
-    project = current;
-  }
-  await createStudentSession(req, res, project);
+  // The RPC rechecks credentials and replaces the session atomically.
+  project = await createStudentSession(req, res, project);
   res.json({ success: true, sharedPasswordMode: project.shared_password_mode === true, project: project.shared_password_mode ? publicStudentProjectDto(project) : studentProjectDto(project) });
 }));
 app.get('/api/student/me', route(async (req, res) => {

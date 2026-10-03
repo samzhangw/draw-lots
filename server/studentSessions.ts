@@ -16,16 +16,50 @@ export async function clearStudentSession(req: Request, res: Response): Promise<
   const { error } = await sessionWork.run(async () => await createStore().client.from('ntcust_student_sessions').delete().eq('token_hash', fingerprint(token)));
   if (error) throw new ApiError(503, '登入服務暫時無法使用。');
 }
-export async function createStudentSession(req: Request, res: Response, project: StoredProject): Promise<void> {
-  await clearStudentSession(req, res);
+export async function createStudentSession(req: Request, res: Response, project: StoredProject): Promise<StoredProject> {
   const token = randomBytes(32).toString('hex');
-  const { error } = await sessionWork.run(async () => createStore().client.from('ntcust_student_sessions').insert({
-    token_hash: fingerprint(token), project_id: project.id,
-    credential_version: fingerprint(project.password_hash!),
-    expires_at: new Date(Date.now() + MAX_AGE).toISOString(),
-  }));
-  if (error) throw new ApiError(503, '登入服務暫時無法使用。');
+  const oldToken = readSessionToken(req, 'student');
+  const current = await sessionWork.run(async () => {
+    const store = createStore();
+    const result = await store.client.rpc('ntcust_student_login_finalize', {
+      p_project_id: project.id, p_leader_key: project.leader_id.trim().toLowerCase(),
+      p_password_hash: project.password_hash!, p_shared_password_mode: project.shared_password_mode === true,
+      p_token_hash: fingerprint(token), p_credential_version: fingerprint(project.password_hash!),
+      p_old_token_hash: oldToken ? fingerprint(oldToken) : null,
+    });
+    if (result.error?.code === 'PT401') throw new ApiError(401, '學生資料或密碼已更新或停用，請重新登入。');
+    if (result.error?.code !== 'PGRST202') {
+      if (result.error) throw new ApiError(503, '登入服務暫時無法使用。');
+      return result.data as StoredProject;
+    }
+    // Rolling deployment only: missing RPC retains the existing indexed path.
+    // Never fall back on database outages, permission errors or stale credentials.
+    const fresh = await store.findProject('id', project.id);
+    if (!fresh || fresh.password || fresh.password_hash !== project.password_hash ||
+      (fresh.shared_password_mode === true) !== (project.shared_password_mode === true) ||
+      fresh.leader_id.trim().toLowerCase() !== project.leader_id.trim().toLowerCase()) {
+      throw new ApiError(401, '學生資料或密碼已更新或停用，請重新登入。');
+    }
+    const inserted = await store.client.from('ntcust_student_sessions').insert({
+      token_hash: fingerprint(token), project_id: fresh.id,
+      credential_version: fingerprint(fresh.password_hash!),
+      expires_at: new Date(Date.now() + MAX_AGE).toISOString(),
+    });
+    if (inserted.error) throw new ApiError(503, '登入服務暫時無法使用。');
+    if (oldToken) {
+      const deleted = await store.client.from('ntcust_student_sessions').delete().eq('token_hash', fingerprint(oldToken));
+      if (deleted.error) throw new ApiError(503, '登入服務暫時無法使用。');
+    }
+    return fresh;
+  });
+  // Defend against malformed responses; never issue a cookie on RPC failure.
+  if (!current || current.id !== project.id || current.password || current.password_hash !== project.password_hash ||
+    (current.shared_password_mode === true) !== (project.shared_password_mode === true) ||
+    current.leader_id?.trim().toLowerCase() !== project.leader_id.trim().toLowerCase()) {
+    throw new ApiError(503, '登入服務暫時無法使用。');
+  }
   res.cookie(COOKIE, signSessionToken(token, 'student'), { ...options(), maxAge: MAX_AGE });
+  return current;
 }
 export async function getStudentProject(req: Request): Promise<StoredProject> {
   const token = readSessionToken(req, 'student');
