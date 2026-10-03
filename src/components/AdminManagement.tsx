@@ -1345,7 +1345,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                           </td>
                           <td className="py-2.5 px-3 whitespace-nowrap font-medium">
                             {p.draw_order ? (
-                              <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-xs border border-amber-200">第 {p.draw_order} 位</span>
+                              <span className="text-slate-800 tabular-nums">第 {p.draw_order} 位</span>
                             ) : (
                               <span className="text-slate-400 italic text-xs">待抽籤</span>
                             )}
