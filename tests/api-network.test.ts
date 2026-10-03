@@ -44,3 +44,102 @@ test('server validation messages and status remain available', async () => {
     });
   } finally { globalThis.fetch = originalFetch; }
 });
+
+test('read, login and write have separate deadlines', async () => {
+  const { API_TIMEOUTS, requestTimeoutMs } = await import('../src/lib/api');
+  assert.equal(requestTimeoutMs('/api/state', false), API_TIMEOUTS.read);
+  assert.equal(requestTimeoutMs('/api/student/verify', true), API_TIMEOUTS.login);
+  assert.equal(requestTimeoutMs('/api/auth/verify', true), API_TIMEOUTS.login);
+  assert.equal(requestTimeoutMs('/api/lottery/draw', true), API_TIMEOUTS.write);
+});
+
+test('timeout aborts a stalled fetch, leaves auth intact and never repeats a write', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSession = getAuthSession();
+  const session = { role: 'admin' as const, username: 'test', displayName: '管理員', loginTime: '', expiresAt: 9999999999 };
+  let calls = 0;
+  let signal: AbortSignal | undefined;
+  globalThis.fetch = (async (_url, options) => {
+    calls++; signal = options?.signal as AbortSignal;
+    // Intentionally ignore abort: caller must still finish at its deadline.
+    return await new Promise<Response>(() => {});
+  }) as typeof fetch;
+  saveAuthSession(session);
+  try {
+    await assert.rejects(apiRequest('/api/lottery/draw', { version: 1 }, { timeoutMs: 15 }), /操作等候逾時.*無法確認.*請勿直接重複送出/);
+    assert.equal(calls, 1);
+    assert.equal(signal?.aborted, true);
+    assert.equal(getAuthSession(), session);
+  } finally { globalThis.fetch = originalFetch; if (originalSession) saveAuthSession(originalSession); else clearAuthSession(); }
+});
+
+test('deadline also covers stalled response JSON and ignores a late 401', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSession = getAuthSession();
+  const session = { role: 'admin' as const, username: 'test', displayName: '管理員', loginTime: '', expiresAt: 9999999999 };
+  let finishBody!: (value: unknown) => void;
+  globalThis.fetch = async () => {
+    const response = new Response(null, { status: 401 });
+    response.json = () => new Promise(resolve => { finishBody = resolve; });
+    return response;
+  };
+  saveAuthSession(session);
+  try {
+    await assert.rejects(apiRequest('/api/state', undefined, { timeoutMs: 15 }), /讀取逾時/);
+    finishBody({ success: false, error: 'late expired' });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(getAuthSession(), session, 'late response must not expire the current session');
+  } finally { globalThis.fetch = originalFetch; if (originalSession) saveAuthSession(originalSession); else clearAuthSession(); }
+});
+
+test('caller cancellation aborts transport; pre-cancelled request never sends', async () => {
+  const { ApiRequestCancelledError } = await import('../src/lib/api');
+  const originalFetch = globalThis.fetch;
+  let calls = 0; let signal: AbortSignal | undefined;
+  globalThis.fetch = (async (_url, options) => { calls++; signal = options?.signal as AbortSignal; return await new Promise<Response>(() => {}); }) as typeof fetch;
+  try {
+    const controller = new AbortController();
+    const promise = apiRequest('/api/student/me', undefined, { signal: controller.signal, timeoutMs: 1000 });
+    controller.abort();
+    await assert.rejects(promise, ApiRequestCancelledError);
+    assert.equal(signal?.aborted, true);
+    await assert.rejects(apiRequest('/api/student/me', undefined, { signal: controller.signal }), ApiRequestCancelledError);
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('successful response removes caller cancellation listeners and clears deadline', async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  let signal: AbortSignal | undefined;
+  let added = 0; let removed = 0;
+  const originalAdd = controller.signal.addEventListener.bind(controller.signal);
+  const originalRemove = controller.signal.removeEventListener.bind(controller.signal);
+  controller.signal.addEventListener = ((...args: Parameters<AbortSignal['addEventListener']>) => { added++; originalAdd(...args); }) as AbortSignal['addEventListener'];
+  controller.signal.removeEventListener = ((...args: Parameters<AbortSignal['removeEventListener']>) => { removed++; originalRemove(...args); }) as AbortSignal['removeEventListener'];
+  globalThis.fetch = (async (_url, options) => { signal = options?.signal as AbortSignal; return new Response('{"success":true}'); }) as typeof fetch;
+  try {
+    await apiRequest('/api/state', undefined, { signal: controller.signal, timeoutMs: 15 });
+    controller.abort();
+    await new Promise(resolve => setTimeout(resolve, 25));
+    assert.equal(signal?.aborted, false);
+    assert.equal(added, 1); assert.equal(removed, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('an old request cannot clear a newly established staff session', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSession = getAuthSession();
+  const oldSession = { role: 'admin' as const, username: 'old', displayName: '', loginTime: '', expiresAt: 9999999999 };
+  const newSession = { ...oldSession, username: 'new' };
+  let resolve!: (response: Response) => void;
+  globalThis.fetch = () => new Promise<Response>(done => { resolve = done; });
+  saveAuthSession(oldSession);
+  try {
+    const request = apiRequest('/api/state');
+    saveAuthSession(newSession);
+    resolve(new Response('{"success":false,"error":"expired"}', { status: 401 }));
+    await assert.rejects(request, /expired/);
+    assert.equal(getAuthSession(), newSession);
+  } finally { globalThis.fetch = originalFetch; if (originalSession) saveAuthSession(originalSession); else clearAuthSession(); }
+});

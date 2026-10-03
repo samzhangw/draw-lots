@@ -1,6 +1,7 @@
+import { useApiRequest } from '../lib/useApiRequest';
 import React, { useState, useEffect, useRef } from 'react';
 import { ProjectItem, DomainConfig } from '../types';
-import { apiRequest, StoreState } from '../lib/api';
+import { StoreState, isApiRequestCancelled } from '../lib/api';
 import { useModalFocus } from '../lib/useModalFocus';
 import { DomainScopePicker } from './DomainScopePicker';
 import { ResultCarousel } from './ResultCarousel';
@@ -59,6 +60,12 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   domainList,
   domainConfigs,
 }) => {
+  const request = useApiRequest();
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const [selectedFields, setSelectedFields] = useState<string[] | null>(null);
   const selectedField = selectedFields === null ? 'ALL' : selectedFields.join('、');
   const includesField = (field: string) => selectedFields === null || selectedFields.includes(field);
@@ -193,12 +200,13 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
     try {
       // Keep the presentation visible briefly, but only show results returned by the backend.
       const [backendResult] = await Promise.all([
-        apiRequest<StoreState & { summary: string }>('/api/lottery/draw', {
+        request<StoreState & { summary: string }>('/api/lottery/draw', {
           ...(selectedFields === null ? { field: 'ALL' } : { fields: selectedFields }),
           version: dataVersion,
         }),
         new Promise<void>((resolve) => setTimeout(resolve, MIN_DRAW_MS)),
       ]);
+      if (!mounted.current) return;
       if (!Array.isArray(backendResult.projects)) throw new Error('抽籤回應格式不正確。');
       setBatchDrawSummary(
         backendResult.summary ||
@@ -212,6 +220,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
         setCarouselScope(selectedFields === null ? 'ALL' : [...selectedFields]);
       }
     } catch (apiErr) {
+      if (isApiRequestCancelled(apiErr)) return;
       setNoticeMessage(apiErr instanceof Error ? apiErr.message : '抽籤失敗，請重新整理後再試。');
     } finally {
       setIsAnimating(false);
@@ -234,11 +243,12 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
     if (dataVersion === null) { setNoticeMessage('資料尚未載入，請重新整理後再試。'); return; }
     setIsResetting(true);
     try {
-      const data = await apiRequest('/api/lottery/reset', { ...(selectedFields === null ? { field: 'ALL' } : { fields: selectedFields }), version: dataVersion });
+      const data = await request('/api/lottery/reset', { ...(selectedFields === null ? { field: 'ALL' } : { fields: selectedFields }), version: dataVersion });
       onApplyState(data);
       setBatchDrawSummary(null);
       setIsResetModalOpen(false);
     } catch (error) {
+      if (isApiRequestCancelled(error)) return;
       setNoticeMessage(error instanceof Error ? error.message : '重設失敗，請稍後再試。');
     } finally {
       setIsResetting(false);
