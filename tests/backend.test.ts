@@ -628,6 +628,31 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(disabled.data.sharedPasswordEnabled, false);
     assert.equal(state.projects[0].password_hash, undefined);
     assert.equal((await request('/api/student/verify', { leaderId: project.leader_id, password: rotated.data.password })).status, 401);
+    // R09: auto-created domains share the same 100-domain limit as settings.
+    // Count existing empty domains too; never save a partial import or version.
+    const beforeDomainLimit = structuredClone(state);
+    state.domain_configs = Array.from({ length: 99 }, (_, i) => ({ id: `limit-${i}`, field: `${String(i).padStart(4, '0')}-領域`, groupCount: 2 }));
+    state.projects = [{ ...projectDto(project), password: undefined, field: state.domain_configs[0].field }];
+    const importedLimitProject = { ...projectDto(project), password: undefined, id: 'limit-100', leader_id: 'limit-100', field: '0100-新領域' };
+    const atLimit = await request('/api/projects', { projects: [importedLimitProject], version: state.version }, adminAgain);
+    assert.equal(atLimit.status, 200);
+    assert.equal(state.domain_configs.length, 100);
+    assert.equal(atLimit.data.domainConfigs.length, 100);
+    const limitSettings = await request('/api/domain-configs', { domainConfigs: atLimit.data.domainConfigs, version: state.version }, adminAgain);
+    assert.equal(limitSettings.status, 200, 'a successful import must remain editable through settings');
+    const atLimitSnapshot = structuredClone(state);
+    const overflow = await request('/api/projects', { projects: [importedLimitProject, { ...importedLimitProject, id: 'limit-101', leader_id: 'limit-101', field: '0101-超限領域' }], version: state.version }, adminAgain);
+    assert.equal(overflow.status, 400);
+    assert.match(overflow.data.error, /領域設定最多 100 筆/);
+    assert.deepEqual(state, atLimitSnapshot);
+    const overflowSettings = await request('/api/domain-configs', { domainConfigs: [...atLimit.data.domainConfigs, { id: 'limit-101', field: '0101-超限領域', groupCount: 2 }], version: state.version }, adminAgain);
+    assert.equal(overflowSettings.status, 400);
+    assert.deepEqual(state, atLimitSnapshot);
+    const sameField = await request('/api/projects', { projects: [importedLimitProject, { ...importedLimitProject, id: 'limit-same', leader_id: 'limit-same' }], version: state.version }, adminAgain);
+    assert.equal(sameField.status, 200);
+    assert.equal(state.domain_configs.length, 100, 'repeated project fields must count as one domain');
+    state = beforeDomainLimit;
+
     const originalCodeSave = await request('/api/projects', {
       projects: [
         { ...projectDto(project), field: '企業智慧化', original_code: 'P-1' },

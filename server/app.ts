@@ -174,12 +174,15 @@ app.post('/api/projects', route(async (req, res) => {
   const store = createStore();
   const state = await store.load();
   checkVersion(req, state);
-  state.projects = await prepareProjects(req.body.projects, state.projects);
-  // Imported fields become available on the stage immediately.
-  for (const p of state.projects) {
-    if (!state.domainConfigs.some(c => c.field === p.field)) state.domainConfigs.push({ id: `domain-${crypto.randomUUID()}`, field: p.field, groupCount: 2, evaluatorsPerGroup: {} });
+  // Validate the complete configuration before preparing passwords or saving
+  // anything. Existing empty domains also count towards the setting limit.
+  const domainConfigs = [...state.domainConfigs];
+  for (const p of req.body.projects) {
+    if (!domainConfigs.some(c => c.field === p.field)) domainConfigs.push({ id: `domain-${crypto.randomUUID()}`, field: p.field, groupCount: 2, evaluatorsPerGroup: {} });
   }
-  validateDomains(state.domainConfigs);
+  validateDomains(domainConfigs);
+  state.projects = await prepareProjects(req.body.projects, state.projects);
+  state.domainConfigs = domainConfigs;
   res.json(staffState(await store.save(state, state.version), 'admin'));
 }));
 app.post('/api/student/shared-password', route(async (req, res) => {
