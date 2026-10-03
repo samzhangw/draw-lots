@@ -888,7 +888,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
         {domainDisplayMode === 'cards' ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {domainStats.map((stat, index) => {
+          {domainStats.map((stat) => {
             const drawnCount = projects.filter((p) => p.field === stat.field && p.draw_order).length;
             const isSelected = selectedFieldFilter === stat.field;
             const cfgObj = domainConfigs.find((c) => c.id === stat.id) || {
@@ -908,8 +908,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 }`}
               >
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-slate-500">顯示順序</span>
-                  <span className="text-xs font-bold tabular-nums text-slate-600">{index + 1}</span>
+                  <span className="text-xs font-medium text-slate-500">代碼</span>
+                  <span className="text-xs font-bold tabular-nums text-slate-600">{getDrawCodeNamespace(stat.field, domainConfigs)}</span>
                 </div>
                 {/* Header: Title & Group Count */}
                 <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-100">
@@ -917,7 +917,6 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     <h3 className="text-sm font-bold text-slate-900 truncate">
                       {stat.field}
                     </h3>
-                    <p className="mt-1 text-xs text-slate-500">代碼 {getDrawCodeNamespace(stat.field, domainConfigs)}</p>
                     <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-slate-500 font-mono">
                       <span>專題: <strong className="text-slate-800 font-bold">{stat.count}</strong> 件</span>
                       <span className="text-slate-300">·</span>
@@ -1000,7 +999,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
           <table className="w-full min-w-[850px] text-left text-xs sm:text-sm border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 text-xs">
-                <th className="py-2.5 px-4 text-center border border-slate-200 whitespace-nowrap">顯示順序</th>
+                <th className="py-2.5 px-4 text-center border border-slate-200 whitespace-nowrap">代碼</th>
                 <th className="py-2.5 px-4 border border-slate-200">列標籤 (領域名稱)</th>
                 <th className="py-2.5 px-4 text-center border border-slate-200">件數</th>
                 <th className="py-2.5 px-4 text-center border border-slate-200">
@@ -1012,7 +1011,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {domainStats.map((stat, index) => {
+              {domainStats.map((stat) => {
                 const drawnCount = projects.filter((p) => p.field === stat.field && p.draw_order).length;
                 const isSelected = selectedFieldFilter === stat.field;
                 const cfgObj = domainConfigs.find((c) => c.id === stat.id) || {
@@ -1030,11 +1029,10 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     }`}
                   >
                     <td className="py-2 px-4 text-center border border-slate-200 whitespace-nowrap">
-                      <span className="text-xs font-bold tabular-nums text-slate-600">{index + 1}</span>
+                      <span className="text-xs font-bold tabular-nums text-slate-600">{getDrawCodeNamespace(stat.field, domainConfigs)}</span>
                     </td>
                     <td className="py-2 px-4 text-slate-800 border border-slate-200">
                       <span className="font-semibold text-slate-900">{stat.field}</span>
-                      <span className="ml-2 text-xs text-slate-500">代碼 {getDrawCodeNamespace(stat.field, domainConfigs)}</span>
                     </td>
                     <td className="py-2 px-4 text-center font-mono font-bold text-slate-900 border border-slate-200">
                       {stat.count}
