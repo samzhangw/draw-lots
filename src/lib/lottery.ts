@@ -1,7 +1,7 @@
 import { ProjectItem, DomainConfig } from '../types';
 import { secureFisherYatesShuffle } from './cryptoRandom';
 
-import { getDomainCode } from './domainCodes';
+import { getDomainCode, getDrawCodeNamespace, domainCodeCollisionError } from './domainCodes';
 import { LotteryAllocationError, validateGroupCapacities } from './groupCapacities';
 export { getDomainCode } from './domainCodes';
 
@@ -43,7 +43,7 @@ export function allocateDomainSubgroups(
 ): ProjectItem[] {
   const k = Math.max(1, groupCount);
   const now = new Date().toISOString();
-  const domainPrefix = domainField.slice(0, 4);
+  const domainPrefix = getDrawCodeNamespace(domainField);
   const domainCode = getDomainCode(domainField);
   if (groupCapacities !== undefined) {
     validateGroupCapacities(groupCapacities, k, domainField);
@@ -162,6 +162,8 @@ export function executeAllDomainsIndependentLottery(
   conflictCount: number;
   domainSummaries: { field: string; count: number; groupCount: number }[];
 } {
+  const collision = domainCodeCollisionError([...domainConfigs.map(c => c.field), ...allProjects.map(p => p.field)]);
+  if (collision) throw new LotteryAllocationError(collision);
   const domainMap = new Map(domainConfigs.map(c => [c.field, c]));
 
   // Group projects by field

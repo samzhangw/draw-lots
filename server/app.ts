@@ -16,6 +16,7 @@ import { LotteryAllocationError } from '../src/lib/groupCapacities';
 import { resolveLotteryFields } from './lotteryScope';
 import { domainDeletionError } from '../src/lib/domainDeletion';
 import { testLottery } from '../src/lib/lotteryTest';
+import { domainCodeCollisionError } from '../src/lib/domainCodes';
 
 export const app = express();
 const SHARED_PASSWORD_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -178,6 +179,7 @@ app.post('/api/projects', route(async (req, res) => {
   for (const p of state.projects) {
     if (!state.domainConfigs.some(c => c.field === p.field)) state.domainConfigs.push({ id: `domain-${crypto.randomUUID()}`, field: p.field, groupCount: 2, evaluatorsPerGroup: {} });
   }
+  validateDomains(state.domainConfigs);
   res.json(staffState(await store.save(state, state.version), 'admin'));
 }));
 app.post('/api/student/shared-password', route(async (req, res) => {
@@ -231,6 +233,8 @@ app.post('/api/domain-configs', route(async (req, res) => {
       throw new ApiError(409, `「${cfg.field}」已有抽籤結果與各組設定件數不符，請先重設此領域再修改每組件數。`);
     }
   }
+  const collision = domainCodeCollisionError([...state.domainConfigs.map(c => c.field), ...state.projects.map(p => p.field)]);
+  if (collision) throw new ApiError(400, collision);
   res.json(staffState(await store.save(state, state.version), 'admin'));
 }));
 app.post('/api/lottery/test', route(async (req, res) => {
@@ -251,10 +255,18 @@ app.post('/api/lottery/draw', route(async (req, res) => {
   const pool = state.projects.filter(p => fields.has(p.field));
   if (!pool.length) throw new ApiError(400, '目前範圍內沒有專題。');
   if (pool.some(p => p.draw_order)) throw new ApiError(409, '此範圍已有抽籤結果，請先重設再抽籤。');
+  const collision = domainCodeCollisionError([...state.domainConfigs.map(c => c.field), ...state.projects.map(p => p.field)]);
+  if (collision) throw new ApiError(400, collision);
   try {
     const allocated = executeAllDomainsIndependentLottery(pool, state.domainConfigs).updatedProjects;
     const byId = new Map(allocated.map(p => [p.id, p]));
     state.projects = state.projects.map(p => byId.get(p.id) || p);
+    const seenCodes = new Set<string>();
+    for (const p of state.projects) {
+      if (!p.draw_code) continue;
+      if (seenCodes.has(p.draw_code)) throw new LotteryAllocationError(`抽籤編號「${p.draw_code}」重複，結果未儲存。請先檢查領域設定並重設衝突領域的抽籤結果。`);
+      seenCodes.add(p.draw_code);
+    }
   } catch (error) {
     if (error instanceof LotteryAllocationError) throw new ApiError(400, error.message);
     throw error;

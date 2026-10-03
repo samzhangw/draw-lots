@@ -37,8 +37,10 @@ test('test draw detects legacy advisor conflicts, duplicate codes, and missing r
   assert.ok(conflicts.domains[0].issues.every(i => /利益衝突/.test(i.message)));
   const aliases = testLottery([projects[0], { ...projects[1], field: 'A.企業智慧化' }], [{ ...config, groupCapacities: undefined }, { id: 'alias', field: 'A.企業智慧化', groupCount: 1 }], 'ALL', 1);
   assert.ok(aliases.errorCount >= 1);
-  assert.ok(aliases.domains.some(d => d.issues.some(i => /A01 重複/.test(i.message))));
-  assert.ok(aliases.warningCount >= 1);
+  assert.ok(aliases.domains.every(d => d.issues.some(i => /相同抽籤編號前綴/.test(i.message))));
+  assert.ok(aliases.domains.every(d => d.preview.length === 0));
+  const singleAlias = testLottery([projects[0], { ...projects[1], field: 'A.企業智慧化' }], [config], '企業智慧化', 1);
+  assert.match(singleAlias.domains[0].issues[0].message, /相同抽籤編號前綴/);
   const selected = testLottery([projects[0], { ...projects[1], field: '進修部' }], [], '進修部', 1);
   assert.equal(selected.projectCount, 1); assert.equal(selected.domains.length, 1);
   assert.equal(selected.domains[0].field, '進修部');

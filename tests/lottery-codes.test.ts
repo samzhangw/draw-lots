@@ -4,11 +4,34 @@ import { allocateDomainSubgroups, executeAllDomainsIndependentLottery, getDomain
 import { createExportWorkbook } from '../src/lib/excel';
 import * as XLSX from 'xlsx';
 import type { ProjectItem } from '../src/types';
+import { domainCodeCollisionError } from '../src/lib/domainCodes';
+import { validateDomains } from '../server/store';
+import { LotteryAllocationError } from '../src/lib/groupCapacities';
 
 const fields = ['企業智慧化', '數位內容與多媒體應用', '網路應用與資通安全', '嵌入式系統與行動計算', '智慧運算創新應用', '智慧流通應用與研究', '進修部'];
 const makeProject = (field: string, index: number): ProjectItem => ({
   id: `${field}-${index}`, seq_no: String(index + 1), field, leader_id: `${field}-${index}`,
   education_system: '', department: '', class_name: '', advisor: '', original_code: '', project_title: '測試',
+});
+
+test('aliases and custom prefix collisions reject configuration and formal allocation without changing data', () => {
+  for (const names of [
+    ['企業智慧化', 'A.企業智慧化'], ['嵌入式系統與行動計算', 'D.嵌入式系統與行動計算、'],
+    ['企業智慧化', ' 企業智慧化 '], ['自訂領域甲', '自訂領域乙'],
+  ]) {
+    const configs = names.map((field, i) => ({ id: String(i), field, groupCount: 1 }));
+    const projects = names.map(makeProject);
+    const before = structuredClone({ projects, configs });
+    assert.match(domainCodeCollisionError(names)!, /相同抽籤編號前綴/);
+    assert.throws(() => validateDomains(configs), /相同抽籤編號前綴/);
+    assert.throws(() => executeAllDomainsIndependentLottery(projects, configs), LotteryAllocationError);
+    // One selected domain must also check the other configured namespace.
+    assert.throws(() => executeAllDomainsIndependentLottery([projects[0]], configs), LotteryAllocationError);
+    assert.deepEqual({ projects, configs }, before);
+  }
+  assert.equal(domainCodeCollisionError(['企業智慧化', '企業智慧化', '進修部']), null);
+  assert.equal(domainCodeCollisionError(['自訂甲領域', '自訂乙領域']), null);
+  validateDomains([{ id: 'a', field: 'A.企業智慧化', groupCount: 1 }]);
 });
 
 test('all seven domains have unique compact codes across groups and keep local presentation order', () => {

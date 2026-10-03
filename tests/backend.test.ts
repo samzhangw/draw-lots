@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createStore, validateDomains, validateProjects } from '../server/store';
 import { projectDto, hashPassword, verifyPassword, type StoredProject } from '../server/credentials';
-import type { ProjectItem } from '../src/types';
+import type { ProjectItem, DomainConfig } from '../src/types';
 
 const cloudflareTest = process.env.CLOUDFLARE_TEST === '1';
 // Wrangler's local HTTPS certificate is self-signed; only this test process trusts it.
@@ -19,7 +19,7 @@ const project: ProjectItem = {
   advisor: '王教授', field: '測試領域', original_code: 'P1', project_title: '完整欄位測試', leader_id: '12345678', password: 'Secure-password-123',
   assigned_group: null, draw_order: null, draw_code: null, draw_time: null, evaluators: [],
 };
-const domains = [{ id: 'd1', field: '測試領域', groupCount: 2, evaluatorsPerGroup: { 1: ['李教授'], 2: ['陳教授'] } }];
+const domains: DomainConfig[] = [{ id: 'd1', field: '測試領域', groupCount: 2, evaluatorsPerGroup: { 1: ['李教授'], 2: ['陳教授'] } }];
 
 function assertStageWhitelist(data: any) {
   assert.deepEqual(Object.keys(data.projects[0]).sort(), ['assigned_group', 'draw_code', 'draw_order', 'field', 'id', 'project_title']);
@@ -648,6 +648,36 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.deepEqual((await request('/api/state', undefined, adminAgain)).data.domainConfigs, reorderedConfigs);
     assert.deepEqual((await request('/api/state', undefined, stage)).data.domainConfigs.map((c: { id: string }) => c.id), reorderedConfigs.map((c: { id: string }) => c.id));
     assert.equal((await request('/api/domain-configs', { domainConfigs: beforeReorder.domainConfigs, version: beforeReorder.version }, adminAgain)).status, 409);
+
+    // Reject code namespaces at every write entry point, including legacy data
+    // and single-domain draws that would collide with another domain.
+    const beforeCollision = structuredClone(state);
+    const aliasConfigs = [{ id: 'a', field: '企業智慧化', groupCount: 1 }, { id: 'alias', field: 'A.企業智慧化', groupCount: 1 }];
+    const aliasProjects = aliasConfigs.map((cfg, i) => ({ ...projectDto(project), id: `alias-${i}`, leader_id: `alias-${i}`, field: cfg.field, assigned_group: null, draw_order: null, draw_code: null, draw_time: null }));
+    const configCollision = await request('/api/domain-configs', { domainConfigs: aliasConfigs, version: state.version }, adminAgain);
+    assert.equal(configCollision.status, 400);
+    assert.match(configCollision.data.error, /相同抽籤編號前綴/);
+    const importCollision = await request('/api/projects', { projects: aliasProjects, version: state.version }, adminAgain);
+    assert.equal(importCollision.status, 400);
+    assert.deepEqual(state, beforeCollision);
+    state.projects = aliasProjects;
+    state.domain_configs = aliasConfigs;
+    const legacyCollision = structuredClone(state);
+    for (const field of ['ALL', '企業智慧化', 'A.企業智慧化']) {
+      const blocked = await request('/api/lottery/draw', { field, version: state.version }, stage);
+      assert.equal(blocked.status, 400);
+      assert.match(blocked.data.error, /相同抽籤編號前綴/);
+      assert.deepEqual(state, legacyCollision);
+    }
+    // Final merged-result guard also rejects a conflicting legacy/manual code.
+    state.projects = [aliasProjects[0], { ...aliasProjects[1], field: '進修部', assigned_group: 1, draw_order: 1, draw_code: 'A01' }];
+    state.domain_configs = [aliasConfigs[0], { id: 'g', field: '進修部', groupCount: 1 }];
+    const beforeMergedCollision = structuredClone(state);
+    const mergedCollision = await request('/api/lottery/draw', { field: '企業智慧化', version: state.version }, stage);
+    assert.equal(mergedCollision.status, 400);
+    assert.match(mergedCollision.data.error, /A01.*重複.*未儲存/);
+    assert.deepEqual(state, beforeMergedCollision);
+    state = beforeCollision;
 
     // Deleting a drawn domain must reject before moving/merging any results.
     const deletionFields = ['企業智慧化', '數位內容與多媒體應用'];

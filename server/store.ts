@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { DomainConfig, ProjectItem } from '../src/types';
 import { removeLegacyCredentials, sharedPasswordHash, type StoredProject } from './credentials';
 import { normalizeOriginalCodes } from '../src/lib/originalCodes';
+import { domainCodeCollisionError } from '../src/lib/domainCodes';
 import { normalizeProfessorName } from '../src/lib/lottery';
 import { LotteryAllocationError, validateGroupCapacities } from '../src/lib/groupCapacities';
 import { ApiError } from './errors';
@@ -167,4 +168,6 @@ export function validateDomains(value: unknown): asserts value is DomainConfig[]
     }
     ids.add(c.id); fields.add(c.field);
   }
+  const collision = domainCodeCollisionError(fields);
+  if (collision) throw new ApiError(400, collision);
 }

@@ -1,6 +1,7 @@
 import type { DomainConfig, ProjectItem } from '../types';
 import { allocateDomainSubgroups, isAdvisorConflict, normalizeProfessorName } from './lottery';
 import { LotteryAllocationError } from './groupCapacities';
+import { domainCodeCollisionError, getDrawCodeNamespace } from './domainCodes';
 
 export interface LotteryTestDomain {
   field: string;
@@ -35,6 +36,13 @@ export function testLottery(projects: ProjectItem[], configs: DomainConfig[], fi
       groups: Array.from({ length: groupCount }, (_, i) => ({ group: i + 1, count: 0, target: cfg?.groupCapacities?.[i + 1] ?? null })),
       issues: [], preview: [],
     };
+    const relatedFields = [...configs.map(c => c.field), ...projects.map(p => p.field)]
+      .filter(other => getDrawCodeNamespace(other) === getDrawCodeNamespace(name));
+    const collision = domainCodeCollisionError([name, ...relatedFields]);
+    if (collision) {
+      result.issues.push({ level: 'error', message: collision });
+      return result;
+    }
     if (!cfg) result.issues.push({ level: 'warning', message: '未找到領域設定，正式抽籤會使用預設 2 組。' });
     for (let group = 1; group <= groupCount; group++) {
       if (cfg?.groupCapacities?.[group] === 0) continue;
