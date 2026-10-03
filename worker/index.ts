@@ -4,10 +4,14 @@ import type { DurableObjectNamespace, DurableObjectState, Fetcher } from '@cloud
 import { app } from '../server/app';
 import { frontendCacheControl } from '../server/frontendAssets';
 import { withRuntime, type RuntimeEnvironment } from '../server/runtime';
+import { runSessionCleanup } from '../server/sessionCleanup';
 
 interface Env extends RuntimeEnvironment { ASSETS: Fetcher; LOGIN_LIMITER: DurableObjectNamespace; API_BACKEND: DurableObjectNamespace; }
 createServer(app).listen(8080);
 export default {
+  async scheduled(_controller: unknown, env: Env) {
+    await withRuntime({ ...env, NODE_ENV: 'production' }, runSessionCleanup);
+  },
   async fetch(request: Request, env: Env) {
     const url = new URL(request.url);
     const isApi = url.pathname === '/api' || url.pathname.startsWith('/api/');

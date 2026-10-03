@@ -91,6 +91,19 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       } catch { res.writeHead(401); res.end(JSON.stringify({ message: 'invalid token' })); }
       return;
     }
+    if (['/rest/v1/ntcust_staff_sessions', '/rest/v1/ntcust_student_sessions'].includes(url.pathname) && url.searchParams.has('expires_at')) {
+      const records = url.pathname.endsWith('staff_sessions') ? staffSessions : sessions;
+      const cutoff = Date.parse(url.searchParams.get('expires_at')!.replace('lte.', ''));
+      const expired = [...records.entries()].filter(([, row]) => Date.parse(row.expires_at) <= cutoff);
+      if (req.method === 'DELETE') {
+        const filter = url.searchParams.get('token_hash')!;
+        let deleted = 0;
+        for (const [key] of expired) if (filter.includes(key)) { records.delete(key); deleted++; }
+        res.setHeader('Content-Range', `*/${deleted}`);
+        res.writeHead(204); res.end(); return;
+      }
+      res.end(JSON.stringify(expired.slice(0, Number(url.searchParams.get('limit'))).map(([token_hash]) => ({ token_hash })))); return;
+    }
     if (url.pathname === '/rest/v1/ntcust_staff_sessions') {
       const key = url.searchParams.get('token_hash')?.replace('eq.', '');
       if (req.method === 'POST') { staffSessions.set(body.token_hash, { ...body, created_at: new Date().toISOString() }); res.writeHead(201); res.end('{}'); return; }
@@ -185,7 +198,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   let output = '';
   const launch = async () => {
     const args = cloudflareTest ? [
-      'node_modules/wrangler/bin/wrangler.js', 'dev', '--ip', '127.0.0.1', '--port', String(appPort), '--local-protocol', 'https', '--persist-to', persistence,
+      'node_modules/wrangler/bin/wrangler.js', 'dev', '--test-scheduled', '--ip', '127.0.0.1', '--port', String(appPort), '--local-protocol', 'https', '--persist-to', persistence,
       '--var', `SUPABASE_URL:${env.SUPABASE_URL}`, '--var', `SUPABASE_SECRET_KEY:${env.SUPABASE_SECRET_KEY}`,
       '--var', `SUPABASE_PUBLISHABLE_KEY:${env.SUPABASE_PUBLISHABLE_KEY}`,
     ] : ['--import', 'tsx', 'server.ts'];
@@ -208,7 +221,19 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     return { status: res.status, data: await readJson(res), cookie: res.headers.getSetCookie().at(-1), retryAfter: res.headers.get('retry-after') };
   };
   try {
+    const cleanupExpired = 'e'.repeat(64);
+    const cleanupActive = 'a'.repeat(64);
+    for (const records of [sessions, staffSessions]) {
+      records.set(cleanupExpired, { token_hash: cleanupExpired, project_id: 'cleanup-only', credential_version: 'test', expires_at: new Date(Date.now() - 1000).toISOString() });
+      records.set(cleanupActive, { token_hash: cleanupActive, project_id: 'cleanup-only', credential_version: 'test', expires_at: new Date(Date.now() + 3600000).toISOString() });
+    }
     await launch();
+    if (cloudflareTest) assert.equal((await fetch(`${base}/__scheduled`)).status, 200);
+    for (let n = 0; n < 100 && (sessions.has(cleanupExpired) || staffSessions.has(cleanupExpired)); n++) await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(sessions.has(cleanupExpired), false, 'scheduled cleanup deletes expired student sessions');
+    assert.equal(staffSessions.has(cleanupExpired), false, 'scheduled cleanup deletes expired staff sessions');
+    assert.ok(sessions.has(cleanupActive) && staffSessions.has(cleanupActive), 'scheduled cleanup retains active sessions');
+    sessions.delete(cleanupActive); staffSessions.delete(cleanupActive);
     const beforeForgedCookies = databaseRequests;
     for (const fake of ['1'.repeat(64), `${'2'.repeat(64)}.${'3'.repeat(64)}`]) {
       for (const endpoint of ['/api/student/me', '/api/auth/me', '/api/state', '/api/projects', '/api/domain-configs']) {
