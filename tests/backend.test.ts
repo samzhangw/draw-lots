@@ -69,10 +69,6 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   let legacySchema = false;
   const staffSessions = new Map<string, any>();
   const sessions = new Map<string, { token_hash: string; project_id: string; credential_version: string; expires_at: string }>();
-  let invitationVerifications = 0;
-  let invitationPasswordWrites = 0;
-  let invitationSignouts = 0;
-  const invitationTokens = new Map([['a'.repeat(64), 'admin'], ['b'.repeat(64), 'student'], ['c'.repeat(64), 'stage'], ['d'.repeat(64), 'admin'], ['f'.repeat(64), 'admin']]);
   const mock = http.createServer(async (req, res) => {
     if (req.url?.startsWith('/rest/v1/')) databaseRequests++;
     let raw = ''; for await (const chunk of req) raw += chunk;
@@ -80,15 +76,6 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const url = new URL(req.url!, 'http://localhost');
     res.setHeader('Content-Type', 'application/json');
     if (unavailable) { res.writeHead(503); res.end(JSON.stringify({ message: 'private database detail: ntcust_lottery_state password=private-test' })); return; }
-    if (url.pathname === '/auth/v1/verify') {
-      invitationVerifications++;
-      const role = invitationTokens.get(body.token_hash);
-      if (body.type !== 'invite' || !role) { res.writeHead(403); res.end(JSON.stringify({ message: 'private token expired detail', error_code: 'otp_expired' })); return; }
-      invitationTokens.delete(body.token_hash);
-      const token = `${Buffer.from('{"alg":"HS256"}').toString('base64url')}.${Buffer.from(JSON.stringify({ role, exp: Math.floor(Date.now()/1000) + 3600 })).toString('base64url')}.signature`;
-      res.end(JSON.stringify({ access_token: token, refresh_token: 'invitation-refresh', token_type: 'bearer', expires_in: 3600, user: { id: role, app_metadata: { role }, user_metadata: { role: 'admin' } } })); return;
-    }
-    if (url.pathname === '/auth/v1/logout') { invitationSignouts++; res.writeHead(204); res.end(); return; }
     if (url.pathname === '/auth/v1/token') {
       if (body.password !== 'valid-password') { res.writeHead(400); res.end(JSON.stringify({ message: 'Invalid login credentials', error_code: 'invalid_credentials' })); return; }
       const role = body.email.startsWith('admin') ? 'admin' : body.email.startsWith('stage') ? 'stage' : 'student';
@@ -99,11 +86,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       try {
         const token = req.headers.authorization!.slice(7);
         const role = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()).role;
-        if (req.method === 'PUT') {
-          assert.deepEqual(body, { password: 'New-secure-password-123', code_challenge: null, code_challenge_method: null });
-          assert.equal(body.password, 'New-secure-password-123');
-          invitationPasswordWrites++;
-        }
+        if (!['admin', 'stage'].includes(role)) throw new Error();
         res.end(JSON.stringify({ id: role, email: `${role}@test.local`, app_metadata: { role } }));
       } catch { res.writeHead(401); res.end(JSON.stringify({ message: 'invalid token' })); }
       return;
@@ -226,40 +209,6 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   };
   try {
     await launch();
-    const invitePassword = 'New-secure-password-123';
-    const sessionsBeforeInvite = staffSessions.size;
-    const invalidInvite = await request('/api/auth/invite', { tokenHash: 'a'.repeat(64), password: 'short' });
-    assert.equal(invalidInvite.status, 400);
-    assert.equal(invitationVerifications, 0, 'invalid password must not consume invitation');
-    assert.equal((await request('/api/auth/invite', { tokenHash: 'a'.repeat(64), password: invitePassword, role: 'admin' })).status, 400);
-    assert.equal(invitationVerifications, 0);
-    assert.equal((await request('/api/auth/invite', { tokenHash: 'b'.repeat(64), password: invitePassword })).status, 403);
-    assert.equal(invitationPasswordWrites, 0, 'user_metadata admin must not grant staff permissions');
-    const acceptedInvite = await request('/api/auth/invite', { tokenHash: 'a'.repeat(64), password: invitePassword });
-    assert.deepEqual(acceptedInvite.data, { success: true, loginPath: '/admin' });
-    assert.equal(acceptedInvite.status, 200);
-    assert.equal(acceptedInvite.cookie, undefined);
-    assert.equal(staffSessions.size, sessionsBeforeInvite, 'invite must not create an app session');
-    assert.equal(invitationPasswordWrites, 1);
-    const replay = await request('/api/auth/invite', { tokenHash: 'a'.repeat(64), password: invitePassword });
-    assert.equal(replay.status, 400);
-    assert.doesNotMatch(JSON.stringify(replay.data), /private token|invitation-refresh|access_token/);
-    assert.equal(invitationPasswordWrites, 1, 'replayed invite must not update password');
-    assert.equal((await request('/api/auth/invite', { tokenHash: 'c'.repeat(64), password: invitePassword })).data.loginPath, '/stage');
-    assert.equal(invitationSignouts, 3, 'temporary provider sessions must be signed out');
-    const crossSiteInvite = await fetch(`${base}/api/auth/invite`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://evil.test' }, body: JSON.stringify({ tokenHash: 'd'.repeat(64), password: invitePassword }) });
-    assert.equal(crossSiteInvite.status, 403);
-    const oversizedInvite = await request('/api/auth/invite', { tokenHash: 'd'.repeat(64), password: 'x'.repeat(5000) });
-    assert.equal(oversizedInvite.status, 413);
-    assert.equal(invitationTokens.has('d'.repeat(64)), true);
-    const concurrentInvites = await Promise.all([0, 1].map(() => request('/api/auth/invite', { tokenHash: 'f'.repeat(64), password: invitePassword })));
-    assert.deepEqual(concurrentInvites.map(result => result.status).sort(), [200, 400]);
-    assert.equal(invitationPasswordWrites, 3, 'concurrent replay must result in one update');
-    for (let i = 0; i < 2; i++) await request('/api/auth/invite', { tokenHash: 'e'.repeat(64), password: invitePassword });
-    const limitedInvite = await request('/api/auth/invite', { tokenHash: 'd'.repeat(64), password: invitePassword });
-    assert.equal(limitedInvite.status, 429);
-    assert.ok(limitedInvite.retryAfter);
-    assert.equal(invitationTokens.has('d'.repeat(64)), true, 'limit must run before consuming token');
     const beforeForgedCookies = databaseRequests;
     for (const fake of ['1'.repeat(64), `${'2'.repeat(64)}.${'3'.repeat(64)}`]) {
       for (const endpoint of ['/api/student/me', '/api/auth/me', '/api/state', '/api/projects', '/api/domain-configs']) {

@@ -184,20 +184,3 @@ API 內部錯誤僅回傳固定訊息與事件 ID；5xx 不會回傳資料庫錯
 現場的「抽籤範圍」支援勾選多個領域，提供全選與清除；件數、看板、抽籤、重設及輪播皆依勾選範圍更新。複選抽籤在一次操作中提交，任何領域配置錯誤都不儲存部分結果，未勾選領域保持原結果。至少勾選一個領域才能抽籤。
 
 2026-10-02 登入容量擴充：每個行程／isolate 可接納 784 筆未完成登入（16 處理＋768 等待，最多等 30 秒），同 IP 學生登入額度為每 15 分鐘 1200 次。600 個不同合成學生、同 IP、共用密碼驗證快取起始為空、每次模擬資料庫延遲 100 ms 的本機測試，Node 與 Workers 均首次登入 600／600、查詢 600／600，登入 P95 分別為 11.5／13.3 秒，最慢為 12.1／13.9 秒；每位取得不同 Cookie，無跨學生資料。模擬資料庫峰值並行為 32 筆（登入學號讀取與受限 Session 工作合計），Session 工作本身仍限制為 16 筆。Workers 測試預先準備本機代理連線；不含正式資料庫 CPU／I/O、第一次載入網站或校園網路，亦非正式容量保證。600 是目前已測試的波次，不代表 784 筆必定於期限內全部成功。
-
-### 工作人員 Email 邀請與密碼設定
-
-新增 `/auth/invite` 邀請頁與 `/api/auth/invite` API；不提供公開註冊或匿名寄信功能。管理員仍在 Supabase Dashboard 的 Authentication → Users 寄送邀請。操作權限必須由可信任管理者設定在 `auth.users.raw_app_meta_data.role`（`admin` 或 `stage`），不可放在 `user_metadata`，也不可只靠邀請自動授權。請在收件者接受邀請前設定角色；無角色的邀請會被拒絕，需要管理者處理後重新寄送。
-
-部署後先完成以下 Supabase 設定，再寄送新邀請：
-
-1. Authentication 的 URL Configuration：Site URL 設為正式 HTTPS 網址，例如 `https://nutc.cc.cd`（結尾不加 `/`）；不要設為 localhost 或內網 HTTP。需使用的 redirect allow list 限定正式網域與明確路徑，避免萬用外部網址。
-2. Authentication → Email Templates → Invite user：將內容替換為 [邀請信範本](supabase/templates/invite.html)。範本使用 `{{ .SiteURL }}/auth/invite#token_hash={{ .TokenHash }}&type=invite`，不使用原本的 `ConfirmationURL`。舊範本會先在 Supabase 消耗邀請並回傳另一種憑證，這個邀請頁刻意不接受該流程；改完範本後重新寄信。連結不可轉寄或貼入公開對話。
-3. 設定自訂 SMTP 並確認真實信箱能收到郵件；預設 SMTP 不適合對任意正式使用者寄信。建議關閉公開註冊、縮短邀請有效期限，並啟用密碼變更通知。Supabase 管理介面選項以目前專案提供者為準。
-4. 寄送測試邀請、設定該帳號 `app_metadata.role`，以收件者身分開信設定密碼，再到 `/admin` 或 `/stage` 正常登入；確認重複使用與過期連結被拒絕。此程式不會自動修改遠端 SMTP、信件範本或角色，也不會寄出真實邀請。
-
-安全處理：token hash 放在 URL fragment（不傳給伺服器／Referrer），進頁立即清除網址中的憑證，僅保留記憶體，不寫入瀏覽器儲存。GET／開信不驗證或消耗邀請；使用者明確提交符合政策的密碼後，伺服器固定以 `type=invite` 驗證一次性 token、即時核對 Auth 的可信任角色，再用獨立 public-key client 修改同一個受邀帳號的密碼。API 不接受角色、Email、user ID、access token 或其他 OTP 類型；不回傳 provider token、不建立網站登入 session，最後嘗試撤銷臨時 refresh session（既有 JWT 仍依 provider 的到期規則）。登入仍走既有 HttpOnly cookie 與角色驗證。
-
-邀請 API JSON 上限 4 KB，每 IP 每分鐘最多 10 次、全站 60 次，並共用工作人員有界工作佇列及 Supabase 請求期限。已有 CSRF 跨站防護、no-store 與錯誤訊息遮蔽。密碼限 12–128 字元且含英文字母與數字；Supabase 更嚴格的密碼政策仍生效。驗證後更新失敗或網路中斷時，邀請可能已消耗；先嘗試以新密碼登入，失敗再由管理者重新寄送，程式不自動重試密碼寫入。正式站必須由 HTTPS 提供（Workers 強制 HTTPS；Node 需在受控反向代理後提供 HTTPS），邀請頁會阻止非本機 HTTP 提交。
-
-參考：[Supabase 信件範本](https://supabase.com/docs/guides/auth/auth-email-templates)、[verifyOtp](https://supabase.com/docs/reference/javascript/auth-verifyotp)、[SMTP](https://supabase.com/docs/guides/auth/auth-smtp)。
