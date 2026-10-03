@@ -462,11 +462,10 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                     <span className="text-xs font-semibold text-slate-500 sm:text-sm">各領域獨立排定報告順序</span>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-4">
-                    {visibleDomainConfigs.map((c, index) => (
+                    {visibleDomainConfigs.map((c) => (
                       <article key={c.id} className="flex min-w-0 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                         <div>
-                          <span className="text-xs font-bold tabular-nums text-blue-700">領域 {String(index + 1).padStart(2, '0')}</span>
-                          <h4 className="mt-2 text-base font-black leading-snug break-words text-slate-900 sm:text-lg">{c.field}</h4>
+                          <h4 className="text-base font-black leading-snug break-words text-slate-900 sm:text-lg">{c.field}</h4>
                         </div>
                         <div className="mt-5 flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
                           <span className="text-sm font-semibold text-slate-600">{projects.filter((p) => p.field === c.field).length} 件專題</span>
