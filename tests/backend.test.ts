@@ -677,7 +677,34 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(mergedCollision.status, 400);
     assert.match(mergedCollision.data.error, /A01.*重複.*未儲存/);
     assert.deepEqual(state, beforeMergedCollision);
-    state = beforeCollision;
+    state = structuredClone(beforeCollision);
+
+    // Administrators can resolve aliases with explicit letters; existing draws
+    // cannot silently acquire a new prefix, and stage receives the configured code.
+    state.projects = aliasProjects;
+    state.domain_configs = aliasConfigs;
+    const explicitConfigs = aliasConfigs.map((cfg, i) => ({ ...cfg, code: i ? 'H' : 'A' }));
+    const explicitSave = await request('/api/domain-configs', { domainConfigs: explicitConfigs, version: state.version }, adminAgain);
+    assert.equal(explicitSave.status, 200);
+    assert.deepEqual(explicitSave.data.projects.map((p: ProjectItem) => p.original_code), ['A01', 'H01']);
+    const stageCodes = await request('/api/state', undefined, stage);
+    assert.deepEqual(stageCodes.data.domainConfigs.map((c: DomainConfig) => c.code), ['A', 'H']);
+    const explicitDraw = await request('/api/lottery/draw', { field: 'ALL', version: state.version }, stage);
+    assert.equal(explicitDraw.status, 200);
+    assert.deepEqual(state.projects.map(p => p.draw_code), ['A01', 'H01']);
+    const changedConfigs = explicitConfigs.map(c => c.code === 'H' ? { ...c, code: 'J' } : c);
+    const drawnSnapshot = structuredClone(state);
+    const blockedCodeEdit = await request('/api/domain-configs', { domainConfigs: changedConfigs, version: state.version }, adminAgain);
+    assert.equal(blockedCodeEdit.status, 409);
+    assert.match(blockedCodeEdit.data.error, /先重設.*對應字母/);
+    assert.deepEqual(state, drawnSnapshot);
+    assert.equal((await request('/api/lottery/reset', { field: 'A.企業智慧化', version: state.version }, stage)).status, 200);
+    assert.equal((await request('/api/domain-configs', { domainConfigs: changedConfigs, version: state.version }, adminAgain)).status, 200);
+    assert.equal(state.projects[1].original_code, 'J01');
+    assert.equal(state.projects[0].draw_code, 'A01');
+    assert.equal((await request('/api/lottery/draw', { field: 'A.企業智慧化', version: state.version }, stage)).status, 200);
+    assert.deepEqual(state.projects.map(p => p.draw_code), ['A01', 'J01']);
+    state = structuredClone(beforeCollision);
 
     // Deleting a drawn domain must reject before moving/merging any results.
     const deletionFields = ['企業智慧化', '數位內容與多媒體應用'];

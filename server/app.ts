@@ -16,7 +16,7 @@ import { LotteryAllocationError } from '../src/lib/groupCapacities';
 import { resolveLotteryFields } from './lotteryScope';
 import { domainDeletionError } from '../src/lib/domainDeletion';
 import { testLottery } from '../src/lib/lotteryTest';
-import { domainCodeCollisionError } from '../src/lib/domainCodes';
+import { domainCodeCollisionError, getDrawCodeNamespace } from '../src/lib/domainCodes';
 
 export const app = express();
 const SHARED_PASSWORD_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -87,7 +87,7 @@ function staffState(state: DatabaseState, role: 'admin' | 'stage') {
   };
   if (role === 'stage') return {
     ...base,
-    domainConfigs: state.domainConfigs.map(c => ({ id: c.id, field: c.field, groupCount: c.groupCount, ...(c.groupCapacities ? { groupCapacities: c.groupCapacities } : {}) })),
+    domainConfigs: state.domainConfigs.map(c => ({ id: c.id, field: c.field, groupCount: c.groupCount, ...(c.code ? { code: c.code } : {}), ...(c.groupCapacities ? { groupCapacities: c.groupCapacities } : {}) })),
     projects: state.projects.map(stageProjectDto),
   };
   return {
@@ -210,6 +210,13 @@ app.post('/api/domain-configs', route(async (req, res) => {
   const store = createStore();
   const state = await store.load();
   checkVersion(req, state);
+  for (const next of req.body.domainConfigs) {
+    const previous = state.domainConfigs.find(c => c.id === next.id);
+    if (previous && getDrawCodeNamespace(previous.field, state.domainConfigs) !== getDrawCodeNamespace(next.field, req.body.domainConfigs)
+      && state.projects.some(p => p.field === previous.field && (p.draw_code || p.draw_order || p.assigned_group || p.draw_time))) {
+      throw new ApiError(409, `「${previous.field}」已有抽籤結果，請先重設此領域再修改對應字母。`);
+    }
+  }
   const renamed = req.body.renamedField;
   if (renamed && (typeof renamed.oldName !== 'string' || typeof renamed.newName !== 'string')) throw new ApiError(400, '領域更名格式不正確。');
   const deletionError = domainDeletionError(state.projects, state.domainConfigs, req.body.domainConfigs);
@@ -233,7 +240,7 @@ app.post('/api/domain-configs', route(async (req, res) => {
       throw new ApiError(409, `「${cfg.field}」已有抽籤結果與各組設定件數不符，請先重設此領域再修改每組件數。`);
     }
   }
-  const collision = domainCodeCollisionError([...state.domainConfigs.map(c => c.field), ...state.projects.map(p => p.field)]);
+  const collision = domainCodeCollisionError([...state.domainConfigs.map(c => c.field), ...state.projects.map(p => p.field)], state.domainConfigs);
   if (collision) throw new ApiError(400, collision);
   res.json(staffState(await store.save(state, state.version), 'admin'));
 }));
@@ -255,7 +262,7 @@ app.post('/api/lottery/draw', route(async (req, res) => {
   const pool = state.projects.filter(p => fields.has(p.field));
   if (!pool.length) throw new ApiError(400, '目前範圍內沒有專題。');
   if (pool.some(p => p.draw_order)) throw new ApiError(409, '此範圍已有抽籤結果，請先重設再抽籤。');
-  const collision = domainCodeCollisionError([...state.domainConfigs.map(c => c.field), ...state.projects.map(p => p.field)]);
+  const collision = domainCodeCollisionError([...state.domainConfigs.map(c => c.field), ...state.projects.map(p => p.field)], state.domainConfigs);
   if (collision) throw new ApiError(400, collision);
   try {
     const allocated = executeAllDomainsIndependentLottery(pool, state.domainConfigs).updatedProjects;

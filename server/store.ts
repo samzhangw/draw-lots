@@ -41,7 +41,7 @@ export function createStore() {
     }
     const { data, error } = result;
     if (error || !data) throw new ApiError(503, '資料庫暫時無法讀取，請稍後再試。');
-    return { projects: normalizeOriginalCodes<StoredProject>(data.projects), domainConfigs: data.domain_configs, version: data.version, lastUpdated: data.updated_at };
+    return { projects: normalizeOriginalCodes<StoredProject>(data.projects, data.domain_configs), domainConfigs: data.domain_configs, version: data.version, lastUpdated: data.updated_at };
   };
   return {
     client,
@@ -94,7 +94,7 @@ export function createStore() {
       return data?.document;
     },
     async save(state: DatabaseState, expectedVersion: number): Promise<DatabaseState> {
-      const projects = normalizeOriginalCodes(removeLegacyCredentials(state.projects));
+      const projects = normalizeOriginalCodes(removeLegacyCredentials(state.projects), state.domainConfigs);
       let result = await client.rpc('ntcust_save_lottery_state', {
         p_projects: projects,
         p_domain_configs: state.domainConfigs,
@@ -149,6 +149,7 @@ export function validateDomains(value: unknown): asserts value is DomainConfig[]
   const fields = new Set<string>();
   for (const c of value) {
     if (!c || typeof c.id !== 'string' || !c.id.trim() || typeof c.field !== 'string' || !c.field.trim() || c.id.length > 512 || c.field.length > 512 || ids.has(c.id) || fields.has(c.field) || !Number.isInteger(c.groupCount) || c.groupCount < 1 || c.groupCount > 50) throw new ApiError(400, '領域 ID、名稱不得重複，組數須為 1 至 50。');
+    if (c.code !== undefined && (typeof c.code !== 'string' || !/^[A-Z]$/.test(c.code))) throw new ApiError(400, '領域對應字母須為 A 至 Z 的單一大寫英文字母。');
     if (c.groupCapacities !== undefined) {
       try { validateGroupCapacities(c.groupCapacities, c.groupCount, c.field); }
       catch (error) {
@@ -168,6 +169,6 @@ export function validateDomains(value: unknown): asserts value is DomainConfig[]
     }
     ids.add(c.id); fields.add(c.field);
   }
-  const collision = domainCodeCollisionError(fields);
+  const collision = domainCodeCollisionError(fields, value);
   if (collision) throw new ApiError(400, collision);
 }

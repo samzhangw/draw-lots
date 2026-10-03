@@ -9,6 +9,12 @@ function makeFile(rows: Record<string, string>[]): File {
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '名冊');
   return new File([XLSX.write(wb, { type: 'array', bookType: 'xlsx' })], '名冊.xlsx');
 }
+test('Excel import preserves configured letters and valid existing numbers', async () => {
+  const configs = [{ id: 'a', field: row.領域, code: 'H', groupCount: 1 }];
+  const parsed = await parseExcelFile(makeFile([{ ...row, 編號: 'H03' }, { ...row, 組長學號: '87654321', 編號: '' }]), configs);
+  assert.equal(parsed.success, true);
+  assert.deepEqual(parsed.projects!.map(p => p.original_code), ['H03', 'H01']);
+});
 test('patched SheetJS imports Chinese rosters and exports without credential fields', async () => {
   assert.equal(XLSX.version, '0.20.3');
   const parsed = await parseExcelFile(makeFile([row]));

@@ -39,12 +39,13 @@ export function allocateDomainSubgroups(
   groupCount: number,
   domainField: string,
   evaluatorsPerGroup: Record<number, string[]> = {},
-  groupCapacities?: Record<number, number>
+  groupCapacities?: Record<number, number>,
+  code?: string
 ): ProjectItem[] {
   const k = Math.max(1, groupCount);
   const now = new Date().toISOString();
   const domainPrefix = getDrawCodeNamespace(domainField);
-  const domainCode = getDomainCode(domainField);
+  const domainCode = code ?? getDomainCode(domainField);
   if (groupCapacities !== undefined) {
     validateGroupCapacities(groupCapacities, k, domainField);
     const total = Object.values(groupCapacities).reduce((sum, count) => sum + count, 0);
@@ -162,7 +163,7 @@ export function executeAllDomainsIndependentLottery(
   conflictCount: number;
   domainSummaries: { field: string; count: number; groupCount: number }[];
 } {
-  const collision = domainCodeCollisionError([...domainConfigs.map(c => c.field), ...allProjects.map(p => p.field)]);
+  const collision = domainCodeCollisionError([...domainConfigs.map(c => c.field), ...allProjects.map(p => p.field)], domainConfigs);
   if (collision) throw new LotteryAllocationError(collision);
   const domainMap = new Map(domainConfigs.map(c => [c.field, c]));
 
@@ -188,7 +189,8 @@ export function executeAllDomainsIndependentLottery(
       groupCount,
       fieldName,
       evaluatorsPerGroup,
-      cfg?.groupCapacities
+      cfg?.groupCapacities,
+      cfg?.code
     );
 
     // Verify conflict of interest

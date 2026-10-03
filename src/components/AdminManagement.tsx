@@ -7,7 +7,7 @@ import { useModalFocus } from '../lib/useModalFocus';
 import { FloatingNotice } from './FloatingNotice';
 import { ProjectRosterCard } from './ProjectRosterCard';
 import { LotteryTestPanel } from './LotteryTestPanel';
-import { getDomainCode } from '../lib/domainCodes';
+import { getDomainCode, getDrawCodeNamespace, domainCodeCollisionError } from '../lib/domainCodes';
 import { normalizeOriginalCodes } from '../lib/originalCodes';
 import { domainDeletionError } from '../lib/domainDeletion';
 import {
@@ -145,6 +145,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     ? domainDeletionError(projects, domainConfigs, domainConfigs.filter(config => config.id !== domainToDelete.id))
     : null;
   const [domainFormName, setDomainFormName] = useState<string>('');
+  const [domainFormCode, setDomainFormCode] = useState('');
   const [domainFormGroupCount, setDomainFormGroupCount] = useState<number>(2);
   const [domainFormOrder, setDomainFormOrder] = useState<number>(1);
   const [domainManualCounts, setDomainManualCounts] = useState(false);
@@ -176,13 +177,13 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
   // Calculate live domain statistics dynamically
   const automaticOriginalCode = React.useMemo(() => {
-    if (!getDomainCode(formData.field || '')) return undefined;
+    if (!getDomainCode(formData.field || '', domainConfigs)) return undefined;
     const candidate = { ...formData, original_code: formData.original_code || '', id: editingProject?.id || '__code_preview__' } as ProjectItem;
     const roster = editingProject
       ? projects.map(p => p.id === editingProject.id ? candidate : p)
       : [...projects, candidate];
-    return normalizeOriginalCodes(roster).find(p => p.id === candidate.id)?.original_code;
-  }, [formData, editingProject, projects]);
+    return normalizeOriginalCodes(roster, domainConfigs).find(p => p.id === candidate.id)?.original_code;
+  }, [formData, editingProject, projects, domainConfigs]);
 
   const statsMap: Record<string, number> = Object.create(null);
   projects.forEach((p) => {
@@ -247,6 +248,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     beginDraft();
     setEditingDomain(null);
     setDomainFormName('');
+    setDomainFormCode('ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').find(code => !domainConfigs.some(c => getDrawCodeNamespace(c.field, domainConfigs) === code)) || '');
     setDomainFormOrder(domainConfigs.length + 1);
     setDomainFormGroupCount(2);
     setDomainManualCounts(false);
@@ -260,6 +262,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     beginDraft();
     setEditingDomain(cfg);
     setDomainFormName(cfg.field);
+    setDomainFormCode(getDomainCode(cfg.field, domainConfigs) || '');
     setDomainFormOrder(domainConfigs.findIndex(c => c.id === cfg.id) + 1);
     setDomainFormGroupCount(cfg.groupCount);
     setDomainManualCounts(!!cfg.groupCapacities);
@@ -328,6 +331,16 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       return;
     }
 
+    const code = domainFormCode.trim().toUpperCase();
+    const legacyCode = editingDomain && !getDomainCode(editingDomain.field, domainConfigs);
+    if (!/^[A-Z]$/.test(code) && !(legacyCode && !code)) {
+      setDomainFormError('請設定 A 至 Z 的單一英文字母。');
+      return;
+    }
+    const proposed = [...domainConfigs.filter(c => c.id !== editingDomain?.id), { id: editingDomain?.id || '__new__', field: cleanName, groupCount: domainFormGroupCount, ...(code ? { code } : {}) }];
+    const collision = domainCodeCollisionError(proposed.map(c => c.field), proposed);
+    if (collision) { setDomainFormError(collision); return; }
+
     const positionCount = domainConfigs.length + (editingDomain ? 0 : 1);
     if (!Number.isInteger(domainFormOrder) || domainFormOrder < 1 || domainFormOrder > positionCount) {
       setDomainFormError('請選擇有效的顯示順序！');
@@ -364,7 +377,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       if (!current) throw new Error('此領域已不存在，請重新整理後再操作。');
       const updatedConfigs = domainConfigs.filter(c => c.id !== editingDomain.id);
       updatedConfigs.splice(domainFormOrder - 1, 0, {
-        ...current, field: cleanName, groupCount: Number(domainFormGroupCount), groupCapacities,
+        ...current, field: cleanName, code: code || undefined, groupCount: Number(domainFormGroupCount), groupCapacities,
         evaluatorsPerGroup: Object.fromEntries(Object.entries(current.evaluatorsPerGroup || {})
           .filter(([group]) => /^[1-9]\d*$/.test(group) && Number(group) <= domainFormGroupCount)),
       });
@@ -392,6 +405,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       const newDomain: DomainConfig = {
         id: `domain-${Date.now()}`,
         field: cleanName,
+        code: code || undefined,
         groupCount: Number(domainFormGroupCount),
         evaluatorsPerGroup: {},
         groupCapacities,
@@ -460,7 +474,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     if (!file || excelActionRef.current) return;
     try {
       await withExcelTools('import', async ({ parseExcelFile }) => {
-        const result = await parseExcelFile(file);
+        const result = await parseExcelFile(file, domainConfigs);
         if (result.success && result.projects) {
           beginDraft();
           setPendingImportProjects(result.projects);
@@ -903,6 +917,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     <h3 className="text-sm font-bold text-slate-900 truncate">
                       {stat.field}
                     </h3>
+                    <p className="mt-1 text-xs text-slate-500">代碼 {getDrawCodeNamespace(stat.field, domainConfigs)}</p>
                     <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-slate-500 font-mono">
                       <span>專題: <strong className="text-slate-800 font-bold">{stat.count}</strong> 件</span>
                       <span className="text-slate-300">·</span>
@@ -1019,6 +1034,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     </td>
                     <td className="py-2 px-4 text-slate-800 border border-slate-200">
                       <span className="font-semibold text-slate-900">{stat.field}</span>
+                      <span className="ml-2 text-xs text-slate-500">代碼 {getDrawCodeNamespace(stat.field, domainConfigs)}</span>
                     </td>
                     <td className="py-2 px-4 text-center font-mono font-bold text-slate-900 border border-slate-200">
                       {stat.count}
@@ -1563,6 +1579,18 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   placeholder="例如：智慧車聯網與AIoT"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
+              </div>
+
+              <div>
+                <label htmlFor="domain-code" className="block text-slate-700 mb-1 font-semibold">對應字母</label>
+                <select id="domain-code" value={domainFormCode}
+                  onChange={e => { setDomainFormCode(e.target.value); setDomainFormError(null); }}
+                  disabled={!!editingDomain && projects.some(p => p.field === editingDomain.field && (p.draw_code || p.draw_order || p.assigned_group || p.draw_time))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 disabled:opacity-60">
+                  <option value="">{editingDomain && !getDomainCode(editingDomain.field, domainConfigs) ? `沿用既有代碼（${getDrawCodeNamespace(editingDomain.field, domainConfigs)}）` : '請選擇字母'}</option>
+                  {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(letter => <option key={letter} value={letter}>{letter}（{letter}01、{letter}02…）</option>)}
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">原始編號與抽籤後編號使用此字母，各領域不可重複。已有抽籤結果時須先重設才能修改。</p>
               </div>
 
               <div>

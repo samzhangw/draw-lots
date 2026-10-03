@@ -7,6 +7,8 @@ import type { ProjectItem } from '../src/types';
 import { domainCodeCollisionError } from '../src/lib/domainCodes';
 import { validateDomains } from '../server/store';
 import { LotteryAllocationError } from '../src/lib/groupCapacities';
+import { normalizeOriginalCodes } from '../src/lib/originalCodes';
+import { testLottery } from '../src/lib/lotteryTest';
 
 const fields = ['企業智慧化', '數位內容與多媒體應用', '網路應用與資通安全', '嵌入式系統與行動計算', '智慧運算創新應用', '智慧流通應用與研究', '進修部'];
 const makeProject = (field: string, index: number): ProjectItem => ({
@@ -32,6 +34,26 @@ test('aliases and custom prefix collisions reject configuration and formal alloc
   assert.equal(domainCodeCollisionError(['企業智慧化', '企業智慧化', '進修部']), null);
   assert.equal(domainCodeCollisionError(['自訂甲領域', '自訂乙領域']), null);
   validateDomains([{ id: 'a', field: 'A.企業智慧化', groupCount: 1 }]);
+});
+
+test('explicit unique letters override aliases and custom prefixes in roster, test and formal draw', () => {
+  const names = ['企業智慧化', 'A.企業智慧化', '自訂領域甲', '自訂領域乙'];
+  const configs = names.map((field, i) => ({ id: String(i), field, code: ['A', 'H', 'I', 'Z'][i], groupCount: 1 }));
+  validateDomains(configs);
+  const projects = names.map(makeProject);
+  assert.deepEqual(normalizeOriginalCodes(projects, configs).map(p => p.original_code), ['A01', 'H01', 'I01', 'Z01']);
+  const allocated = executeAllDomainsIndependentLottery(projects, configs).updatedProjects;
+  assert.deepEqual(allocated.map(p => p.draw_code), ['A01', 'H01', 'I01', 'Z01']);
+  const trial = testLottery(projects, configs, 'ALL', 1);
+  assert.equal(trial.errorCount, 0);
+  assert.deepEqual(trial.domains.flatMap(d => d.preview.map(p => p.drawCode)), ['A01', 'H01', 'I01', 'Z01']);
+  for (const code of ['', 'a', 'AA', '1', 1, null]) {
+    assert.throws(() => validateDomains([{ ...configs[0], code }]), /單一大寫英文字母/);
+  }
+  assert.throws(() => validateDomains([{ ...configs[0], code: 'H' }, configs[1]]), /相同抽籤編號前綴/);
+  const changed = normalizeOriginalCodes(normalizeOriginalCodes(projects, configs), configs.map(c => c.id === '1' ? { ...c, code: 'J' } : c));
+  assert.equal(changed[1].original_code, 'J01');
+  assert.deepEqual(changed.map(p => p.id), projects.map(p => p.id));
 });
 
 test('all seven domains have unique compact codes across groups and keep local presentation order', () => {

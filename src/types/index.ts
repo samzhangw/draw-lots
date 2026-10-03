@@ -28,6 +28,7 @@ export interface DomainStats {
 
 export interface DomainConfig {
   id: string;
+  code?: string; // 管理員指定 A-Z；舊設定未指定時沿用原有代碼
   field: string;
   groupCount: number; // 評審分組組數
   groupCapacities?: Record<number, number>; // 指定各組專題件數；未設定沿用自動分組

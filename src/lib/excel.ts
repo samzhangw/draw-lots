@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { ProjectItem } from '../types';
+import { ProjectItem, DomainConfig } from '../types';
 import { normalizeOriginalCodes } from './originalCodes';
 
 export const REQUIRED_INPUT_HEADERS = [
@@ -38,7 +38,7 @@ function normalizeKey(str: string): string {
 /**
  * Parse an uploaded Excel file (.xlsx, .xls, .csv) into ProjectItem[]
  */
-export async function parseExcelFile(file: File): Promise<{
+export async function parseExcelFile(file: File, configs: DomainConfig[] = []): Promise<{
   success: boolean;
   projects?: ProjectItem[];
   error?: string;
@@ -140,7 +140,7 @@ export async function parseExcelFile(file: File): Promise<{
 
     return {
       success: true,
-      projects: normalizeOriginalCodes(projects),
+      projects: normalizeOriginalCodes(projects, configs),
       rowCount: projects.length,
     };
   } catch (err: unknown) {
