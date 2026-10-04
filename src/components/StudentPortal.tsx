@@ -262,14 +262,14 @@ export const StudentPortal: React.FC = () => {
                   <table className="w-full table-fixed border-collapse text-center">
                     <caption className="sr-only">專題抽籤結果</caption>
                     <colgroup><col className="w-[36%] sm:w-[30%]" /><col /></colgroup>
-                    <thead className="bg-blue-700 text-white">
+                    <thead className="bg-blue-50 text-blue-700">
                       <tr>
-                        <th scope="col" className="border-r border-blue-600 whitespace-nowrap px-2 py-3 text-sm font-bold sm:px-6 sm:py-4 sm:text-base">抽籤後編號</th>
+                        <th scope="col" className="border-r border-blue-200 whitespace-nowrap px-2 py-3 text-sm font-bold sm:px-6 sm:py-4 sm:text-base">抽籤編號</th>
                         <th scope="col" className="px-3 py-3 text-sm font-bold sm:px-6 sm:py-4 sm:text-base">領域名稱</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="bg-blue-50/40">
+                      <tr className="border-t border-blue-200 bg-white">
                         <td className="border-r border-blue-100 px-3 py-5 align-middle text-xl font-bold leading-relaxed text-blue-950 [overflow-wrap:anywhere] sm:px-6 sm:py-6 sm:text-2xl">
                           {myProject.draw_code || '編號尚未提供'}
                         </td>
