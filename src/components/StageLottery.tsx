@@ -930,11 +930,15 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
             </div>
 
             <fieldset disabled={isResetting} className="space-y-3">
-              <legend className="text-sm font-bold text-slate-800">重設範圍（可複選）</legend>
-              <div className="flex items-center justify-end gap-2 text-xs">
-                <button type="button" disabled={isResetting} onClick={() => setResetFields([...resettableFields])} className="rounded-lg bg-slate-100 px-3 py-2 font-bold text-slate-700 disabled:opacity-50">全選</button>
-                <button type="button" disabled={isResetting} onClick={() => setResetFields([])} className="rounded-lg bg-slate-100 px-3 py-2 font-bold text-slate-700 disabled:opacity-50">清除</button>
-              </div>
+              <legend className="w-full">
+                <span className="flex items-center justify-between gap-2">
+                  <span className="whitespace-nowrap text-xs font-bold text-slate-800 sm:text-sm">重設範圍（可複選）</span>
+                  <span className="flex shrink-0 items-center gap-2 text-xs">
+                    <button type="button" disabled={isResetting} onClick={() => setResetFields([...resettableFields])} className="rounded-lg bg-slate-100 px-2 py-2 font-bold text-slate-700 disabled:opacity-50 sm:px-3">全選</button>
+                    <button type="button" disabled={isResetting} onClick={() => setResetFields([])} className="rounded-lg bg-slate-100 px-2 py-2 font-bold text-slate-700 disabled:opacity-50 sm:px-3">清除</button>
+                  </span>
+                </span>
+              </legend>
               <div className="max-h-[30dvh] overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
                 {resettableFields.map(field => <label key={field} className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm">
                   <input type="checkbox" checked={selectedResetFields.includes(field)} onChange={event => {
