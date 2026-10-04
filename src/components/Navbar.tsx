@@ -102,23 +102,21 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
               </div>
               <div className="border-t border-slate-100 bg-slate-50/70 p-3">
                 {canOpenStage && <nav aria-label="工作人員功能" className="space-y-2">
-                  <a href="/stage" className="flex min-h-11 items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900 transition-colors hover:border-amber-300 hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
-                    <Presentation className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    <span className="flex-1">台上抽籤</span>
-                    <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  </a>
-                  {isAdmin && <>
-                    <a href="/admin" className="flex min-h-11 items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+                  <div className={`grid gap-2 ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                    <a href="/stage" className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900 transition-colors hover:border-amber-300 hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
+                      <Presentation className="h-5 w-5 shrink-0" aria-hidden="true" />
+                      <span className="whitespace-nowrap">台上抽籤</span>
+                    </a>
+                    {isAdmin && <a href="/admin" className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
                       <LayoutDashboard className="h-5 w-5 shrink-0" aria-hidden="true" />
-                      <span className="flex-1">管理後台</span>
-                      <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    </a>
-                    <a href="/audit" className="flex min-h-11 items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                      <ClipboardList className="h-5 w-5 shrink-0" aria-hidden="true" />
-                      <span className="flex-1">工作人員操作紀錄</span>
-                      <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    </a>
-                  </>}
+                      <span className="whitespace-nowrap">管理後台</span>
+                    </a>}
+                  </div>
+                  {isAdmin && <a href="/audit" className="flex min-h-11 items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                    <ClipboardList className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    <span className="flex-1">工作人員操作紀錄</span>
+                    <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  </a>}
                 </nav>}
                 <div className={canOpenStage ? 'mt-3 border-t border-slate-200 pt-3' : ''}>
                   <button
