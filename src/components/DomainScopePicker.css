@@ -19,3 +19,7 @@
 .stage-presentation-tools .domain-scope-trigger { padding:8px 12px; }
 @media(max-width:700px) { .stage-presentation-tools .domain-scope-picker { flex:1; width:0; } }
 .stage-presentation-tools .domain-scope-trigger span { display:block; }
+
+.domain-scope-list label[aria-disabled="true"] { color:#94a3b8; cursor:not-allowed; }
+.domain-scope-list label[aria-disabled="true"] input { opacity:.5; cursor:not-allowed; }
+.domain-scope-list label[aria-disabled="true"] small { color:#94a3b8; }

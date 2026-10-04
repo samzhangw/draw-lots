@@ -4,6 +4,7 @@ import { ProjectItem, DomainConfig } from '../types';
 import { StoreState, isApiRequestCancelled } from '../lib/api';
 import { useModalFocus } from '../lib/useModalFocus';
 import { DomainScopePicker } from './DomainScopePicker';
+import { getSelectedDrawFields } from '../lib/drawScope';
 import { ResultCarousel } from './ResultCarousel';
 import { FloatingNotice } from './FloatingNotice';
 import confetti from 'canvas-confetti';
@@ -95,11 +96,13 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
 
   // Filter projects based on selected field
   const currentPool = projects.filter(p => includesField(p.field));
-  const visibleDomainConfigs = domainConfigs.filter((cfg) =>
-    includesField(cfg.field) && currentPool.some((p) => p.field === cfg.field)
+  // Keep completed results accessible to reset/carousel; draw only eligible domains.
+  const drawFields = getSelectedDrawFields(domainConfigs.map(cfg => cfg.field), projects, selectedFields);
+  const undrawnPool = currentPool.filter(p => drawFields.includes(p.field) && !p.draw_order);
+  const visibleDomainConfigs = domainConfigs.filter(cfg =>
+    (undrawnPool.length ? drawFields.includes(cfg.field) : includesField(cfg.field)) &&
+    currentPool.some(p => p.field === cfg.field)
   );
-
-  const undrawnPool = currentPool.filter((p) => !p.draw_order);
   const drawnPool = currentPool
     .filter((p) => !!p.draw_order)
     .sort((a, b) => {
@@ -201,7 +204,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       // Keep the presentation visible briefly, but only show results returned by the backend.
       const [backendResult] = await Promise.all([
         request<StoreState & { summary: string }>('/api/lottery/draw', {
-          ...(selectedFields === null ? { field: 'ALL' } : { fields: selectedFields }),
+          fields: drawFields,
           version: dataVersion,
         }),
         new Promise<void>((resolve) => setTimeout(resolve, MIN_DRAW_MS)),
@@ -217,7 +220,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       onApplyState(backendResult);
       triggerCelebration();
       if (fullscreenRef.current && autoCarouselRef.current) {
-        setCarouselScope(selectedFields === null ? 'ALL' : [...selectedFields]);
+        setCarouselScope([...drawFields]);
       }
     } catch (apiErr) {
       if (isApiRequestCancelled(apiErr)) return;
@@ -490,9 +493,9 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
           >
             <Zap className="w-5 h-5 fill-current shrink-0 animate-pulse" />
             <span>
-              {selectedField === 'ALL'
+              {selectedField === 'ALL' && drawFields.length === domainConfigs.length
                 ? '開始全校抽籤'
-                : selectedFields?.length === 1 ? `開始「${selectedField}」抽籤` : `開始抽籤（${selectedFields?.length || 0} 個領域）`}
+                : drawFields.length === 1 ? `開始「${drawFields[0]}」抽籤` : `開始抽籤（${drawFields.length} 個領域）`}
             </span>
           </button>}
           {isFullscreen && drawnPool.length > 0 && !isAnimating && <button type="button" onClick={openCarousel} className="stage-presentation-play"><Play size={22} />輪播結果</button>}
@@ -872,14 +875,14 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                 <span>抽籤規則說明：</span>
               </div>
               <ul className="list-disc list-inside space-y-1 text-slate-600">
-                <li><strong>本次範圍</strong>：{selectedFields === null ? '全校所有領域' : selectedField || '尚未選擇'}，共 {currentPool.length} 件專題。</li>
+                <li><strong>本次範圍</strong>：{drawFields.join('、') || '尚未選擇'}，共 {undrawnPool.length} 件專題。</li>
                 <li>
                   <strong>各領域獨立排序</strong>：每個領域依其設定的「分組組數」分別獨立產生順序（例如：第 1 組、第 2 組等各自從順序 01 起跳）。
                 </li>
                 <li>
                   <strong>抽籤後編號</strong>：A 企業智慧化、B 數位內容與多媒體應用、C 網路應用與資通安全、D 嵌入式系統與行動計算、E 智慧運算創新應用、F 智慧流通應用與研究、G 進修部。各領域從 01 連續編號，跨組不重複，例如 A01、A02。
                 </li>
-                {domainConfigs.filter(cfg => includesField(cfg.field) && cfg.groupCapacities).map(cfg => (
+                {domainConfigs.filter(cfg => drawFields.includes(cfg.field) && cfg.groupCapacities).map(cfg => (
                   <li key={cfg.id}><strong>{cfg.field} 指定件數</strong>：{Array.from({ length: cfg.groupCount }, (_, i) => `第 ${i + 1} 組 ${cfg.groupCapacities![i + 1]} 件`).join('、')}。抽籤將同時遵守指定件數與指導老師迴避。</li>
                 ))}
               </ul>
