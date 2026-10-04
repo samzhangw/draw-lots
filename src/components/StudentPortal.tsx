@@ -20,12 +20,7 @@ import {
   LoaderCircle,
 } from 'lucide-react';
 
-function resultCodeSize(value: string | null | undefined): string {
-  const length = String(value ?? '').length;
-  if (!value || length > 12) return 'text-2xl sm:text-4xl';
-  if (length > 6) return 'text-3xl sm:text-5xl';
-  return 'text-5xl sm:text-7xl';
-}
+const RESULT_VALUE_CLASS = 'w-full text-center text-3xl font-bold leading-snug [overflow-wrap:anywhere] sm:text-4xl';
 
 export const StudentPortal: React.FC = () => {
   const request = useApiRequest();
@@ -273,7 +268,7 @@ export const StudentPortal: React.FC = () => {
                       抽籤後編號
                     </div>
                     <div className="flex flex-1 items-center justify-center">
-                      <p className={`w-full text-center font-black leading-tight tracking-wide text-blue-950 [overflow-wrap:anywhere] ${resultCodeSize(myProject.draw_code)}`}>
+                      <p className={`${RESULT_VALUE_CLASS} text-blue-950`}>
                         {myProject.draw_code || '編號尚未提供'}
                       </p>
                     </div>
@@ -284,7 +279,7 @@ export const StudentPortal: React.FC = () => {
                       領域名稱
                     </div>
                     <div className="flex flex-1 items-center justify-center">
-                      <p className="w-full break-words text-center text-xl font-bold leading-relaxed text-slate-900 sm:text-2xl">{myProject.field}</p>
+                      <p className={`${RESULT_VALUE_CLASS} text-slate-900`}>{myProject.field}</p>
                     </div>
                   </section>
                 </div>
