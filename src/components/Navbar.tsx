@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AuthSession } from '../lib/auth';
-import { UserRound, ShieldCheck, ChevronDown, Mail, LogOut, LoaderCircle, ClipboardList, LayoutDashboard, ChevronRight, Presentation } from 'lucide-react';
+import { UserRound, ShieldCheck, ChevronDown, LogOut, LoaderCircle, ClipboardList, LayoutDashboard, ChevronRight, Presentation } from 'lucide-react';
 
 interface NavbarProps {
   authSession?: AuthSession | null;
@@ -79,43 +79,35 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
               <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
             </summary>
             <div className="absolute right-0 top-full z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_12px_36px_rgba(15,23,42,0.12)]">
-              <div className="p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs font-medium text-slate-500">目前登入</p>
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-                    已登入
-                  </span>
-                </div>
-                <div className="mt-4 flex items-start gap-3">
+              <div className="p-4">
+                <div className="flex items-start gap-3">
                   <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isAdmin ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                     {isAdmin ? <ShieldCheck className="h-5 w-5" aria-hidden="true" /> : <UserRound className="h-5 w-5" aria-hidden="true" />}
                   </span>
                   <div className="min-w-0 pt-0.5">
                     <p className="text-sm font-semibold leading-5 text-slate-900">{roleLabel}</p>
-                    <p className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-slate-500">
-                      <Mail className="mt-1 h-3 w-3 shrink-0" aria-hidden="true" />
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
                       <span className="min-w-0 break-all">{authSession.username}</span>
                     </p>
                   </div>
                 </div>
               </div>
-              <div className="border-t border-slate-100 bg-slate-50/70 p-3">
+              <div className="border-t border-slate-100 p-3">
                 {canOpenStage && <nav aria-label="工作人員功能" className="space-y-2">
                   <div className={`grid gap-2 ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                    <a href="/stage" className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900 transition-colors hover:border-amber-300 hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
-                      <Presentation className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    <a href="/stage" className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
+                      <Presentation className="h-5 w-5 shrink-0 text-amber-700" aria-hidden="true" />
                       <span className="whitespace-nowrap">台上抽籤</span>
                     </a>
-                    {isAdmin && <a href="/admin" className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
-                      <LayoutDashboard className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    {isAdmin && <a href="/admin" className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+                      <LayoutDashboard className="h-5 w-5 shrink-0 text-emerald-700" aria-hidden="true" />
                       <span className="whitespace-nowrap">管理後台</span>
                     </a>}
                   </div>
-                  {isAdmin && <a href="/audit" className="flex min-h-11 items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                    <ClipboardList className="h-5 w-5 shrink-0" aria-hidden="true" />
+                  {isAdmin && <a href="/audit" className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                    <ClipboardList className="h-5 w-5 shrink-0 text-blue-700" aria-hidden="true" />
                     <span className="flex-1">工作人員操作紀錄</span>
-                    <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
                   </a>}
                 </nav>}
                 <div className={canOpenStage ? 'mt-3 border-t border-slate-200 pt-3' : ''}>
@@ -123,7 +115,7 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
                     onClick={() => void handleLogout()}
                     disabled={isLoggingOut}
                     type="button"
-                    className="flex min-h-11 w-full items-center gap-3 rounded-xl border border-rose-200 bg-white px-3 py-2.5 text-left text-sm font-semibold text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 disabled:cursor-wait disabled:opacity-50 cursor-pointer"
+                    className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-transparent bg-white px-3 py-2.5 text-left text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 disabled:cursor-wait disabled:opacity-50 cursor-pointer"
                   >
                     {isLoggingOut ? <LoaderCircle className="h-5 w-5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <LogOut className="h-5 w-5 shrink-0" aria-hidden="true" />}
                     <span>{isLoggingOut ? '登出中…' : isAdmin ? '登出後台' : '登出'}</span>
