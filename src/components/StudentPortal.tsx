@@ -15,12 +15,9 @@ import {
   Eye,
   EyeOff,
   LogIn,
-  Layers,
   Hash,
   LoaderCircle,
 } from 'lucide-react';
-
-const RESULT_VALUE_CLASS = 'w-full text-center text-3xl font-bold leading-snug [overflow-wrap:anywhere] sm:text-4xl';
 
 export const StudentPortal: React.FC = () => {
   const request = useApiRequest();
@@ -261,27 +258,24 @@ export const StudentPortal: React.FC = () => {
                   </div>}
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <section className="flex min-w-0 flex-col gap-4 rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:p-6" aria-label="抽籤結果">
-                    <div className="flex items-center gap-2 text-sm font-bold text-blue-800">
-                      <Hash className="h-5 w-5 shrink-0" aria-hidden="true" />
-                      抽籤後編號
-                    </div>
-                    <div className="flex flex-1 items-center justify-center">
-                      <p className={`${RESULT_VALUE_CLASS} text-blue-950`}>
-                        {myProject.draw_code || '編號尚未提供'}
-                      </p>
-                    </div>
-                  </section>
-                  <section className="flex min-w-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-5 sm:p-6" aria-label="領域名稱">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                      <Layers className="h-5 w-5 shrink-0" aria-hidden="true" />
-                      領域名稱
-                    </div>
-                    <div className="flex flex-1 items-center justify-center">
-                      <p className={`${RESULT_VALUE_CLASS} text-slate-900`}>{myProject.field}</p>
-                    </div>
-                  </section>
+                <div className="overflow-hidden rounded-2xl border border-slate-200">
+                  <table className="w-full table-fixed border-collapse text-left">
+                    <caption className="sr-only">專題抽籤結果</caption>
+                    <tbody>
+                      <tr className="border-b border-slate-200">
+                        <th scope="row" className="w-28 bg-slate-50 px-4 py-4 align-middle text-sm font-semibold text-slate-600 sm:w-40 sm:px-6">抽籤後編號</th>
+                        <td className="bg-blue-50/50 px-4 py-4 align-middle text-xl font-bold leading-relaxed text-blue-950 [overflow-wrap:anywhere] sm:px-6 sm:text-2xl">
+                          {myProject.draw_code || '編號尚未提供'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th scope="row" className="bg-slate-50 px-4 py-4 align-middle text-sm font-semibold text-slate-600 sm:px-6">領域名稱</th>
+                        <td className="bg-white px-4 py-4 align-middle text-xl font-bold leading-relaxed text-slate-900 [overflow-wrap:anywhere] sm:px-6 sm:text-2xl">
+                          {myProject.field}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
                 {!sharedPasswordMode && !!myProject.evaluators?.length && <p className="text-sm text-slate-600 px-1">
                   評審委員：{myProject.evaluators.join('、')}
