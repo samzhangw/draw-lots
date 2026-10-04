@@ -100,6 +100,8 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
                 </div>
               </div>
               <div className="border-t border-slate-100 bg-slate-50/70 p-2">
+                {isAdmin && <a href="/audit" className="flex min-h-11 items-center rounded-md px-3 text-sm font-semibold text-blue-800 hover:bg-blue-50">工作人員操作紀錄</a>}
+                {isAdmin && <a href="/admin" className="flex min-h-11 items-center rounded-md px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100">管理後台</a>}
                 <button
                   onClick={() => void handleLogout()}
                   disabled={isLoggingOut}

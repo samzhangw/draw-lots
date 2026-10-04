@@ -8,6 +8,7 @@ import { domainCodeCollisionError, sortDomainConfigs } from '../src/lib/domainCo
 import { normalizeProfessorName } from '../src/lib/lottery';
 import { LotteryAllocationError, validateGroupCapacities } from '../src/lib/groupCapacities';
 import { ApiError } from './errors';
+import { auditMigrationPending, type AuditEvent } from './audit';
 export { ApiError } from './errors';
 
 export interface PublicResult {
@@ -93,14 +94,17 @@ export function createStore() {
       if (error) throw new ApiError(503, '資料庫暫時無法讀取，請稍後再試。');
       return data?.document;
     },
-    async save(state: DatabaseState, expectedVersion: number): Promise<DatabaseState> {
+    async save(state: DatabaseState, expectedVersion: number, audit?: AuditEvent): Promise<DatabaseState> {
       const domainConfigs = sortDomainConfigs(state.domainConfigs);
       const projects = normalizeOriginalCodes(removeLegacyCredentials(state.projects), state.domainConfigs);
-      let result = await client.rpc('ntcust_save_lottery_state', {
-        p_projects: projects,
-        p_domain_configs: domainConfigs,
-        p_expected_version: expectedVersion,
-      });
+      const params = { p_projects: projects, p_domain_configs: domainConfigs, p_expected_version: expectedVersion };
+      let result = audit ? await client.rpc('ntcust_save_lottery_state_audited', {
+        ...params, p_actor: audit.actor, p_action: audit.action, p_details: audit.details,
+      }) : await client.rpc('ntcust_save_lottery_state', params);
+      if (audit && result.error?.code === 'PGRST202') {
+        auditMigrationPending();
+        result = await client.rpc('ntcust_save_lottery_state', params);
+      }
       if (result.error?.code === 'PGRST202') {
         result = await client.from('ntcust_lottery_state').update({
           projects, domain_configs: domainConfigs, version: expectedVersion + 1,

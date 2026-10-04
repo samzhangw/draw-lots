@@ -199,3 +199,59 @@ test('student login finalization rechecks credentials, replaces sessions atomica
     assert.deepEqual(await sessions(), concurrent);
   } finally { await db.close(); }
 });
+
+
+test('staff audit is append-only, backend-only and committed atomically with actions', async () => {
+  const db = await database();
+  try {
+    await migrate(db);
+    await db.exec(await readFile(new URL('202610040001_staff_audit.sql', directory), 'utf8'));
+    const userId = '11111111-1111-4111-8111-111111111111';
+    const actor = { userId, email: 'admin@test.local', role: 'admin' };
+    const token = 'a'.repeat(64);
+    await db.query('insert into auth.users(id) values ($1)', [userId]);
+    const session = { token_hash: token, user_id: userId, access_token: 'private-access-token', expires_at: new Date(Date.now() + 3600000).toISOString() };
+    const rows = async () => (await db.query<{ action: string; actor_email: string; details: any }>('select action,actor_email,details from public.ntcust_staff_audit order by id')).rows;
+    const auditedSave = async (action: string, version: number, details: any = { summary: action, fields: ['企業智慧化'], project_count: 1 }) =>
+      db.query('select public.ntcust_save_lottery_state_audited($1::jsonb,$2::jsonb,$3,$4::jsonb,$5,$6::jsonb)', [JSON.stringify([project('01')]), '[]', version, JSON.stringify(actor), action, JSON.stringify(details)]);
+    for (const role of ['anon','authenticated']) {
+      await db.exec(`set role ${role}`);
+      await assert.rejects(rows(), (e: any) => e.code === '42501');
+      await assert.rejects(db.query('select public.ntcust_start_staff_session($1::jsonb,$2::jsonb,null)', [JSON.stringify(session), JSON.stringify(actor)]), (e: any) => e.code === '42501');
+      await assert.rejects(auditedSave('draw',0), (e: any) => e.code === '42501');
+      await assert.rejects(db.query('select public.ntcust_end_staff_session($1,$2::jsonb)', [token,JSON.stringify(actor)]), (e: any) => e.code === '42501');
+      await db.exec('reset role');
+    }
+    await db.exec('set role service_role');
+    await db.query('select public.ntcust_start_staff_session($1::jsonb,$2::jsonb,null)', [JSON.stringify(session), JSON.stringify(actor)]);
+    for (const [version, action] of ['draw','reset','shared_password_generate','shared_password_clear'].entries()) await auditedSave(action, version);
+    assert.equal((await rows()).length,5);
+    const before = await snapshot(db);
+    await assert.rejects(auditedSave('draw',3), (e: any) => e.code === '40001');
+    await assert.rejects(auditedSave('draw',4,{ password: 'do-not-log' }), (e: any) => e.code === '22023');
+    for (const details of [{ fields: 'bad' }, {fields: [1]}, {summary: {}}, {project_count: -1}, {project_count: 2001}, {version: 0}]) {
+      await assert.rejects(auditedSave('draw',4,details));
+    }
+    assert.deepEqual(await snapshot(db),before);
+    assert.equal((await rows()).length,5);
+    await assert.rejects(db.query("update public.ntcust_staff_audit set actor_email='forged'"), (e: any) => e.code === '42501');
+    await assert.rejects(db.query('delete from public.ntcust_staff_audit'), (e: any) => e.code === '42501');
+    await db.query('select public.ntcust_end_staff_session($1,$2::jsonb)', [token,JSON.stringify({ ...actor, userId: 'wrong-user' })]);
+    assert.equal((await rows()).length,5);
+    await assert.rejects(db.query('select public.ntcust_end_staff_session($1,$2::jsonb)', [token,JSON.stringify({ ...actor, email: '' })]));
+    await db.query('select public.ntcust_end_staff_session($1,$2::jsonb)', [token,JSON.stringify(actor)]);
+    await db.query('select public.ntcust_end_staff_session($1,$2::jsonb)', [token,JSON.stringify(actor)]);
+    const events=await rows();
+    assert.deepEqual(events.map(row=>row.action),['login','draw','reset','shared_password_generate','shared_password_clear','logout']);
+    assert.ok(events.every(row=>row.actor_email===actor.email));
+    assert.equal(JSON.stringify(events).includes('private-access-token'),false);
+    assert.equal(JSON.stringify(events).includes(project('01').password_hash),false);
+    assert.equal(JSON.stringify(events).includes(token),false);
+    assert.equal((await db.query('select * from public.ntcust_staff_sessions')).rows.length,0);
+    // Invalid logging also rolls back a new login, preserving the old session.
+    await assert.rejects(db.query('select public.ntcust_start_staff_session($1::jsonb,$2::jsonb,null)', [JSON.stringify(session),JSON.stringify({ ...actor, email: '' })]));
+    assert.equal((await db.query('select * from public.ntcust_staff_sessions')).rows.length,0);
+    assert.equal((await rows()).length,6);
+    await db.exec('reset role');
+  } finally { await db.close(); }
+});

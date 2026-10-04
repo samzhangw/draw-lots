@@ -6,11 +6,13 @@ import { projectDto, stageProjectDto, studentProjectDto, publicStudentProjectDto
 import { createStudentSession, getStudentProject, clearStudentSession } from './studentSessions';
 import { createStaffSession, getStaffSession, clearStaffSession } from './staffSessions';
 import { loginLimiter, anonymousLimiter, sessionLimiter } from './rateLimit';
-import { readSessionToken, sessionScopeForPath } from './sessionSecurity';
+import { readSessionToken, sessionScopeForPath, sessionWork } from './sessionSecurity';
 import { studentLoginWork, staffLoginWork } from './loginAdmission';
 import { ResourceBusyError, timedFetch } from './resourceLimits';
 import { runtimeEnv } from './runtime';
 import { publicError } from './errors';
+import { auditQuery, type AuditActor } from './audit';
+import { auditActionLabels, type AuditAction } from '../src/lib/auditTypes';
 import { executeAllDomainsIndependentLottery } from '../src/lib/lottery';
 import { LotteryAllocationError } from '../src/lib/groupCapacities';
 import { resolveLotteryFields } from './lotteryScope';
@@ -89,8 +91,23 @@ const route = (handler: (req: Request, res: Response) => Promise<unknown>) =>
 const loginRoute = (scope: 'staff' | 'student', handler: (req: Request, res: Response) => Promise<unknown>) =>
   route((req, res) => (scope === 'student' ? studentLoginWork : staffLoginWork).run(() => handler(req, res)));
 
+const staffIdentities = new WeakMap<Request, NonNullable<Awaited<ReturnType<typeof getStaffSession>>>>();
+async function staffIdentity(req: Request) {
+  const cached = staffIdentities.get(req);
+  if (cached) return cached;
+  const identity = (await getStaffSession(req))!;
+  staffIdentities.set(req, identity);
+  return identity;
+}
+async function auditActor(req: Request): Promise<AuditActor> {
+  const identity = await staffIdentity(req);
+  return { userId: identity.userId, email: identity.profile.username, role: identity.profile.role };
+}
+async function stateAudit(req: Request, action: AuditAction, fields: string[], count: number, version: number) {
+  return { actor: await auditActor(req), action, details: { fields, project_count: count, version: version + 1, summary: auditActionLabels[action] } };
+}
 async function authorize(req: Request, adminOnly = false) {
-  const role = (await getStaffSession(req))!.profile.role;
+  const role = (await staffIdentity(req)).profile.role;
   if (adminOnly && role !== 'admin') throw new ApiError(403, '此操作僅限管理員。');
   return role;
 }
@@ -130,14 +147,19 @@ app.post('/api/auth/verify', loginLimiter('staff'), loginRoute('staff', async (r
   if (error || !data.session) throw new ApiError(401, 'Email 或密碼不正確。');
   const role = data.user.app_metadata.role;
   if (!['admin', 'stage'].includes(role) || (targetView === 'admin' && role !== 'admin')) throw new ApiError(403, '此帳號尚未獲得操作權限。');
-  await createStaffSession(req, res, data.session.access_token, data.user.id, data.session.expires_at!, req.body.remember === true);
+  await createStaffSession(req, res, data.session.access_token, data.user.id, data.session.expires_at!, req.body.remember === true, { userId: data.user.id, email: data.user.email || '', role });
   res.json({ success: true, session: { role, username: data.user.email || '', displayName: role === 'admin' ? '大會系統管理員' : '抽籤展演人員', loginTime: new Date().toISOString(), expiresAt: data.session.expires_at } });
 }));
 app.get('/api/auth/me', route(async (req, res) => {
   res.json({ success: true, session: (await getStaffSession(req))!.profile });
 }));
 app.post('/api/auth/logout', route(async (req, res) => {
-  await clearStaffSession(req, res);
+  let actor: AuditActor | undefined;
+  if (readSessionToken(req, 'staff')) {
+    try { actor = await auditActor(req); }
+    catch (error) { if (!(error instanceof ApiError) || ![401, 403].includes(error.status)) throw error; }
+  }
+  await clearStaffSession(req, res, actor);
   res.json({ success: true });
 }));
 app.post('/api/student/verify', loginLimiter('student', 10, 1200), loginRoute('student', async (req, res) => {
@@ -161,6 +183,22 @@ app.post('/api/student/logout', route(async (req, res) => {
 }));
 app.get('/api/public-results', anonymousLimiter('results', 600, 6000), route(async (_req, res) => {
   res.json({ success: true, results: await createStore().publicResults() });
+}));
+app.get('/api/staff-audit', route(async (req, res) => {
+  await authorize(req, true);
+  const filters = auditQuery(req.query);
+  let query = createStore().client.from('ntcust_staff_audit')
+    .select('id,occurred_at,actor_email,actor_role,action,details')
+    .gte('occurred_at', filters.from).lte('occurred_at', filters.to).order('id', { ascending: false }).limit(51);
+  if (filters.q) query = query.ilike('search_text', `%${filters.q}%`);
+  if (filters.action) query = query.eq('action', filters.action);
+  if (filters.role) query = query.eq('actor_role', filters.role);
+  if (filters.before) query = query.lt('id', filters.before);
+  const { data, error } = await sessionWork.run(async () => await query);
+  if (error?.code === 'PGRST205' || error?.code === '42P01') { res.json({ enabled: false, records: [], nextCursor: null }); return; }
+  if (error || !Array.isArray(data)) throw new ApiError(503, '操作紀錄暫時無法讀取，請稍後再試。');
+  const records = data.slice(0, 50);
+  res.json({ enabled: true, records, nextCursor: data.length > 50 ? String(records[49].id) : null });
 }));
 app.get('/api/state', route(async (req, res) => {
   const role = await authorize(req);
@@ -202,7 +240,7 @@ app.post('/api/student/shared-password', route(async (req, res) => {
   if (!state.projects.length) throw new ApiError(400, '請先匯入學生名冊。');
   if (req.body.action === 'clear') {
     state.projects = state.projects.map(p => ({ ...projectDto(p) }));
-    const saved = await store.save(state, state.version);
+    const saved = await store.save(state, state.version, await stateAudit(req, 'shared_password_clear', [], state.projects.length, state.version));
     invalidateSharedPasswordVerification();
     res.json(staffState(saved, 'admin'));
     return;
@@ -210,7 +248,7 @@ app.post('/api/student/shared-password', route(async (req, res) => {
   const password = Array.from(randomBytes(8), byte => SHARED_PASSWORD_ALPHABET[byte & 31]).join('');
   const password_hash = await hashPassword(password);
   state.projects = state.projects.map(p => ({ ...projectDto(p), password_hash, shared_password_mode: true }));
-  const saved = await store.save(state, state.version);
+  const saved = await store.save(state, state.version, await stateAudit(req, 'shared_password_generate', [], state.projects.length, state.version));
   invalidateSharedPasswordVerification();
   res.json({ ...staffState(saved, 'admin'), password });
 }));
@@ -288,7 +326,7 @@ app.post('/api/lottery/draw', route(async (req, res) => {
     if (error instanceof LotteryAllocationError) throw new ApiError(400, error.message);
     throw error;
   }
-  const saved = await store.save(state, state.version);
+  const saved = await store.save(state, state.version, await stateAudit(req, 'draw', [...fields], pool.length, state.version));
   res.json({ ...staffState(saved, role), summary: `抽籤完成，${pool.length} 件專題結果已儲存。` });
 }));
 app.post('/api/lottery/reset', route(async (req, res) => {
@@ -298,7 +336,7 @@ app.post('/api/lottery/reset', route(async (req, res) => {
   checkVersion(req, state);
   const fields = resolveLotteryFields(req.body, [...new Set([...state.domainConfigs.map(c => c.field), ...state.projects.map(p => p.field)])]);
   state.projects = state.projects.map(p => fields.has(p.field) ? { ...p, assigned_group: null, draw_order: null, draw_code: null, draw_time: null, evaluators: [] } : p);
-  res.json(staffState(await store.save(state, state.version), role));
+  res.json(staffState(await store.save(state, state.version, await stateAudit(req, 'reset', [...fields], state.projects.filter(p => fields.has(p.field)).length, state.version)), role));
 }));
 app.use('/api', (_req, res) => { res.status(404).json({ success: false, error: '找不到此 API。' }); });
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createStore, validateDomains, validateProjects } from '../server/store';
@@ -60,6 +60,11 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   let indexedReads = 0;
   let studentLookupReads = 0;
   let missingLookup = false;
+  let missingAudit = false;
+  let auditReads = 0;
+  let auditFailure: string | undefined;
+  const auditRows: any[] = [];
+  const recordAudit = (actor: any, action: string, details: any) => auditRows.push({ id: auditRows.length + 1, occurred_at: new Date().toISOString(), actor_email: actor.email, actor_role: actor.role, action, details });
   let finalizeReads = 0;
   let finalizeError: string | undefined;
   let changedSharedCredential: 'hash' | 'leader' | 'disabled' | 'deleted' | undefined;
@@ -126,6 +131,34 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     if (legacySchema && url.pathname === '/rest/v1/ntcust_projects') {
       res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST205', message: 'table not found' })); return;
     }
+    if (url.pathname === '/rest/v1/rpc/ntcust_start_staff_session') {
+      if (missingAudit) { res.writeHead(404); res.end(JSON.stringify({code:'PGRST202'})); return; }
+      if (auditFailure) { res.writeHead(500); res.end(JSON.stringify({code:auditFailure})); return; }
+      staffSessions.set(body.p_session.token_hash,{...body.p_session,created_at:new Date().toISOString()});
+      if (body.p_old_token_hash) staffSessions.delete(body.p_old_token_hash);
+      recordAudit(body.p_actor,'login',{summary:'成功登入'});
+      res.end('null'); return;
+    }
+    if (url.pathname === '/rest/v1/rpc/ntcust_end_staff_session') {
+      if (missingAudit) { res.writeHead(404); res.end(JSON.stringify({code:'PGRST202'})); return; }
+      if (auditFailure) { res.writeHead(500); res.end(JSON.stringify({code:auditFailure})); return; }
+      const old=staffSessions.get(body.p_token_hash);
+      if (old?.user_id===body.p_actor.userId) { staffSessions.delete(body.p_token_hash); recordAudit(body.p_actor,'logout',{summary:'成功登出'}); }
+      res.end('null'); return;
+    }
+    if (url.pathname === '/rest/v1/ntcust_staff_audit') {
+      auditReads++;
+      if (missingAudit) { res.writeHead(404); res.end(JSON.stringify({code:'PGRST205'})); return; }
+      assert.equal(req.method,'GET');
+      assert.equal(url.searchParams.get('limit'),'51');
+      const action=url.searchParams.get('action')?.slice(3);
+      const role=url.searchParams.get('actor_role')?.slice(3);
+      const before=Number(url.searchParams.get('id')?.slice(3)||Infinity);
+      const q=(url.searchParams.get('search_text')?.slice(7,-1)||'').replace(/\\([_%\\])/g,'$1').toLowerCase();
+      const from=Date.parse(url.searchParams.getAll('occurred_at').find(v=>v.startsWith('gte.'))!.slice(4));
+      const to=Date.parse(url.searchParams.getAll('occurred_at').find(v=>v.startsWith('lte.'))!.slice(4));
+      res.end(JSON.stringify(auditRows.filter(row=>(!action||row.action===action)&&(!role||row.actor_role===role)&&row.id<before&&Date.parse(row.occurred_at)>=from&&Date.parse(row.occurred_at)<=to&&JSON.stringify(row).toLowerCase().includes(q)).sort((a,b)=>b.id-a.id).slice(0,51))); return;
+    }
     if (url.pathname === '/rest/v1/rpc/ntcust_student_login_finalize') {
       finalizeReads++;
       if (finalizeError) { res.writeHead(finalizeError === 'PGRST202' ? 404 : 500); res.end(JSON.stringify({ code: finalizeError })); return; }
@@ -165,12 +198,16 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       rosterReads++;
       res.end(JSON.stringify(malformedState ? { ...state, projects: null } : state)); return;
     }
-    if (url.pathname === '/rest/v1/rpc/ntcust_save_lottery_state') {
+    if (['/rest/v1/rpc/ntcust_save_lottery_state','/rest/v1/rpc/ntcust_save_lottery_state_audited'].includes(url.pathname)) {
+      const audited=url.pathname.endsWith('_audited');
+      if (audited && missingAudit) { res.writeHead(404); res.end(JSON.stringify({code:'PGRST202'})); return; }
+      if (audited && auditFailure) { res.writeHead(500); res.end(JSON.stringify({code:auditFailure})); return; }
       if (body.p_expected_version !== state.version) {
         res.writeHead(409); res.end(JSON.stringify({ code: '40001', message: 'version conflict' })); return;
       }
       state = { ...state, projects: body.p_projects, domain_configs: body.p_domain_configs,
         version: state.version + 1, updated_at: new Date().toISOString() };
+      if (audited) recordAudit(body.p_actor,body.p_action,body.p_details);
       res.end(JSON.stringify(state)); return;
     }
     if (url.pathname === '/rest/v1/ntcust_projects') {
@@ -273,7 +310,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       }
       const manifest = await fetch(`${base}/site.webmanifest`);
       assert.equal(manifest.status, 200);
-      assert.equal((await manifest.json() as any).short_name, '專題成果展');
+      assert.deepEqual(await manifest.json(), JSON.parse(await readFile(new URL('../public/site.webmanifest', import.meta.url), 'utf8')));
       const robots = await fetch(`${base}/robots.txt`);
       assert.equal(robots.status, 200);
       assert.match(robots.headers.get('content-type')!, /^text\/plain/);
@@ -965,6 +1002,44 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.ok(state.projects.filter(p => p.field !== multiFields[2]).every(p => p.draw_order === null));
     assert.deepEqual(state.projects.find(p => p.field === multiFields[2]), thirdBefore);
     assert.equal((await request('/api/domain-configs', { domainConfigs: multiConfigs.map((cfg, i) => i === 1 ? { ...cfg, groupCapacities: { 1: 2 } } : cfg), version: state.version }, adminAgain)).status, 200);
+    const beforeAuditReads = auditReads;
+    assert.equal((await request('/api/staff-audit')).status,401);
+    assert.equal((await request('/api/staff-audit',undefined,stage)).status,403);
+    assert.equal(auditReads,beforeAuditReads);
+    for (const suffix of ['?action=invalid','?before=0','?q='+ 'x'.repeat(129),'?from=2020-01-01&to=2026-01-01']) {
+      assert.equal((await request('/api/staff-audit'+suffix,undefined,adminAgain)).status,400);
+    }
+    const audit = await request('/api/staff-audit',undefined,adminAgain);
+    assert.equal(audit.status,200);
+    assert.ok(audit.data.records.length<=50);
+    assert.ok(auditRows.some(row=>row.action==='login'));
+    assert.ok(auditRows.some(row=>row.action==='logout'));
+    for (const action of ['shared_password_generate','shared_password_clear','draw','reset']) {
+      assert.ok(auditRows.some(row=>row.action===action));
+    }
+    const filtered = await request('/api/staff-audit?action=draw&role=stage&q='+encodeURIComponent(multiFields[0]),undefined,adminAgain);
+    assert.equal(filtered.status,200);
+    assert.ok(filtered.data.records.length>0);
+    assert.ok(filtered.data.records.every((row:any)=>row.action==='draw'&&row.actor_role==='stage'&&row.details.fields.some((field:string)=>field.includes(multiFields[0]))));
+    const auditJson=JSON.stringify(auditRows);
+    for (const row of state.projects) if (row.password_hash) assert.equal(auditJson.includes(row.password_hash),false);
+    for (const forbidden of ['access_token','token_hash','password_hash']) assert.equal(auditJson.includes(forbidden),false);
+    if (audit.data.nextCursor) {
+      const older=await request('/api/staff-audit?before='+audit.data.nextCursor,undefined,adminAgain);
+      assert.equal(older.status,200);
+      assert.ok(older.data.records.every((row:any)=>Number(row.id)<Number(audit.data.nextCursor)));
+    }
+    auditFailure='42501';
+    const protectedState=structuredClone(state); const protectedLogs=structuredClone(auditRows);
+    assert.equal((await request('/api/lottery/reset',{fields:[multiFields[2]],version:state.version},stage)).status,503);
+    assert.deepEqual(state,protectedState); assert.deepEqual(auditRows,protectedLogs);
+    auditFailure=undefined;
+    missingAudit=true;
+    const notEnabled=await request('/api/staff-audit',undefined,adminAgain);
+    assert.equal(notEnabled.status,200); assert.equal(notEnabled.data.enabled,false); assert.deepEqual(notEnabled.data.records,[]);
+    assert.equal((await request('/api/lottery/reset',{fields:[multiFields[2]],version:state.version},stage)).status,200);
+    assert.deepEqual(auditRows,protectedLogs,'missing migration preserves old API without inventing logs');
+    missingAudit=false;
     const beforeMultiFailure = structuredClone(state);
     assert.equal((await request('/api/lottery/draw', { fields: multiFields.slice(0, 2), version: state.version }, stage)).status, 400);
     assert.deepEqual(state, beforeMultiFailure, 'failure in second domain must not save first domain results');
