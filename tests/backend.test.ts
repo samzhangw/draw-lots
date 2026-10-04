@@ -53,6 +53,7 @@ test('evaluator group keys must be canonical integers within the configured grou
 test(`API persists through Supabase, enforces roles and detects concurrent writes (${cloudflareTest ? 'Workers' : 'Node'})`, { timeout: 300000 }, async () => {
   let state = { id: 1, projects: [] as StoredProject[], domain_configs: domains, version: 0, updated_at: new Date().toISOString() };
   let unavailable = false;
+  let studentDeleteFailure = false;
   let malformedState = false;
   let rosterReads = 0;
   let databaseRequests = 0;
@@ -122,6 +123,9 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     if (url.pathname === '/rest/v1/ntcust_student_sessions') {
       const key = url.searchParams.get('token_hash')?.replace('eq.', '');
       if (req.method === 'POST') { sessions.set(body.token_hash, body); res.writeHead(201); res.end('{}'); return; }
+      if (req.method === 'DELETE' && studentDeleteFailure) {
+        res.writeHead(403); res.end(JSON.stringify({ code: '42501', message: 'private deletion error' })); return;
+      }
       if (req.method === 'DELETE') { if (key) sessions.delete(key); res.writeHead(204); res.end(); return; }
       res.end(JSON.stringify(key ? sessions.get(key) || null : null)); return;
     }
@@ -507,7 +511,24 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(otherStudent.data.project.leader_id, second.leader_id);
     const otherCookie = otherStudent.cookie!.split(';')[0];
     assert.equal((await request('/api/student/me?projectId=p1', undefined, undefined, otherCookie)).data.project.leader_id, second.leader_id);
-    await request('/api/student/logout', {}, undefined, otherCookie);
+    const otherDigest = fingerprint(otherCookie.split('=')[1].split('.')[0]);
+    studentDeleteFailure = true;
+    const failedLogout = await request('/api/student/logout', {}, undefined, otherCookie);
+    assert.equal(failedLogout.status, 503);
+    assert.equal(failedLogout.data.success, false);
+    assert.equal(failedLogout.cookie, undefined, 'failed revocation must preserve the browser cookie');
+    assert.equal(failedLogout.data.error, '服務暫時無法使用，請稍後再試。');
+    assert.ok(sessions.has(otherDigest));
+    assert.equal((await request('/api/student/me', undefined, undefined, otherCookie)).status, 200);
+    studentDeleteFailure = false;
+    const retriedLogout = await request('/api/student/logout', {}, undefined, otherCookie);
+    assert.equal(retriedLogout.status, 200);
+    assert.match(retriedLogout.cookie!, /ntcust_student_session=;/);
+    assert.match(retriedLogout.cookie!, /Expires=Thu, 01 Jan 1970/);
+    assert.equal(sessions.has(otherDigest), false);
+    assert.equal((await request('/api/student/me', undefined, undefined, otherCookie)).status, 401);
+    assert.equal((await request('/api/student/logout', {}, undefined, otherCookie)).status, 200,
+      'repeating logout for an already revoked token remains safe');
     const initialSession = [...sessions.values()].find(s => s.project_id === project.id)!;
     const originalExpiry = initialSession.expires_at;
     initialSession.expires_at = new Date(Date.now() - 1).toISOString();

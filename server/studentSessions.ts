@@ -10,11 +10,13 @@ const COOKIE = 'ntcust_student_session';
 const MAX_AGE = 60 * 60 * 1000;
 const options = () => ({ httpOnly: true, secure: runtimeEnv().NODE_ENV === 'production', sameSite: 'strict' as const, path: '/api/student' });
 export async function clearStudentSession(req: Request, res: Response): Promise<void> {
-  res.clearCookie(COOKIE, options());
   const token = readSessionToken(req, 'student');
-  if (!token) return;
-  const { error } = await sessionWork.run(async () => await createStore().client.from('ntcust_student_sessions').delete().eq('token_hash', fingerprint(token)));
-  if (error) throw new ApiError(503, '登入服務暫時無法使用。');
+  if (token) {
+    const { error } = await sessionWork.run(async () => await createStore().client.from('ntcust_student_sessions').delete().eq('token_hash', fingerprint(token)));
+    if (error) throw new ApiError(503, '登入服務暫時無法使用。');
+  }
+  // Preserve the cookie on failure so the same session can be revoked on retry.
+  res.clearCookie(COOKIE, options());
 }
 export async function createStudentSession(req: Request, res: Response, project: StoredProject): Promise<StoredProject> {
   const token = randomBytes(32).toString('hex');
