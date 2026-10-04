@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { ProjectItem } from '../src/types';
-import { getAvailableDrawFields, getSelectedDrawFields } from '../src/lib/drawScope';
+import { getAvailableDrawFields, getSelectedDrawFields, getResettableFields } from '../src/lib/drawScope';
 import { executeAllDomainsIndependentLottery } from '../src/lib/lottery';
 
 const project = (id: string, field: string): ProjectItem => ({
@@ -39,4 +39,16 @@ test('completing one scope disables it; resetting restores selection without tou
   assert.deepEqual(finished[0], first);
   assert.ok(next[0].draw_order);
   assert.deepEqual(getAvailableDrawFields(fields, original), fields);
+});
+
+
+test('reset selection lists completed domains globally even while draw scope targets an undrawn domain', () => {
+  const fields = ['A', 'B', 'C'];
+  const projects = [{ ...project('1', 'A'), draw_order: 1 }, project('2', 'B'), { ...project('3', 'C'), draw_code: 'C01' }];
+  assert.deepEqual(getSelectedDrawFields(fields, projects, ['B']), ['B']);
+  assert.deepEqual(getResettableFields(fields, projects), ['A', 'C']);
+  const resetA = projects.map(p => p.field === 'A' ? { ...p, draw_order: null } : p);
+  assert.deepEqual(getResettableFields(fields, resetA), ['C']);
+  assert.deepEqual(getAvailableDrawFields(fields, resetA), ['A', 'B']);
+  assert.deepEqual(resetA[2], projects[2]);
 });

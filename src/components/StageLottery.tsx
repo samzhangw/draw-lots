@@ -4,7 +4,7 @@ import { ProjectItem, DomainConfig } from '../types';
 import { StoreState, isApiRequestCancelled } from '../lib/api';
 import { useModalFocus } from '../lib/useModalFocus';
 import { DomainScopePicker } from './DomainScopePicker';
-import { getSelectedDrawFields } from '../lib/drawScope';
+import { getSelectedDrawFields, getResettableFields } from '../lib/drawScope';
 import { ResultCarousel } from './ResultCarousel';
 import { FloatingNotice } from './FloatingNotice';
 import confetti from 'canvas-confetti';
@@ -90,6 +90,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState<boolean>(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [resetFields, setResetFields] = useState<string[]>([]);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
 
   const stageContainerRef = useRef<HTMLDivElement>(null);
@@ -98,6 +99,9 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   const currentPool = projects.filter(p => includesField(p.field));
   // Keep completed results accessible to reset/carousel; draw only eligible domains.
   const drawFields = getSelectedDrawFields(domainConfigs.map(cfg => cfg.field), projects, selectedFields);
+  const resettableFields = getResettableFields([...new Set([...domainConfigs.map(cfg => cfg.field), ...projects.map(p => p.field)])], projects);
+  const selectedResetFields = resetFields.filter(field => resettableFields.includes(field));
+  const resetProjectCount = projects.filter(p => selectedResetFields.includes(p.field)).length;
   const undrawnPool = currentPool.filter(p => drawFields.includes(p.field) && !p.draw_order);
   const visibleDomainConfigs = domainConfigs.filter(cfg =>
     (undrawnPool.length ? drawFields.includes(cfg.field) : includesField(cfg.field)) &&
@@ -234,19 +238,21 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
    * Reset draw
    */
   const handleOpenResetModal = () => {
-    if (drawnPool.length === 0) {
-      setNoticeMessage('目前此範圍內尚無任何已抽籤的組別。');
+    if (resettableFields.length === 0) {
+      setNoticeMessage('目前尚無任何已抽籤的領域。');
       return;
     }
+    setResetFields([]);
     setIsResetModalOpen(true);
   };
 
   const handleConfirmReset = async () => {
     if (isResetting) return;
+    if (!selectedResetFields.length) { setNoticeMessage('請勾選至少一個要重設的領域。'); return; }
     if (dataVersion === null) { setNoticeMessage('資料尚未載入，請重新整理後再試。'); return; }
     setIsResetting(true);
     try {
-      const data = await request('/api/lottery/reset', { ...(selectedFields === null ? { field: 'ALL' } : { fields: selectedFields }), version: dataVersion });
+      const data = await request('/api/lottery/reset', { fields: selectedResetFields, version: dataVersion });
       onApplyState(data);
       setBatchDrawSummary(null);
       setIsResetModalOpen(false);
@@ -280,7 +286,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
         </div>
         <div className="stage-presentation-tools">
           <DomainScopePicker domains={domainConfigs} projects={projects} selected={selectedFields} disabled={isAnimating || isResetting} onChange={changeFields} />
-          <button type="button" onClick={handleOpenResetModal} disabled={isAnimating || drawnPool.length === 0} aria-label="重設結果"><RotateCcw size={18} /></button>
+          <button type="button" onClick={handleOpenResetModal} disabled={isAnimating || isResetting || resettableFields.length === 0} aria-label="選擇要重設的領域"><RotateCcw size={18} /></button>
           <button type="button" onClick={toggleFullscreen} aria-label="退出全螢幕"><Minimize2 size={18} /><span>退出全螢幕</span></button>
         </div>
       </header>}
@@ -315,7 +321,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                 {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                 {isFullscreen ? '退出全螢幕' : '全螢幕展示'}
               </button>
-              <button onClick={handleOpenResetModal} disabled={isAnimating || drawnPool.length === 0} type="button" className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 px-4 py-3 text-sm font-bold text-slate-700 hover:text-rose-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" title="重設此範圍抽籤結果">
+              <button onClick={handleOpenResetModal} disabled={isAnimating || isResetting || resettableFields.length === 0} type="button" className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 px-4 py-3 text-sm font-bold text-slate-700 hover:text-rose-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" title="選擇要重設的抽籤領域">
                 <RotateCcw className="w-4 h-4" />
                 <span className="hidden sm:inline">重設結果</span>
               </button>
@@ -528,7 +534,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={openCarousel} disabled={isAnimating || drawnPool.length === 0}
+            <button type="button" onClick={openCarousel} disabled={isAnimating || isResetting || drawnPool.length === 0}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100 disabled:opacity-40 cursor-pointer">
               <Play className="h-4 w-4" />輪播結果
             </button>
@@ -910,7 +916,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       {/* Reset Modal */}
       {isResetModalOpen && (
         <div role="dialog" aria-modal="true" aria-label="確認重設抽籤結果" className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-xl space-y-4">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full max-h-[90dvh] overflow-y-auto p-6 shadow-xl space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
                 <AlertTriangle className="w-5 h-5" />
@@ -918,13 +924,30 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               <div>
                 <h3 className="text-base font-bold text-slate-900">確定重設抽籤結果？</h3>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  {selectedField === 'ALL'
-                    ? '這將會清空「全校所有領域」已抽出的報告序位，所有專題組別將回到「未抽籤」狀態。'
-                    : `這將會清空「${selectedField}」領域已抽出的報告序位。`}
+                  請勾選要重設的領域。所選領域的分組、報告順位及抽籤編號將清除，其他領域保留。
                 </p>
               </div>
             </div>
 
+            <fieldset disabled={isResetting} className="space-y-3">
+              <legend className="text-sm font-bold text-slate-800">重設範圍（可複選）</legend>
+              <div className="flex items-center gap-2 text-xs">
+                <button type="button" disabled={isResetting} onClick={() => setResetFields([...resettableFields])} className="rounded-lg bg-slate-100 px-3 py-2 font-bold text-slate-700 disabled:opacity-50">全選</button>
+                <button type="button" disabled={isResetting} onClick={() => setResetFields([])} className="rounded-lg bg-slate-100 px-3 py-2 font-bold text-slate-700 disabled:opacity-50">清除</button>
+              </div>
+              <div className="max-h-[30dvh] overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
+                {resettableFields.map(field => <label key={field} className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm">
+                  <input type="checkbox" checked={selectedResetFields.includes(field)} onChange={event => {
+                    if (isResetting) return;
+                    const checked = event.target.checked;
+                    setResetFields(current => checked ? [...current.filter(value => value !== field), field] : current.filter(value => value !== field));
+                  }} className="h-4 w-4 shrink-0 accent-rose-600" />
+                  <span className="min-w-0 flex-1 font-semibold text-slate-700">{field}</span>
+                  <small className="shrink-0 text-slate-500">{projects.filter(p => p.field === field).length} 件</small>
+                </label>)}
+              </div>
+              <p role="status" className="text-xs font-semibold text-rose-700">{selectedResetFields.length ? `將重設 ${selectedResetFields.length} 個領域，共 ${resetProjectCount} 件專題。` : '請勾選至少一個領域。'}</p>
+            </fieldset>
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 onClick={() => setIsResetModalOpen(false)}
@@ -935,11 +958,11 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               </button>
               <button
                 onClick={handleConfirmReset}
-                disabled={isResetting}
+                disabled={isResetting || !selectedResetFields.length}
                 className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60 cursor-pointer"
               >
                 {isResetting && <RotateCcw className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
-                {isResetting ? '重設中…' : '確定重設清空'}
+                {isResetting ? '重設中…' : `重設所選領域（${selectedResetFields.length}）`}
               </button>
             </div>
           </div>
