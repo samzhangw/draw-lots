@@ -255,3 +255,43 @@ test('staff audit is append-only, backend-only and committed atomically with act
     await db.exec('reset role');
   } finally { await db.close(); }
 });
+
+test('staff audit retention preserves the calendar cutoff and restricts bounded deletion to the backend', async () => {
+  const db = await database();
+  try {
+    await migrate(db);
+    await db.exec(await readFile(new URL('202610040001_staff_audit.sql', directory), 'utf8'));
+    await db.exec(await readFile(new URL('202610040002_staff_audit_retention.sql', directory), 'utf8'));
+    // PostgreSQL calendar subtraction clamps month-end and respects leap years.
+    const dates = await db.query<{ cutoff: string }>(`select to_char((value::timestamptz at time zone 'Asia/Taipei') - interval '3 months', 'YYYY-MM-DD HH24:MI:SS') as cutoff
+      from (values ('2026-05-31T16:00:00Z'),('2024-05-31T04:00:00Z'),('2026-05-31T04:00:00Z')) t(value)`);
+    assert.deepEqual(dates.rows.map(row => row.cutoff.slice(0,10)), ['2026-03-01','2024-02-29','2026-02-28']);
+    // current_timestamp is stable throughout the transaction for exact-boundary checks.
+    await db.exec('begin');
+    await db.exec(`insert into public.ntcust_staff_audit (occurred_at,actor_id,actor_email,actor_role,action)
+      select (((current_timestamp at time zone 'Asia/Taipei') - interval '3 months') at time zone 'Asia/Taipei') + offset_value,
+      'actor','admin@test','admin','login'
+      from (values (interval '-1 microsecond'),(interval '0'),(interval '1 microsecond')) t(offset_value)`);
+    for (const role of ['anon','authenticated']) {
+      await db.exec(`savepoint permission_check; set local role ${role}`);
+      await assert.rejects(db.query('select public.ntcust_cleanup_staff_audit()'), (e: any) => e.code === '42501');
+      await db.exec('rollback to savepoint permission_check; reset role');
+    }
+    await db.exec('set local role service_role');
+    const purge = async () => (await db.query<{ deleted: number }>('select public.ntcust_cleanup_staff_audit() as deleted')).rows[0].deleted;
+    assert.equal(await purge(), 1);
+    assert.equal((await db.query('select * from public.ntcust_staff_audit')).rows.length, 2);
+    assert.equal(await purge(), 0);
+    await db.exec('savepoint direct_delete');
+    await assert.rejects(db.query('delete from public.ntcust_staff_audit'), (e: any) => e.code === '42501');
+    await db.exec('rollback to savepoint direct_delete; reset role');
+    await db.exec(`insert into public.ntcust_staff_audit (occurred_at,actor_id,actor_email,actor_role,action)
+      select current_timestamp - interval '4 months','actor','stage@test','stage','draw' from generate_series(1,505)`);
+    await db.exec('set local role service_role');
+    assert.equal(await purge(), 500);
+    assert.equal(await purge(), 5);
+    assert.equal(await purge(), 0);
+    assert.equal((await db.query('select * from public.ntcust_staff_audit')).rows.length, 2);
+    await db.exec('reset role; commit');
+  } finally { await db.close(); }
+});

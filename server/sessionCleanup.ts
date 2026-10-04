@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createStore } from './store';
+import { cleanupExpiredAudit } from './auditCleanup';
 
 export const SESSION_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
 export const SESSION_CLEANUP_BATCH_SIZE = 100;
@@ -38,15 +39,27 @@ export async function runSessionCleanup() {
   return counts;
 }
 
+/** Each maintenance job still runs if the other fails. Never log database error details. */
+export async function runScheduledMaintenance(
+  sessions: () => Promise<unknown> = runSessionCleanup,
+  audit: () => Promise<unknown> = cleanupExpiredAudit,
+) {
+  const results = await Promise.allSettled([sessions(), audit()]);
+  if (results[1].status === 'fulfilled') console.info('Staff audit cleanup completed:', results[1].value);
+  if (results.some(result => result.status === 'rejected')) {
+    throw new Error('定期資料清理失敗，將於下一次排程重試。');
+  }
+}
+
 /** Node production: run at startup, then every ten minutes, without overlaps. */
-export function startSessionCleanup(run: () => Promise<unknown> = runSessionCleanup, intervalMs = SESSION_CLEANUP_INTERVAL_MS) {
+export function startSessionCleanup(run: () => Promise<unknown> = runScheduledMaintenance, intervalMs = SESSION_CLEANUP_INTERVAL_MS) {
   let running = false;
   let stopped = false;
   const tick = async () => {
     if (running || stopped) return;
     running = true;
     try { await run(); }
-    catch { console.error('Expired session cleanup failed; retrying at the next scheduled interval.'); }
+    catch { console.error('Scheduled maintenance failed; retrying at the next scheduled interval.'); }
     finally { running = false; }
   };
   const timer = setInterval(() => { void tick(); }, intervalMs);

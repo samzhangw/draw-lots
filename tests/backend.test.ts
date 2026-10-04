@@ -62,6 +62,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   let missingLookup = false;
   let missingAudit = false;
   let auditReads = 0;
+  let auditCleanupRuns = 0;
   let auditFailure: string | undefined;
   const auditRows: any[] = [];
   const recordAudit = (actor: any, action: string, details: any) => auditRows.push({ id: auditRows.length + 1, occurred_at: new Date().toISOString(), actor_email: actor.email, actor_role: actor.role, action, details });
@@ -130,6 +131,11 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     }
     if (legacySchema && url.pathname === '/rest/v1/ntcust_projects') {
       res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST205', message: 'table not found' })); return;
+    }
+    if (url.pathname === '/rest/v1/rpc/ntcust_cleanup_staff_audit') {
+      auditCleanupRuns++;
+      if (missingAudit) { res.writeHead(404); res.end(JSON.stringify({code:'PGRST202'})); return; }
+      res.end('0'); return;
     }
     if (url.pathname === '/rest/v1/rpc/ntcust_start_staff_session') {
       if (missingAudit) { res.writeHead(404); res.end(JSON.stringify({code:'PGRST202'})); return; }
@@ -288,6 +294,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(sessions.has(cleanupExpired), false, 'scheduled cleanup deletes expired student sessions');
     assert.equal(staffSessions.has(cleanupExpired), false, 'scheduled cleanup deletes expired staff sessions');
     assert.ok(sessions.has(cleanupActive) && staffSessions.has(cleanupActive), 'scheduled cleanup retains active sessions');
+    assert.ok(auditCleanupRuns > 0, 'production scheduler also invokes audit retention');
     sessions.delete(cleanupActive); staffSessions.delete(cleanupActive);
     const beforeForgedCookies = databaseRequests;
     for (const fake of ['1'.repeat(64), `${'2'.repeat(64)}.${'3'.repeat(64)}`]) {

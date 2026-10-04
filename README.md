@@ -221,4 +221,6 @@ Node 定時工作不重疊，失敗後下次排程再試，不中斷網站服務
 
 在 Supabase SQL Editor 執行 `supabase/migrations/202610040001_staff_audit.sql`（需先套 project_rows）才會開始保存紀錄。推送與部署不會自動執行 SQL，尚未套用時頁面會明確顯示未啟用；僅函式不存在 PGRST202 時暫時保留舊操作流程並記錄後端警告，這期間沒有稽核紀錄且無法事後回補。權限、網路及其他資料庫錯誤不降級。
 
-套用後，操作與紀錄使用同一 SQL 交易：儲存、版本衝突、登入 Session 寫入或紀錄寫入失敗時全部回復；成功才設定 Cookie／回傳結果。操作人取自後端驗證的 Auth 身分，不能由瀏覽器指定。紀錄只含 Email、角色、時間、操作、領域、件數及版本，不保存密碼、密碼雜湊、Session Token、Auth access token、金鑰或名冊。資料表啟用 RLS；anon／authenticated 無權限，service_role 僅可讀表，禁止直接新增、修改或刪除，僅受限交易函式能追加。沒有紀錄刪除 API，也不由過期 Session 清理工作刪除；紀錄從功能啟用後開始累積。
+套用後，操作與紀錄使用同一 SQL 交易：儲存、版本衝突、登入 Session 寫入或紀錄寫入失敗時全部回復；成功才設定 Cookie／回傳結果。操作人取自後端驗證的 Auth 身分，不能由瀏覽器指定。紀錄只含 Email、角色、時間、操作、領域、件數及版本，不保存密碼、密碼雜湊、Session Token、Auth access token、金鑰或名冊。資料表啟用 RLS；anon／authenticated 無權限，service_role 僅可讀表，禁止直接新增、修改或刪除，僅受限交易函式能追加。沒有紀錄刪除 API；紀錄從功能啟用後開始累積。
+
+操作紀錄保留三個月（臺灣時間的日曆月，不是固定 90 天）。再於 Supabase SQL Editor 執行 `supabase/migrations/202610040002_staff_audit_retention.sql`，需先套用 staff_audit。Node 正式伺服器啟動時及每 10 分鐘、Cloudflare 既有每 10 分鐘排程會清理超過期限的紀錄；恰好等於期限與更新的紀錄保留。每次最多刪除 2500 筆，超量留待下一次排程，因此期限到達後並非立即刪除。資料庫以自身時間決定期限；僅 service_role 可執行固定清理函式，仍不能直接刪除資料表。缺少此 migration 時保留紀錄並警告；清理失敗下一次重試，不阻止另一項 Session 清理。推送不會自動執行 SQL，伺服器或排程停用期間不會清理。
