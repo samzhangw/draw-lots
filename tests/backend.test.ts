@@ -69,7 +69,6 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   let finalizeReads = 0;
   let finalizeError: string | undefined;
   let changedSharedCredential: 'hash' | 'leader' | 'disabled' | 'deleted' | undefined;
-  let publicReads = 0;
   let metadataReads = 0;
   let activeCapacityReads = 0;
   let maxCapacityReads = 0;
@@ -217,19 +216,6 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       res.end(JSON.stringify(state)); return;
     }
     if (url.pathname === '/rest/v1/ntcust_projects') {
-      if (url.searchParams.get('select') !== 'document') {
-        publicReads++;
-        assert.equal(url.searchParams.get('document->>draw_order'), 'not.is.null');
-        assert.equal(url.searchParams.get('order'), 'position.asc');
-        assert.equal(url.searchParams.get('select')?.includes('password'), false);
-        const offset = Number(url.searchParams.get('offset') || 0);
-        const limit = Number(url.searchParams.get('limit') || 500);
-        const rows = state.projects.filter(p => p.draw_order).slice(offset, offset + limit).map(p => ({
-          field: p.field, original_code: p.original_code, assigned_group: p.assigned_group,
-          draw_order: p.draw_order, draw_code: p.draw_code,
-        }));
-        res.end(JSON.stringify(malformedState ? null : rows)); return;
-      }
       indexedReads++;
       const id = url.searchParams.get('id')?.slice(3);
       const leader = url.searchParams.get('leader_key')?.slice(3);
@@ -444,13 +430,15 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(stageState.data.projects[0].project_title, project.project_title);
     assert.equal((await request('/api/state', undefined, admin)).data.projects[0].leader_id, project.leader_id);
     for (const endpoint of ['/api/state', '/api/projects', '/api/domain-configs', '/api/student/me']) assert.equal((await request(endpoint)).status, 401);
-    const beforeAnonymousRosterReads = rosterReads;
-    const beforePublicReads = publicReads;
-    assert.deepEqual((await request('/api/public-results')).data.results, []);
-    await Promise.all(Array.from({ length: 20 }, () => request('/api/public-results')));
-    assert.equal(publicReads - beforePublicReads, 1, 'cache must coalesce repeated public queries');
-    assert.equal(rosterReads, beforeAnonymousRosterReads, 'public queries must not load roster documents');
-    assert.ok(metadataReads > 0);
+    const readsBeforeRemovedEndpoint = { rosterReads, indexedReads, metadataReads };
+    for (const cookie of [undefined, admin, stage]) {
+      const removed = await request('/api/public-results', undefined, cookie);
+      assert.equal(removed.status, 404);
+      assert.equal(removed.data.success, false);
+      assert.equal(removed.data.results, undefined);
+    }
+    assert.deepEqual({ rosterReads, indexedReads, metadataReads }, readsBeforeRemovedEndpoint,
+      'removed public endpoint must not access the database');
     const beforeHealthRosterReads = rosterReads;
     assert.deepEqual((await request('/api/health')).data, { status: 'ok' });
     assert.equal(rosterReads, beforeHealthRosterReads, 'health must not load roster documents');
@@ -538,8 +526,6 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(draw.status, 200); assert.ok(draw.data.projects[0].assigned_group); assert.ok(draw.data.projects[0].draw_order);
     assert.ok(state.projects[0].evaluators?.length); assert.equal(draw.data.projects[0].evaluators, undefined);
     assert.equal(state.projects[0].password, undefined);
-    const publicDraw = (await request('/api/public-results')).data.results[0];
-    assert.deepEqual(Object.keys(publicDraw).sort(), ['assigned_group', 'draw_code', 'draw_order', 'field', 'original_code']);
     const ownedDraw = await request('/api/student/me', undefined, undefined, studentCookie);
     assert.ok(ownedDraw.data.project.isDrawn);
     assert.equal(ownedDraw.data.project.leader_id, project.leader_id);
@@ -599,10 +585,9 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.ok(offline.data.requestId);
     assert.equal(JSON.stringify(offline.data).includes('ntcust_lottery_state'), false);
     assert.equal(JSON.stringify(offline.data).includes('private-test'), false);
-    assert.equal((await request('/api/public-results')).status, 503);
     unavailable = false;
     malformedState = true;
-    const unexpected = await request('/api/public-results');
+    const unexpected = await request('/api/state', undefined, admin);
     assert.equal(unexpected.status, 500);
     assert.equal(unexpected.data.error, '伺服器發生錯誤，請稍後再試。');
     assert.ok(unexpected.data.requestId);
@@ -632,17 +617,6 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     await assert.rejects(store.save(legacySnapshot, legacySnapshot.version), /其他人更新/);
     legacySchema = false;
     assert.deepEqual(await store.load(), adapterSaved);
-    const largePublicRoster = Array.from({ length: 1200 }, (_, n) => ({ ...full, id: `public-${n}`, leader_id: `public-${n}`, original_code: `P${n}` }));
-    const largeSaved = await store.save({ ...adapterSaved, projects: largePublicRoster }, adapterSaved.version);
-    const beforeLargeReads = publicReads;
-    const publicRosterReads = rosterReads;
-    const largePublic = await request('/api/public-results');
-    assert.equal(largePublic.status, 200);
-    assert.equal(largePublic.data.results.length, 1200);
-    assert.equal(publicReads - beforeLargeReads, 3);
-    assert.equal(rosterReads, publicRosterReads);
-    assert.deepEqual(Object.keys(largePublic.data.results[0]).sort(), ['assigned_group', 'draw_code', 'draw_order', 'field', 'original_code']);
-    await store.save({ ...largeSaved, projects: [full] }, largeSaved.version);
     const fields = ['__proto__', 'constructor', 'toString'];
     const dangerousNames = fields.map((field, index) => ({ ...projectDto(project), id: `special-${index}`, leader_id: `student-${index}`, field }));
     const uploaded = await request('/api/projects', { projects: dangerousNames, version: state.version }, admin);

@@ -11,11 +11,6 @@ import { ApiError } from './errors';
 import { auditMigrationPending, type AuditEvent } from './audit';
 export { ApiError } from './errors';
 
-export interface PublicResult {
-  field: string; original_code: string; assigned_group: number | null;
-  draw_order: number; draw_code: string | null;
-}
-const publicResultsCache = new ShortCache<PublicResult[]>(5000);
 const healthCache = new ShortCache<void>(2000);
 
 export interface DatabaseState {
@@ -58,32 +53,6 @@ export function createStore() {
         if (results.some(result => result.error) || results[0].count !== 1) throw new ApiError(503, '資料庫暫時無法讀取。');
       });
     },
-    async publicResults(): Promise<PublicResult[]> {
-      return publicResultsCache.get(url, async () => {
-        const signal = AbortSignal.timeout(5000);
-        // Paginate below PostgREST's usual 1000-row cap. Version checks keep
-        // several pages from becoming a mixed snapshot during an import/draw.
-        for (let attempt = 0; attempt < 2; attempt++) {
-          const metadata = await client.from('ntcust_lottery_state').select('version').eq('id', 1).abortSignal(signal).single();
-          if (metadata.error) throw new ApiError(503, '公開結果暫時無法讀取。');
-          const results: PublicResult[] = [];
-          for (let offset = 0; offset < 2000; offset += 500) {
-            const { data, error } = await client.from('ntcust_projects')
-              .select('field:document->>field,original_code:document->>original_code,assigned_group:document->assigned_group,draw_order:document->draw_order,draw_code:document->>draw_code')
-              .not('document->>draw_order', 'is', null).order('position').range(offset, offset + 499).abortSignal(signal);
-            if (error) throw new ApiError(503, '公開結果暫時無法讀取，請確認專題資料列 migration 已套用。');
-            results.push(...data.map(p => ({ field: p.field, original_code: p.original_code,
-              assigned_group: typeof p.assigned_group === 'number' ? p.assigned_group : null,
-              draw_order: Number(p.draw_order), draw_code: p.draw_code ?? null })));
-            if (data.length < 500) break;
-          }
-          const after = await client.from('ntcust_lottery_state').select('version').eq('id', 1).abortSignal(signal).single();
-          if (after.error) throw new ApiError(503, '公開結果暫時無法讀取。');
-          if (metadata.data.version === after.data.version) return results;
-        }
-        throw new ApiError(503, '資料正在更新，請稍後再試。');
-      });
-    },
     async findProject(key: 'id' | 'leader_key', value: string): Promise<StoredProject | undefined> {
       const { data, error } = await client.from('ntcust_projects').select('document').eq(key, value).maybeSingle();
       if (error?.code === 'PGRST205' || error?.code === '42P01') {
@@ -115,7 +84,6 @@ export function createStore() {
       const { data, error } = result;
       if (error?.code === '40001') throw new ApiError(409, '資料已由其他人更新，請重新整理後再操作。');
       if (error || !data) throw new ApiError(503, '資料庫暫時無法儲存，請稍後再試。');
-      publicResultsCache.invalidate(url);
       healthCache.invalidate(url);
       return { projects: data.projects, domainConfigs: sortDomainConfigs(data.domain_configs), version: data.version, lastUpdated: data.updated_at };
     },

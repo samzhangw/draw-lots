@@ -181,9 +181,6 @@ app.post('/api/student/logout', route(async (req, res) => {
   await clearStudentSession(req, res);
   res.json({ success: true });
 }));
-app.get('/api/public-results', anonymousLimiter('results', 600, 6000), route(async (_req, res) => {
-  res.json({ success: true, results: await createStore().publicResults() });
-}));
 app.get('/api/staff-audit', route(async (req, res) => {
   await authorize(req, true);
   const filters = auditQuery(req.query);
