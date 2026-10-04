@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AuthSession } from '../lib/auth';
-import { UserRound, ShieldCheck, ChevronDown, Mail, LogOut, LoaderCircle } from 'lucide-react';
+import { UserRound, ShieldCheck, ChevronDown, Mail, LogOut, LoaderCircle, ClipboardList, LayoutDashboard, ChevronRight } from 'lucide-react';
 
 interface NavbarProps {
   authSession?: AuthSession | null;
@@ -99,18 +99,30 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
                   </div>
                 </div>
               </div>
-              <div className="border-t border-slate-100 bg-slate-50/70 p-2">
-                {isAdmin && <a href="/audit" className="flex min-h-11 items-center rounded-md px-3 text-sm font-semibold text-blue-800 hover:bg-blue-50">工作人員操作紀錄</a>}
-                {isAdmin && <a href="/admin" className="flex min-h-11 items-center rounded-md px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100">管理後台</a>}
-                <button
-                  onClick={() => void handleLogout()}
-                  disabled={isLoggingOut}
-                  type="button"
-                  className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-3 text-left text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:cursor-wait disabled:opacity-50 cursor-pointer"
-                >
-                  <span>{isLoggingOut ? '登出中…' : isAdmin ? '登出後台' : '登出'}</span>
-                  {isLoggingOut ? <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <LogOut className="h-4 w-4" aria-hidden="true" />}
-                </button>
+              <div className="border-t border-slate-100 bg-slate-50/70 p-3">
+                {isAdmin && <nav aria-label="管理員功能" className="space-y-2">
+                  <a href="/audit" className="flex min-h-11 items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                    <ClipboardList className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    <span className="flex-1">工作人員操作紀錄</span>
+                    <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  </a>
+                  <a href="/admin" className="flex min-h-11 items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+                    <LayoutDashboard className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    <span className="flex-1">管理後台</span>
+                    <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  </a>
+                </nav>}
+                <div className={isAdmin ? 'mt-3 border-t border-slate-200 pt-3' : ''}>
+                  <button
+                    onClick={() => void handleLogout()}
+                    disabled={isLoggingOut}
+                    type="button"
+                    className="flex min-h-11 w-full items-center gap-3 rounded-xl border border-rose-200 bg-white px-3 py-2.5 text-left text-sm font-semibold text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 disabled:cursor-wait disabled:opacity-50 cursor-pointer"
+                  >
+                    {isLoggingOut ? <LoaderCircle className="h-5 w-5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <LogOut className="h-5 w-5 shrink-0" aria-hidden="true" />}
+                    <span>{isLoggingOut ? '登出中…' : isAdmin ? '登出後台' : '登出'}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </details>
