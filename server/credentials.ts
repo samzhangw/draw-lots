@@ -1,5 +1,5 @@
 import { randomBytes, scrypt, timingSafeEqual, createHash } from 'node:crypto';
-import type { ProjectItem } from '../src/types';
+import type { ProjectItem, StudentQueryProject } from '../src/types';
 import { ApiError } from './errors';
 import { SharedPasswordVerifier } from './sharedPasswordVerifier';
 import { BoundedExecutor } from './resourceLimits';
@@ -62,21 +62,20 @@ export function stageProjectDto(p: ProjectItem) {
   };
 }
 
-export function studentProjectDto(p: ProjectItem): ProjectItem {
+export function studentProjectDto(p: ProjectItem): StudentQueryProject {
   return {
-    ...projectDto(p),
-    seq_no: '', education_system: '', department: '', class_name: '', advisor: '',
+    leader_id: p.leader_id, project_title: p.project_title, field: p.field,
+    isDrawn: !!p.draw_order, draw_code: p.draw_code ?? null,
+    draw_time: p.draw_time ?? null, evaluators: p.evaluators || [],
   };
 }
 
-export function publicStudentProjectDto(p: ProjectItem): ProjectItem {
+export function publicStudentProjectDto(p: ProjectItem): StudentQueryProject {
   const drawn = !!p.draw_order;
   return {
-    id: '', seq_no: '', education_system: '', department: '', class_name: '', advisor: '',
-    field: drawn ? p.field : '', original_code: drawn ? p.original_code : '',
-    project_title: p.project_title, leader_id: p.leader_id, assigned_group: drawn ? p.assigned_group ?? null : null,
-    draw_order: drawn ? p.draw_order ?? null : null, draw_code: drawn ? p.draw_code ?? null : null,
-    draw_time: null, evaluators: [],
+    leader_id: p.leader_id, project_title: p.project_title,
+    field: drawn ? p.field : '', isDrawn: drawn,
+    draw_code: drawn ? p.draw_code ?? null : null,
   };
 }
 

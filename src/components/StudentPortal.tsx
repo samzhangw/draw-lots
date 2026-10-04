@@ -2,7 +2,7 @@ import { useApiRequest } from '../lib/useApiRequest';
 import React, { useState, useEffect, useRef } from 'react';
 import { ApiRequestError, isApiRequestCancelled } from '../lib/api';
 import { hasStudentSessionHint, rememberStudentSessionHint, clearStudentSessionHint } from '../lib/studentSessionHint';
-import { ProjectItem } from '../types';
+import { StudentQueryProject } from '../types';
 import {
   UserCheck,
   Clock,
@@ -27,7 +27,7 @@ export const StudentPortal: React.FC = () => {
   const [studentIdInput, setStudentIdInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [myProject, setMyProject] = useState<ProjectItem | null>(null);
+  const [myProject, setMyProject] = useState<StudentQueryProject | null>(null);
   const [sharedPasswordMode, setSharedPasswordMode] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -44,7 +44,7 @@ export const StudentPortal: React.FC = () => {
     setIsLoading(true);
     setLoadingAction('refresh');
     try {
-      const data = await request<{ project: ProjectItem; sharedPasswordMode: boolean }>('/api/student/me');
+      const data = await request<{ project: StudentQueryProject; sharedPasswordMode: boolean }>('/api/student/me');
       setMyProject(data.project);
       setLastUpdatedAt(new Date());
       setSharedPasswordMode(data.sharedPasswordMode);
@@ -65,7 +65,7 @@ export const StudentPortal: React.FC = () => {
     const epoch = requestEpoch.current;
     const controller = new AbortController();
     restoreController.current = controller;
-    request<{ project: ProjectItem; sharedPasswordMode: boolean }>('/api/student/me', undefined, { signal: controller.signal, timeoutMs: 10000 })
+    request<{ project: StudentQueryProject; sharedPasswordMode: boolean }>('/api/student/me', undefined, { signal: controller.signal, timeoutMs: 10000 })
       .then(data => { if (!cancelled && requestEpoch.current === epoch) { if (!hasStudentSessionHint()) rememberStudentSessionHint(); setMyProject(data.project); setLastUpdatedAt(new Date()); setSharedPasswordMode(data.sharedPasswordMode); } })
       .catch(error => {
         if (!cancelled && requestEpoch.current === epoch && !isApiRequestCancelled(error)) {
@@ -118,7 +118,7 @@ export const StudentPortal: React.FC = () => {
     setIsLoading(true);
     setLoadingAction('login');
     try {
-      const data = await request<{ project: ProjectItem; sharedPasswordMode: boolean }>('/api/student/verify', { leaderId: query, password: pwd });
+      const data = await request<{ project: StudentQueryProject; sharedPasswordMode: boolean }>('/api/student/verify', { leaderId: query, password: pwd });
       rememberStudentSessionHint();
       setMyProject(data.project);
       setLastUpdatedAt(new Date());
@@ -239,7 +239,7 @@ export const StudentPortal: React.FC = () => {
 
           {/* Main Showcase Card */}
           <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 sm:p-8 shadow-sm">
-            {myProject.draw_order ? (
+            {myProject.isDrawn ? (
               <div className="space-y-6">
                 {/* Project Header Info */}
                 <div className="flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-start sm:justify-between">

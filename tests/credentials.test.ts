@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hashPassword, verifyPassword, prepareProjects, removeLegacyCredentials } from '../server/credentials';
+import { hashPassword, verifyPassword, prepareProjects, removeLegacyCredentials, studentProjectDto, publicStudentProjectDto } from '../server/credentials';
 import { executeAllDomainsIndependentLottery } from '../src/lib/lottery';
 
 const p = { id: 'p1', seq_no: '1', education_system: '四技', department: '資管', class_name: '甲', advisor: '王教授', field: '__proto__', original_code: 'P1', project_title: '測試', leader_id: '12345678' };
@@ -45,4 +45,23 @@ test('special domain names stay isolated and use their own subgroup/reviewer set
   for (const summary of result.domainSummaries) {
     assert.equal(summary.count, 5); assert.equal(summary.groupCount, configs.find(c => c.field === summary.field)!.groupCount);
   }
+});
+
+test('student DTOs omit roster identifiers and secrets in both credential modes', () => {
+  const stored = { ...p, password: 'private', password_hash: 'private-hash',
+    assigned_group: 2, draw_order: 3, draw_code: 'A03', draw_time: '2026-10-04T00:00:00Z',
+    evaluators: ['評審'], unexpected_private_field: 'private-extra' };
+  const individual = studentProjectDto(stored);
+  const shared = publicStudentProjectDto(stored);
+  assert.deepEqual(Object.keys(individual).sort(), ['leader_id', 'project_title', 'field', 'isDrawn', 'draw_code', 'draw_time', 'evaluators'].sort());
+  assert.deepEqual(Object.keys(shared).sort(), ['leader_id', 'project_title', 'field', 'isDrawn', 'draw_code'].sort());
+  for (const result of [individual, shared]) {
+    assert.equal(result.isDrawn, true);
+    assert.equal(result.draw_code, 'A03');
+    assert.equal(JSON.stringify(result).includes('private'), false);
+  }
+  assert.deepEqual(publicStudentProjectDto({ ...stored, draw_order: null }), {
+    leader_id: p.leader_id, project_title: p.project_title, field: '', isDrawn: false, draw_code: null,
+  });
+  assert.equal(studentProjectDto({ ...stored, draw_order: null }).isDrawn, false);
 });

@@ -463,7 +463,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(student.status, 200); assert.equal(student.data.project.password, undefined);
     assert.equal(student.data.project.password_hash, undefined);
     assert.equal(student.data.project.leader_id, project.leader_id);
-    for (const field of ['seq_no', 'class_name', 'advisor', 'education_system', 'department']) assert.equal(student.data.project[field], '');
+    for (const field of ['seq_no', 'class_name', 'advisor', 'education_system', 'department']) assert.equal(student.data.project[field], undefined);
     assert.match(student.cookie!, /HttpOnly/i); assert.match(student.cookie!, /Secure/i); assert.match(student.cookie!, /SameSite=Strict/i);
     const studentCookie = student.cookie!.split(';')[0];
     assert.match(studentCookie, /^ntcust_student_session=[a-f0-9]{64}\.[a-f0-9]{64}$/);
@@ -513,12 +513,12 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
 
     const blockedLogout = await fetch(`${base}/api/student/logout`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: studentCookie, Origin: 'https://attacker.invalid' }, body: '{}' });
     assert.equal(blockedLogout.status, 403);
-    assert.equal((await request('/api/student/me?projectId=p2', undefined, undefined, studentCookie)).data.project.id, project.id);
+    assert.equal((await request('/api/student/me?projectId=p2', undefined, undefined, studentCookie)).data.project.leader_id, project.leader_id);
     assert.equal((await request('/api/student/verify', { leaderId: second.leader_id, password: project.password })).status, 401);
     const otherStudent = await request('/api/student/verify', { leaderId: second.leader_id, password: second.password });
-    assert.equal(otherStudent.data.project.id, second.id);
+    assert.equal(otherStudent.data.project.leader_id, second.leader_id);
     const otherCookie = otherStudent.cookie!.split(';')[0];
-    assert.equal((await request('/api/student/me?projectId=p1', undefined, undefined, otherCookie)).data.project.id, second.id);
+    assert.equal((await request('/api/student/me?projectId=p1', undefined, undefined, otherCookie)).data.project.leader_id, second.leader_id);
     await request('/api/student/logout', {}, undefined, otherCookie);
     const initialSession = [...sessions.values()].find(s => s.project_id === project.id)!;
     const originalExpiry = initialSession.expires_at;
@@ -541,7 +541,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const publicDraw = (await request('/api/public-results')).data.results[0];
     assert.deepEqual(Object.keys(publicDraw).sort(), ['assigned_group', 'draw_code', 'draw_order', 'field', 'original_code']);
     const ownedDraw = await request('/api/student/me', undefined, undefined, studentCookie);
-    assert.ok(ownedDraw.data.project.draw_order);
+    assert.ok(ownedDraw.data.project.isDrawn);
     assert.equal(ownedDraw.data.project.leader_id, project.leader_id);
     assert.equal((await request('/api/lottery/draw', { field: 'ALL', version: draw.data.version }, stage)).status, 409);
     // Invalid reviewer names must not overwrite existing settings or drawn results.
@@ -724,7 +724,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(commonLogin.data.sharedPasswordMode, true);
     assert.equal(commonLogin.data.project.project_title, project.project_title);
     assert.equal(commonLogin.data.project.leader_id, project.leader_id);
-    assert.equal(commonLogin.data.project.advisor, '');
+    assert.equal(commonLogin.data.project.advisor, undefined);
     const commonCookie = commonLogin.cookie!.split(';')[0];
     const commonMe = await request('/api/student/me', undefined, undefined, commonCookie);
     assert.equal(commonMe.data.project.project_title, project.project_title);
