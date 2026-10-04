@@ -195,10 +195,10 @@ app.get('/api/staff-audit', route(async (req, res) => {
   if (filters.role) query = query.eq('actor_role', filters.role);
   if (filters.before) query = query.lt('id', filters.before);
   const { data, error } = await sessionWork.run(async () => await query);
-  if (error?.code === 'PGRST205' || error?.code === '42P01') { res.json({ enabled: false, records: [], nextCursor: null }); return; }
+  if (error?.code === 'PGRST205' || error?.code === '42P01') { res.json({ success: true, enabled: false, records: [], nextCursor: null }); return; }
   if (error || !Array.isArray(data)) throw new ApiError(503, '操作紀錄暫時無法讀取，請稍後再試。');
   const records = data.slice(0, 50);
-  res.json({ enabled: true, records, nextCursor: data.length > 50 ? String(records[49].id) : null });
+  res.json({ success: true, enabled: true, records, nextCursor: data.length > 50 ? String(records[49].id) : null });
 }));
 app.get('/api/state', route(async (req, res) => {
   const role = await authorize(req);

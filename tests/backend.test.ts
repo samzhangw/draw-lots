@@ -1018,6 +1018,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     }
     const audit = await request('/api/staff-audit',undefined,adminAgain);
     assert.equal(audit.status,200);
+    assert.equal(audit.data.success,true, 'frontend apiRequest requires success even for HTTP 200');
     assert.ok(audit.data.records.length<=50);
     assert.ok(auditRows.some(row=>row.action==='login'));
     assert.ok(auditRows.some(row=>row.action==='logout'));
@@ -1026,6 +1027,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     }
     const filtered = await request('/api/staff-audit?action=draw&role=stage&q='+encodeURIComponent(multiFields[0]),undefined,adminAgain);
     assert.equal(filtered.status,200);
+    assert.equal(filtered.data.success,true);
     assert.ok(filtered.data.records.length>0);
     assert.ok(filtered.data.records.every((row:any)=>row.action==='draw'&&row.actor_role==='stage'&&row.details.fields.some((field:string)=>field.includes(multiFields[0]))));
     const auditJson=JSON.stringify(auditRows);
@@ -1034,6 +1036,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     if (audit.data.nextCursor) {
       const older=await request('/api/staff-audit?before='+audit.data.nextCursor,undefined,adminAgain);
       assert.equal(older.status,200);
+      assert.equal(older.data.success,true);
       assert.ok(older.data.records.every((row:any)=>Number(row.id)<Number(audit.data.nextCursor)));
     }
     auditFailure='42501';
@@ -1043,7 +1046,10 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     auditFailure=undefined;
     missingAudit=true;
     const notEnabled=await request('/api/staff-audit',undefined,adminAgain);
-    assert.equal(notEnabled.status,200); assert.equal(notEnabled.data.enabled,false); assert.deepEqual(notEnabled.data.records,[]);
+    assert.equal(notEnabled.status,200);
+    assert.equal(notEnabled.data.success,true, 'missing migration must reach the frontend setup notice');
+    assert.equal(notEnabled.data.enabled,false);
+    assert.deepEqual(notEnabled.data.records,[]);
     assert.equal((await request('/api/lottery/reset',{fields:[multiFields[2]],version:state.version},stage)).status,200);
     assert.deepEqual(auditRows,protectedLogs,'missing migration preserves old API without inventing logs');
     missingAudit=false;
