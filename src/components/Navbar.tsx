@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AuthSession } from '../lib/auth';
-import { UserRound, ShieldCheck, ChevronDown, Mail, LogOut, LoaderCircle, ClipboardList, LayoutDashboard, ChevronRight } from 'lucide-react';
+import { UserRound, ShieldCheck, ChevronDown, Mail, LogOut, LoaderCircle, ClipboardList, LayoutDashboard, ChevronRight, Presentation } from 'lucide-react';
 
 interface NavbarProps {
   authSession?: AuthSession | null;
@@ -35,6 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
   };
 
   const isAdmin = authSession?.role === 'admin';
+  const canOpenStage = isAdmin || authSession?.role === 'stage';
   const roleLabel = isAdmin ? '大會系統管理員' : '台上抽籤人員';
 
   return (
@@ -100,19 +101,26 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
                 </div>
               </div>
               <div className="border-t border-slate-100 bg-slate-50/70 p-3">
-                {isAdmin && <nav aria-label="管理員功能" className="space-y-2">
-                  <a href="/audit" className="flex min-h-11 items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                    <ClipboardList className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    <span className="flex-1">工作人員操作紀錄</span>
+                {canOpenStage && <nav aria-label="工作人員功能" className="space-y-2">
+                  <a href="/stage" className="flex min-h-11 items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900 transition-colors hover:border-amber-300 hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
+                    <Presentation className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    <span className="flex-1">台上抽籤</span>
                     <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
                   </a>
-                  <a href="/admin" className="flex min-h-11 items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
-                    <LayoutDashboard className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    <span className="flex-1">管理後台</span>
-                    <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  </a>
+                  {isAdmin && <>
+                    <a href="/audit" className="flex min-h-11 items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                      <ClipboardList className="h-5 w-5 shrink-0" aria-hidden="true" />
+                      <span className="flex-1">工作人員操作紀錄</span>
+                      <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    </a>
+                    <a href="/admin" className="flex min-h-11 items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+                      <LayoutDashboard className="h-5 w-5 shrink-0" aria-hidden="true" />
+                      <span className="flex-1">管理後台</span>
+                      <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    </a>
+                  </>}
                 </nav>}
-                <div className={isAdmin ? 'mt-3 border-t border-slate-200 pt-3' : ''}>
+                <div className={canOpenStage ? 'mt-3 border-t border-slate-200 pt-3' : ''}>
                   <button
                     onClick={() => void handleLogout()}
                     disabled={isLoggingOut}
