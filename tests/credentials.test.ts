@@ -53,15 +53,25 @@ test('student DTOs omit roster identifiers and secrets in both credential modes'
     evaluators: ['評審'], unexpected_private_field: 'private-extra' };
   const individual = studentProjectDto(stored);
   const shared = publicStudentProjectDto(stored);
-  assert.deepEqual(Object.keys(individual).sort(), ['leader_id', 'project_title', 'field', 'isDrawn', 'draw_code', 'draw_time', 'evaluators'].sort());
-  assert.deepEqual(Object.keys(shared).sort(), ['leader_id', 'project_title', 'field', 'isDrawn', 'draw_code'].sort());
+  assert.deepEqual(Object.keys(individual).sort(), ['leader_id_masked', 'project_title', 'field', 'isDrawn', 'draw_code', 'draw_time', 'evaluators'].sort());
+  assert.deepEqual(Object.keys(shared).sort(), ['leader_id_masked', 'project_title', 'field', 'isDrawn', 'draw_code'].sort());
   for (const result of [individual, shared]) {
     assert.equal(result.isDrawn, true);
     assert.equal(result.draw_code, 'A03');
     assert.equal(JSON.stringify(result).includes('private'), false);
   }
   assert.deepEqual(publicStudentProjectDto({ ...stored, draw_order: null }), {
-    leader_id: p.leader_id, project_title: p.project_title, field: '', isDrawn: false, draw_code: null,
+    leader_id_masked: '****5678', project_title: p.project_title, field: '', isDrawn: false, draw_code: null,
   });
   assert.equal(studentProjectDto({ ...stored, draw_order: null }).isDrawn, false);
+});
+
+test('student ID masking exposes only the final four characters and conceals short IDs', () => {
+  for (const [id, expected] of [['1123456789', '******6789'], [' 12345678 ', '****5678'], ['12345', '*2345'], ['1234', '****'], ['123', '****'], ['', '****']]) {
+    for (const dto of [studentProjectDto, publicStudentProjectDto]) {
+      const result = dto({ ...p, leader_id: id });
+      assert.equal(result.leader_id_masked, expected);
+      assert.equal('leader_id' in result, false);
+    }
+  }
 });

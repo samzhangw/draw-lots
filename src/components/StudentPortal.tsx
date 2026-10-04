@@ -120,6 +120,7 @@ export const StudentPortal: React.FC = () => {
       setMyProject(data.project);
       setLastUpdatedAt(new Date());
       setSharedPasswordMode(data.sharedPasswordMode);
+      setStudentIdInput('');
       setPasswordInput('');
     } catch (error) {
       if (isApiRequestCancelled(error)) return;
@@ -203,9 +204,9 @@ export const StudentPortal: React.FC = () => {
                 <User className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-xs text-slate-500">目前登入的組長學號</div>
+                <div className="text-xs text-slate-500">目前登入的組長學號（末四碼）</div>
                 <div className="text-base font-bold text-slate-900 font-mono">
-                  {myProject.leader_id}
+                  {myProject.leader_id_masked}
                 </div>
               </div>
             </div>

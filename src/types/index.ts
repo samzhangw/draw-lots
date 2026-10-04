@@ -39,7 +39,7 @@ export type ViewMode = 'student' | 'stage' | 'admin' | 'audit';
 
 // Student results expose only fields consumed by the query page.
 export interface StudentQueryProject {
-  leader_id: string;
+  leader_id_masked: string;
   project_title: string;
   field: string;
   isDrawn: boolean;

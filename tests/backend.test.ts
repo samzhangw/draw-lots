@@ -454,7 +454,9 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(rosterReads, readsBeforeLogin, 'student login must not read the full roster');
     assert.equal(student.status, 200); assert.equal(student.data.project.password, undefined);
     assert.equal(student.data.project.password_hash, undefined);
-    assert.equal(student.data.project.leader_id, project.leader_id);
+    assert.equal(student.data.project.leader_id, undefined);
+    assert.equal(JSON.stringify(student.data).includes(project.leader_id), false);
+    assert.equal(student.data.project.leader_id_masked, '****5678');
     for (const field of ['seq_no', 'class_name', 'advisor', 'education_system', 'department']) assert.equal(student.data.project[field], undefined);
     assert.match(student.cookie!, /HttpOnly/i); assert.match(student.cookie!, /Secure/i); assert.match(student.cookie!, /SameSite=Strict/i);
     const studentCookie = student.cookie!.split(';')[0];
@@ -483,7 +485,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal((await request('/api/student/me', undefined, undefined, studentCookie)).status, 200);
     assert.equal(indexedReads - indexedBeforeLookup, 1, 'missing migration must use the indexed fallback');
     missingLookup = false;
-    assert.ok(results.every(result => result.data.project.leader_id === project.leader_id));
+    assert.ok(results.every(result => result.data.project.project_title === project.project_title));
     capacityWait = new Promise<void>(resolve => { releaseCapacity = resolve; });
     let busyResponses = 0;
     const loginBurst = Promise.all(Array.from({ length: 50 }, (_, n) =>
@@ -505,12 +507,12 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
 
     const blockedLogout = await fetch(`${base}/api/student/logout`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: studentCookie, Origin: 'https://attacker.invalid' }, body: '{}' });
     assert.equal(blockedLogout.status, 403);
-    assert.equal((await request('/api/student/me?projectId=p2', undefined, undefined, studentCookie)).data.project.leader_id, project.leader_id);
+    assert.equal((await request('/api/student/me?projectId=p2', undefined, undefined, studentCookie)).data.project.leader_id_masked, '****5678');
     assert.equal((await request('/api/student/verify', { leaderId: second.leader_id, password: project.password })).status, 401);
     const otherStudent = await request('/api/student/verify', { leaderId: second.leader_id, password: second.password });
-    assert.equal(otherStudent.data.project.leader_id, second.leader_id);
+    assert.equal(otherStudent.data.project.leader_id_masked, '****4321');
     const otherCookie = otherStudent.cookie!.split(';')[0];
-    assert.equal((await request('/api/student/me?projectId=p1', undefined, undefined, otherCookie)).data.project.leader_id, second.leader_id);
+    assert.equal((await request('/api/student/me?projectId=p1', undefined, undefined, otherCookie)).data.project.leader_id_masked, '****4321');
     const otherDigest = fingerprint(otherCookie.split('=')[1].split('.')[0]);
     studentDeleteFailure = true;
     const failedLogout = await request('/api/student/logout', {}, undefined, otherCookie);
@@ -549,7 +551,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(state.projects[0].password, undefined);
     const ownedDraw = await request('/api/student/me', undefined, undefined, studentCookie);
     assert.ok(ownedDraw.data.project.isDrawn);
-    assert.equal(ownedDraw.data.project.leader_id, project.leader_id);
+    assert.equal(ownedDraw.data.project.leader_id_masked, '****5678');
     assert.equal((await request('/api/lottery/draw', { field: 'ALL', version: draw.data.version }, stage)).status, 409);
     // Invalid reviewer names must not overwrite existing settings or drawn results.
     const beforeInvalidReviewers = structuredClone(state);
@@ -714,16 +716,18 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     finalizeError = undefined;
     assert.ok(sessions.has(retainedDigest));
     assert.ok(finalizeReads > 0);
-    const commonLogin = firstCommonLogins.find(r => r.data.project.leader_id === project.leader_id)!;
+    const commonLogin = firstCommonLogins.find(r => r.data.project.project_title === project.project_title)!;
     assert.equal(commonLogin.status, 200);
     assert.equal(commonLogin.data.sharedPasswordMode, true);
     assert.equal(commonLogin.data.project.project_title, project.project_title);
-    assert.equal(commonLogin.data.project.leader_id, project.leader_id);
+    assert.equal(commonLogin.data.project.leader_id_masked, '****5678');
     assert.equal(commonLogin.data.project.advisor, undefined);
     const commonCookie = commonLogin.cookie!.split(';')[0];
     const commonMe = await request('/api/student/me', undefined, undefined, commonCookie);
     assert.equal(commonMe.data.project.project_title, project.project_title);
-    assert.equal(commonMe.data.project.leader_id, project.leader_id);
+    assert.equal(commonMe.data.project.leader_id_masked, '****5678');
+    assert.equal(commonMe.data.project.leader_id, undefined);
+    assert.equal(JSON.stringify(commonMe.data).includes(project.leader_id), false);
     assert.equal((await request('/api/projects', { projects: [{ ...projectDto(project), password: 'Another-password-123' }], version: state.version }, adminAgain)).status, 400);
     const commonLogins = await Promise.all(state.projects.map(p => request('/api/student/verify', { leaderId: p.leader_id, password: generated.data.password })));
     assert.ok(commonLogins.every(r => r.status === 200));
@@ -732,7 +736,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     for (let n = 0; n < separateCookies.length; n++) {
       const lookup = await request('/api/student/me', undefined, undefined, separateCookies[n]);
       assert.equal(lookup.status, 200);
-      assert.equal(lookup.data.project.leader_id, state.projects[n].leader_id);
+      assert.equal(lookup.data.project.project_title, state.projects[n].project_title);
     }
     for (const change of ['hash', 'leader', 'disabled', 'deleted'] as const) {
       changedSharedCredential = change;

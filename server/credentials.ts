@@ -62,9 +62,16 @@ export function stageProjectDto(p: ProjectItem) {
   };
 }
 
+function maskStudentLeaderId(value: string): string {
+  const characters = Array.from(value.trim());
+  // Never expose an entire short identifier.
+  if (characters.length <= 4) return '****';
+  return '*'.repeat(characters.length - 4) + characters.slice(-4).join('');
+}
+
 export function studentProjectDto(p: ProjectItem): StudentQueryProject {
   return {
-    leader_id: p.leader_id, project_title: p.project_title, field: p.field,
+    leader_id_masked: maskStudentLeaderId(p.leader_id), project_title: p.project_title, field: p.field,
     isDrawn: !!p.draw_order, draw_code: p.draw_code ?? null,
     draw_time: p.draw_time ?? null, evaluators: p.evaluators || [],
   };
@@ -73,7 +80,7 @@ export function studentProjectDto(p: ProjectItem): StudentQueryProject {
 export function publicStudentProjectDto(p: ProjectItem): StudentQueryProject {
   const drawn = !!p.draw_order;
   return {
-    leader_id: p.leader_id, project_title: p.project_title,
+    leader_id_masked: maskStudentLeaderId(p.leader_id), project_title: p.project_title,
     field: drawn ? p.field : '', isDrawn: drawn,
     draw_code: drawn ? p.draw_code ?? null : null,
   };
