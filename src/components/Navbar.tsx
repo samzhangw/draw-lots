@@ -108,14 +108,14 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
                     <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
                   </a>
                   {isAdmin && <>
-                    <a href="/audit" className="flex min-h-11 items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                      <ClipboardList className="h-5 w-5 shrink-0" aria-hidden="true" />
-                      <span className="flex-1">工作人員操作紀錄</span>
-                      <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    </a>
                     <a href="/admin" className="flex min-h-11 items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
                       <LayoutDashboard className="h-5 w-5 shrink-0" aria-hidden="true" />
                       <span className="flex-1">管理後台</span>
+                      <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    </a>
+                    <a href="/audit" className="flex min-h-11 items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-800 transition-colors hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                      <ClipboardList className="h-5 w-5 shrink-0" aria-hidden="true" />
+                      <span className="flex-1">工作人員操作紀錄</span>
                       <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
                     </a>
                   </>}
