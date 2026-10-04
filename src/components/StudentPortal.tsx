@@ -266,24 +266,27 @@ export const StudentPortal: React.FC = () => {
                   </div>}
                 </div>
 
-                <section className="flex min-w-0 flex-col gap-4 rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:p-6" aria-label="抽籤結果">
-                  <div className="flex items-center gap-2 text-sm font-bold text-blue-800">
-                    <Hash className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    抽籤後編號
-                  </div>
-                  <p className={`text-center font-black leading-tight tracking-wide text-blue-950 [overflow-wrap:anywhere] ${resultCodeSize(myProject.draw_code)}`}>
-                    {myProject.draw_code || '編號尚未提供'}
-                  </p>
-                </section>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
-                  <div className="min-w-0">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <section className="flex min-w-0 flex-col gap-4 rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:p-6" aria-label="抽籤結果">
+                    <div className="flex items-center gap-2 text-sm font-bold text-blue-800">
+                      <Hash className="h-5 w-5 shrink-0" aria-hidden="true" />
+                      抽籤後編號
+                    </div>
+                    <div className="flex flex-1 items-center justify-center">
+                      <p className={`w-full text-center font-black leading-tight tracking-wide text-blue-950 [overflow-wrap:anywhere] ${resultCodeSize(myProject.draw_code)}`}>
+                        {myProject.draw_code || '編號尚未提供'}
+                      </p>
+                    </div>
+                  </section>
+                  <section className="flex min-w-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-5 sm:p-6" aria-label="領域名稱">
                     <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                      <Layers className="w-4 h-4" />
+                      <Layers className="h-5 w-5 shrink-0" aria-hidden="true" />
                       領域名稱
                     </div>
-                    <div className="mt-1 text-lg sm:text-xl font-bold text-slate-900 break-words">{myProject.field}</div>
-                  </div>
+                    <div className="flex flex-1 items-center justify-center">
+                      <p className="w-full break-words text-center text-xl font-bold leading-relaxed text-slate-900 sm:text-2xl">{myProject.field}</p>
+                    </div>
+                  </section>
                 </div>
                 {!sharedPasswordMode && !!myProject.evaluators?.length && <p className="text-sm text-slate-600 px-1">
                   評審委員：{myProject.evaluators.join('、')}
