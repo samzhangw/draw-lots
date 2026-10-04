@@ -1,5 +1,5 @@
 import { useApiRequest } from '../lib/useApiRequest';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ProjectItem, DomainConfig } from '../types';
 import { StoreState, isApiRequestCancelled } from '../lib/api';
 import { useModalFocus } from '../lib/useModalFocus';
@@ -7,6 +7,7 @@ import { DomainScopePicker } from './DomainScopePicker';
 import { getSelectedDrawFields, getResettableFields } from '../lib/drawScope';
 import { ResultCarousel } from './ResultCarousel';
 import { FloatingNotice } from './FloatingNotice';
+import { PupLotteryAnimation, pupLotteryDuration } from './PupLotteryAnimation';
 import confetti from 'canvas-confetti';
 import './StageLottery.css';
 import {
@@ -34,26 +35,6 @@ interface StageLotteryProps {
   domainConfigs: DomainConfig[];
 }
 
-const MIN_DRAW_MS = 3600; // two riffles, then the deck idles until the backend answers
-const DECK_SIZE = 14;
-
-const PokerShuffle: React.FC = () => (
-  <div className="poker-scene" aria-hidden="true">
-    <div className="poker-table-glow" />
-    <div className="poker-deck">
-      {Array.from({ length: DECK_SIZE }, (_, i) => (
-        <div
-          key={i}
-          className="poker-card poker-card--deck"
-          style={{ '--i': i, '--side': i % 2 ? 1 : -1, '--z-after': DECK_SIZE - i } as React.CSSProperties}
-        >
-          <div className="poker-card-back"><span>♠</span></div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
 export const StageLottery: React.FC<StageLotteryProps> = ({
   projects,
   dataVersion,
@@ -63,14 +44,20 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
 }) => {
   const request = useApiRequest();
   const mounted = useRef(true);
+  const animationReveal = useRef<(() => void) | null>(null);
+  const handleAnimationReveal = useCallback(() => {
+    animationReveal.current?.();
+    animationReveal.current = null;
+  }, []);
   useEffect(() => {
     mounted.current = true;
-    return () => { mounted.current = false; };
-  }, []);
+    return () => { mounted.current = false; handleAnimationReveal(); };
+  }, [handleAnimationReveal]);
   const [selectedFields, setSelectedFields] = useState<string[] | null>(null);
   const selectedField = selectedFields === null ? 'ALL' : selectedFields.join('、');
   const includesField = (field: string) => selectedFields === null || selectedFields.includes(field);
   const changeFields = (fields: string[] | null) => { setSelectedFields(fields); setBatchDrawSummary(null); setBoardDomainFilter('ALL'); };
+  const [animationDuration, setAnimationDuration] = useState(900);
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [autoCarousel, setAutoCarousel] = useState(true);
@@ -202,16 +189,19 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
     if (undrawnPool.length === 0 || isAnimating) return;
     if (dataVersion === null) { setNoticeMessage('資料尚未載入，請重新整理後再試。'); return; }
 
+    const duration = pupLotteryDuration();
+    const revealReady = new Promise<void>(resolve => { animationReveal.current = resolve; });
+    setAnimationDuration(duration);
     setIsAnimating(true);
     setBatchDrawSummary(null);
     try {
-      // Keep the presentation visible briefly, but only show results returned by the backend.
+      // Reveal only after the supplied animation finishes and the backend saves successfully.
       const [backendResult] = await Promise.all([
         request<StoreState & { summary: string }>('/api/lottery/draw', {
           fields: drawFields,
           version: dataVersion,
         }),
-        new Promise<void>((resolve) => setTimeout(resolve, MIN_DRAW_MS)),
+        revealReady,
       ]);
       if (!mounted.current) return;
       if (!Array.isArray(backendResult.projects)) throw new Error('抽籤回應格式不正確。');
@@ -230,7 +220,8 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       if (isApiRequestCancelled(apiErr)) return;
       setNoticeMessage(apiErr instanceof Error ? apiErr.message : '抽籤失敗，請重新整理後再試。');
     } finally {
-      setIsAnimating(false);
+      handleAnimationReveal();
+      if (mounted.current) setIsAnimating(false);
     }
   };
 
@@ -344,12 +335,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
           {isAnimating ? (
             <div className={`${isFullscreen ? 'stage-presentation-animation' : ''} w-full py-3 sm:py-5`}>
               <p className="text-sm font-bold tracking-wide text-blue-700">{selectedField === 'ALL' ? '全校各領域' : selectedField} · 現場抽籤中</p>
-              <PokerShuffle />
-              <div>
-                <h2 className="text-2xl font-black text-slate-900 sm:text-4xl">正在洗牌抽選</h2>
-                <p className="mt-2 text-sm text-slate-600 sm:text-base">場次與順位將在抽籤完成後一同揭曉。</p>
-              </div>
-              <p className="mt-5 text-xs text-slate-500">洗牌為展示動畫，正式結果由後端產生並儲存。</p>
+              <PupLotteryAnimation duration={animationDuration} onReveal={handleAnimationReveal} />
             </div>
           ) : isFullscreen ? (
             <div className="stage-presentation-ready">
