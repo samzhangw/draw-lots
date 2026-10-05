@@ -99,8 +99,8 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
       </div>}
       <div className={`result-carousel-list ${pageSize === 10 ? 'result-carousel-list--two-columns' : ''}`} ref={listRef} onWheel={() => setPlaying(false)} onTouchMove={() => setPlaying(false)} style={{ '--result-rows': 5 } as React.CSSProperties}>
         {slide?.items.map((item) => <article className="result-carousel-row" key={item.id}>
-          <div className="result-carousel-order"><small>報告順位</small><strong>{String(item.draw_order).padStart(2, '0')}</strong></div>
-          <div className="result-carousel-project"><span>{item.draw_code || '編號未設定'}</span><h3>{item.project_title}</h3></div>
+          <div className="result-carousel-order"><small>編號</small><strong>{item.draw_code || '編號未設定'}</strong></div>
+          <div className="result-carousel-project"><h3>{item.project_title}</h3></div>
         </article>)}
         {!slide && <p className="result-carousel-empty">請先完成抽籤，再開始展示。</p>}
       </div>

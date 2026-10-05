@@ -297,7 +297,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               <div className="min-w-0">
                 <p className="text-[11px] sm:text-xs font-semibold tracking-wide text-blue-700">國立臺中科技大學 · 資訊與流通學院</p>
                 <h1 className="mt-1 text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight">專題報告抽籤現場</h1>
-                <p className="mt-1 text-xs sm:text-sm text-slate-600">各領域獨立分組，現場同步公布發表順位</p>
+                <p className="mt-1 text-xs sm:text-sm text-slate-600">各領域獨立分組，現場同步公布編號</p>
               </div>
             </div>
           </div>
@@ -343,7 +343,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                 <div className="stage-presentation-intro">
                   <div className="stage-presentation-title">
                     <p className="stage-presentation-scope">{selectedField === 'ALL' ? '全校各領域' : selectedFields?.length === 0 ? '尚未選擇領域' : selectedFields?.length === 1 ? selectedField : `本次已選 ${selectedFields?.length} 個領域`}</p>
-                    <h2>{currentPool.length === 0 ? selectedFields?.length === 0 ? '請勾選抽籤領域' : '尚無專題資料' : undrawnPool.length ? '準備開始抽籤' : '報告場次與順位已排定'}</h2>
+                    <h2>{currentPool.length === 0 ? selectedFields?.length === 0 ? '請勾選抽籤領域' : '尚無專題資料' : undrawnPool.length ? '準備開始抽籤' : '報告場次與編號已排定'}</h2>
                   </div>
                 </div>
                 <div className="stage-presentation-counts" role="group" aria-label="本次抽籤數量">
@@ -369,7 +369,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                       {selectedField === 'ALL' ? '全校各領域抽籤完成' : `「${selectedField}」領域抽籤完成`}
                     </p>
                     <h2 className="mt-1 text-2xl font-black leading-tight tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">
-                      報告場次與順位已排定
+                      報告場次與編號已排定
                     </h2>
                     <p className="mt-3 text-sm font-medium text-slate-600 sm:text-base">{batchDrawSummary}</p>
                   </div>
@@ -431,7 +431,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                       {currentPool.length === 0
                         ? selectedFields?.length === 0 ? '請從抽籤範圍選擇至少一個領域。' : '請先在管理後台匯入專題資料，完成後即可在此進行抽籤。'
                         : undrawnPool.length === 0
-                        ? '場次與報告順位已排定，請查看下方結果看板。'
+                        ? '場次與編號已排定，請查看下方結果看板。'
                         : '各領域依設定組數獨立分組，並排定各組的報告順序。'}
                     </p>
                   </div>
@@ -516,7 +516,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                 <span>分組與報告順序</span>
               </h3>
               <p className="mt-1 text-sm text-slate-600 sm:text-base">
-                依領域與場次排列；各組報告順位由第一位起算
+                依領域與場次排列；編號於各領域內跨組連續編號
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -700,7 +700,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                                     第 {g} 組報告場次
                                   </div>
                                   <div className="text-sm text-slate-600 font-mono">
-                                    發表順位 01 ~ {String(groupItems.length).padStart(2, '0')}
+                                    編號 {groupItems.length ? `${groupItems[0].draw_code || '編號未設定'} ~ ${groupItems[groupItems.length - 1].draw_code || '編號未設定'}` : '尚無資料'}
                                   </div>
                                 </div>
                               </div>
@@ -728,22 +728,19 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                                           : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-xs'
                                       }`}
                                     >
-                                      {/* Large Unmistakable Sequence Badge */}
-                                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl text-white flex flex-col items-center justify-center shrink-0 shadow-xs bg-rose-700">
+                                      {/* Prominent draw code badge */}
+                                      <div className="min-w-24 min-h-20 px-3 py-4 rounded-xl text-white flex flex-col items-center justify-center shrink-0 shadow-xs bg-rose-700">
                                         <span className="text-xs font-semibold tracking-wider leading-none">
-                                          順位
+                                          編號
                                         </span>
                                         <span className="text-2xl sm:text-3xl font-black font-mono leading-none mt-1">
-                                          {String(item.draw_order).padStart(2, '0')}
+                                          {item.draw_code || '編號未設定'}
                                         </span>
                                       </div>
 
                                       {/* Project Details */}
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-                                          <span className="max-w-full break-all text-xs sm:text-sm font-bold font-mono text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                                            {item.draw_code}
-                                          </span>
                                           {matched && (
                                             <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.2 rounded animate-pulse">
                                               搜尋結果
@@ -774,9 +771,8 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                       <table className="w-full text-left text-xs sm:text-sm min-w-[500px]">
                         <thead>
                           <tr className="bg-blue-50 text-blue-950 text-xs font-semibold border-b border-blue-200">
-                            <th className="py-2.5 px-3 whitespace-nowrap">報告順位</th>
+                            <th className="py-2.5 px-3 whitespace-nowrap">編號</th>
                             <th className="py-2.5 px-3 whitespace-nowrap">分組場次</th>
-                            <th className="py-2.5 px-3 whitespace-nowrap">抽籤編號</th>
                             <th className="py-2.5 px-3">專題名稱</th>
                           </tr>
                         </thead>
@@ -801,16 +797,13 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                                 >
                                   <td className="py-2.5 px-3 whitespace-nowrap">
                                     <span className="font-mono font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                                      第 {String(item.draw_order).padStart(2, '0')} 位
+                                      {item.draw_code || '編號未設定'}
                                     </span>
                                   </td>
                                   <td className="py-2.5 px-3 whitespace-nowrap font-mono text-xs">
                                     <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
                                       第 {item.assigned_group} 組
                                     </span>
-                                  </td>
-                                  <td className="py-2.5 px-3 whitespace-nowrap font-mono text-xs font-bold text-slate-800">
-                                    {item.draw_code}
                                   </td>
                                   <td className="py-2.5 px-3 max-w-xs sm:max-w-md truncate font-medium">
                                     {item.project_title}
@@ -872,7 +865,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                   <strong>各領域獨立排序</strong>：每個領域依其設定的「分組組數」分別獨立產生順序（例如：第 1 組、第 2 組等各自從順序 01 起跳）。
                 </li>
                 <li>
-                  <strong>抽籤後編號</strong>：A 企業智慧化、B 數位內容與多媒體應用、C 網路應用與資通安全、D 嵌入式系統與行動計算、E 智慧運算創新應用、F 智慧流通應用與研究、G 進修部。各領域從 01 連續編號，跨組不重複，例如 A01、A02。
+                  <strong>編號</strong>：A 企業智慧化、B 數位內容與多媒體應用、C 網路應用與資通安全、D 嵌入式系統與行動計算、E 智慧運算創新應用、F 智慧流通應用與研究、G 進修部。各領域從 01 連續編號，跨組不重複，例如 A01、A02。
                 </li>
                 {domainConfigs.filter(cfg => drawFields.includes(cfg.field) && cfg.groupCapacities).map(cfg => (
                   <li key={cfg.id}><strong>{cfg.field} 指定件數</strong>：{Array.from({ length: cfg.groupCount }, (_, i) => `第 ${i + 1} 組 ${cfg.groupCapacities![i + 1]} 件`).join('、')}。抽籤將同時遵守指定件數與指導老師迴避。</li>
