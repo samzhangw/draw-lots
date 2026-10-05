@@ -722,7 +722,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                                   return (
                                     <div
                                       key={item.id}
-                                      className={`p-4 sm:p-5 rounded-xl border transition-all text-left flex items-start gap-4 ${
+                                      className={`p-4 sm:p-5 rounded-xl border transition-all text-left flex items-center gap-4 ${
                                         matched
                                           ? 'bg-blue-50/90 border-blue-400 ring-2 ring-blue-300 shadow-md scale-[1.01]'
                                           : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-xs'
@@ -740,13 +740,13 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
 
                                       {/* Project Details */}
                                       <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-                                          {matched && (
+                                        {matched && (
+                                          <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                                             <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.2 rounded animate-pulse">
                                               搜尋結果
                                             </span>
-                                          )}
-                                        </div>
+                                          </div>
+                                        )}
 
                                         <h5
                                           className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-950 leading-snug break-words"
