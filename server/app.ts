@@ -168,7 +168,7 @@ app.post('/api/student/verify', loginLimiter('student', 10, 1200), loginRoute('s
   const store = createStore();
   let project = await store.findProject('leader_key', leaderId.trim().toLowerCase());
   const valid = await verifyStudentPassword(password, project);
-  if (!valid || !project) throw new ApiError(401, '學號或密碼不正確，尚未設定密碼者請洽大會管理員。');
+  if (!valid || !project) throw new ApiError(401, '學號或密碼不正確，若仍無法登入，請洽大會管理員。');
   // The RPC rechecks credentials and replaces the session atomically.
   project = await createStudentSession(req, res, project);
   res.json({ success: true, sharedPasswordMode: project.shared_password_mode === true, project: project.shared_password_mode ? publicStudentProjectDto(project) : studentProjectDto(project) });
