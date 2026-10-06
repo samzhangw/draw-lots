@@ -96,6 +96,7 @@ const port = (reserve.address() as { port: number }).port;
 await new Promise<void>(resolve => reserve.close(() => resolve()));
 const persistence = await mkdtemp(join(tmpdir(), 'lottery-login-load-'));
 const env = { ...process.env, NODE_ENV: 'production', PORT: String(port), SUPABASE_URL: `http://127.0.0.1:${mockPort}`,
+  CAMPUS_NETWORK_ONLY: process.env.CAMPUS_NETWORK_ONLY,
   SUPABASE_SECRET_KEY: 'local-load-test-secret', SUPABASE_PUBLISHABLE_KEY: 'local-load-test-publishable',
   CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: 'false', WRANGLER_SEND_METRICS: 'false' };
 if (mode === 'Workers') process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // Local self-signed cert only.
@@ -103,6 +104,7 @@ const args = mode === 'Workers' ? ['node_modules/wrangler/bin/wrangler.js', 'dev
   '--local-protocol', 'https', '--persist-to', persistence,
   '--var', `SUPABASE_URL:${env.SUPABASE_URL}`, '--var', `SUPABASE_SECRET_KEY:${env.SUPABASE_SECRET_KEY}`,
   '--var', `SUPABASE_PUBLISHABLE_KEY:${env.SUPABASE_PUBLISHABLE_KEY}`,
+  ...(process.env.CAMPUS_NETWORK_ONLY ? ['--var', `CAMPUS_NETWORK_ONLY:${process.env.CAMPUS_NETWORK_ONLY}`] : []),
   ...(process.env.PASSWORD_HASH_CONCURRENCY ? ['--var', `PASSWORD_HASH_CONCURRENCY:${process.env.PASSWORD_HASH_CONCURRENCY}`] : [])] : ['scripts/start-server.mjs'];
 let child: ChildProcess | undefined; let log = '';
 const base = `${mode === 'Workers' ? 'https' : 'http'}://127.0.0.1:${port}`;
@@ -227,7 +229,7 @@ try {
     while (requestTimes[right] - requestTimes[left] >= 1000) left++;
     peakRequestsPerSecond = Math.max(peakRequestsPerSecond, right - left + 1);
   }
-  const result = { mode, students: count, sameSourceIp: true, sharedPassword, cacheInitiallyCold: true, connectionsPrewarmed: true, workerPoolWarmupErrors: warmupErrors,
+  const result = { mode, students: count, campusNetworkOnly: env.CAMPUS_NETWORK_ONLY === 'true', sameSourceIp: true, sharedPassword, cacheInitiallyCold: true, connectionsPrewarmed: true, workerPoolWarmupErrors: warmupErrors,
     studentLoginAdmission: STUDENT_LOGIN_LIMITS, sessionWorkLimits: SESSION_WORK_LIMITS,
     passwordHashLimits: passwordHashLimits({ ...env, ...(mode === 'Workers' ? { LOGIN_LIMITER: {} as any } : {}) }),
     apiTimeouts: API_TIMEOUTS, simulatedDatabaseDelayMs: delayMs, simulatedQueryDelayMs: queryDelayMs, nodeVersion: process.version,
