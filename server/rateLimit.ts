@@ -4,6 +4,8 @@ import { fingerprint } from './credentials';
 import { runtimeEnv } from './runtime';
 import { ApiError } from './errors';
 import { readSessionToken, type SessionScope } from './sessionSecurity';
+import { issueLoginChallenge, verifyLoginProof } from './loginChallenge';
+import { decideLoginBudgets, type LoginDecision } from './loginBudgets';
 
 type Budget = { key: string; limit: number };
 type Buckets = Map<string, { count: number; resetAt: number }>;
@@ -66,17 +68,52 @@ function clientIp(req: Request): string {
   return runtimeEnv().LOGIN_LIMITER ? req.get('cf-connecting-ip') || req.ip || 'unknown' : req.ip || 'unknown';
 }
 export function loginLimiter(scope: 'staff' | 'student', accountLimit = 10, ipLimit = 100, windowMs = 15 * 60 * 1000) {
-  return limited(req => {
+  const buckets: Buckets = new Map();
+  let nextSweep = 0;
+  return (req: Request, res: Response, next: NextFunction) => { void (async () => {
     const rawAccount = scope === 'staff' ? req.body?.username : req.body?.leaderId;
     const maxLength = scope === 'staff' ? 256 : 128;
     if (typeof rawAccount !== 'string' || !rawAccount.trim() || rawAccount.length > maxLength) {
       throw new ApiError(400, scope === 'staff' ? '請輸入有效的登入 Email。' : '請輸入有效的組長學號。');
     }
-    return [
-      { key: `${scope}:account:${fingerprint(rawAccount.trim().toLowerCase())}`, limit: accountLimit },
-      { key: `${scope}:ip:${fingerprint(clientIp(req))}`, limit: ipLimit },
+    const context = { scope, account: rawAccount.trim().toLowerCase(), ip: clientIp(req), password: typeof req.body?.password === 'string' ? req.body.password : '' };
+    const entries = [
+      { key: `${scope}:ip:${fingerprint(context.ip)}`, limit: ipLimit },
+      { key: `${scope}:account:${fingerprint(context.account)}`, limit: accountLimit },
     ];
-  }, windowMs, '登入嘗試過於頻繁，請稍後再試。');
+    const proof = verifyLoginProof(req.body?.loginProof, context);
+    const now = Date.now();
+    const shared = runtimeEnv().LOGIN_LIMITER;
+    let decision: LoginDecision;
+    if (shared) {
+      // All account/IP updates for this scope share one transactional object.
+      const result = await shared.get(shared.idFromName(`login-budgets-v2:${scope}`)).fetch('https://limiter/check', {
+        method: 'POST', body: JSON.stringify({ loginBudgets: entries, windowMs, proof }), signal: AbortSignal.timeout(2000) as unknown as WorkerAbortSignal,
+      }).catch(() => { throw new ApiError(503, '限流服務暫時無法使用。'); });
+      if (!result.ok) throw new ApiError(503, '限流服務暫時無法使用。');
+      decision = await result.json() as LoginDecision;
+    } else {
+      if (now >= nextSweep) {
+        for (const [key, bucket] of buckets) if (bucket.resetAt <= now) buckets.delete(key);
+        nextSweep = now + 1000;
+      }
+      const result = decideLoginBudgets(entries, buckets, now, windowMs, proof);
+      decision = result.decision;
+      if (result.updates) {
+        const additions = entries.filter(b => !buckets.has(b.key)).length;
+        if (buckets.size + additions > 10000) throw new ApiError(503, '限流服務暫時無法使用。');
+        for (const [key, value] of result.updates) buckets.set(key, value);
+      }
+    }
+    if (decision.challenge) {
+      res.status(429).json({ success: false, error: '登入需要額外驗證，請稍後再試。', loginChallenge: issueLoginChallenge(context) }); return;
+    }
+    if (!decision.success) {
+      res.setHeader('Retry-After', decision.retryAfter);
+      res.status(429).json({ success: false, error: '登入嘗試過於頻繁，請稍後再試。' }); return;
+    }
+    next();
+  })().catch(next); };
 }
 
 export function anonymousLimiter(scope: 'health', ipLimit: number, globalLimit: number) {

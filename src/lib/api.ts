@@ -58,12 +58,13 @@ export async function apiRequest<T = StoreState>(url: string, body?: Record<stri
     // response from changing auth/state if a transport ignores cancellation.
     const { res, data } = await Promise.race([
       (async () => {
+        let requestBody = body;
         for (let attempt = 0; ; attempt++) {
           let res: Response;
           try {
             res = await fetch(url, {
               method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', signal: controller.signal,
-              ...(body ? { body: JSON.stringify(body) } : {}),
+              ...(requestBody ? { body: JSON.stringify(requestBody) } : {}),
             });
           } catch (error) {
             const delay = 500 + Math.floor(Math.random() * 1000);
@@ -74,6 +75,17 @@ export async function apiRequest<T = StoreState>(url: string, body?: Record<stri
             throw error;
           }
           const data = await res.json().catch(error => { if (controller.signal.aborted) throw error; return null; });
+          if (attempt === 0 && res.status === 429 && data?.loginChallenge && body && ['/api/student/verify', '/api/auth/verify'].includes(url)) {
+            // This response is emitted before credential/session work; only this
+            // explicit challenge permits resubmission. Network errors never do.
+            const { solveLoginChallenge } = await import('./loginProof');
+            const loginProof = await solveLoginChallenge(data.loginChallenge, controller.signal).catch(error => {
+              if (controller.signal.aborted) throw error;
+              throw new ApiRequestError('登入驗證無法完成，請稍後再試。', 429);
+            });
+            if (controller.signal.aborted) throw new ApiRequestCancelledError();
+            requestBody = { ...body, loginProof }; continue;
+          }
           if (attempt === 0 && res.status === 503) {
             const header = res.headers.get('Retry-After');
             const base = header === null ? 2000 : /^\d+$/.test(header) ? Number(header) * 1000 : Infinity;
