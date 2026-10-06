@@ -59,12 +59,11 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   const changeFields = (fields: string[] | null) => { setSelectedFields(fields); setBatchDrawSummary(null); setBoardDomainFilter('ALL'); };
   const [animationDuration, setAnimationDuration] = useState(900);
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
+  // 是否播放抽籤動畫（預設關閉，關閉時抽完直接顯示結果）
+  const [showDrawAnimation, setShowDrawAnimation] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [autoCarousel, setAutoCarousel] = useState(true);
   const [carouselScope, setCarouselScope] = useState<string | string[] | null>(null);
   const fullscreenRef = useRef(false);
-  const autoCarouselRef = useRef(true);
-  autoCarouselRef.current = autoCarousel;
 
   const [batchDrawSummary, setBatchDrawSummary] = useState<string | null>(null);
 
@@ -189,9 +188,11 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
     if (undrawnPool.length === 0 || isAnimating) return;
     if (dataVersion === null) { setNoticeMessage('資料尚未載入，請重新整理後再試。'); return; }
 
-    const duration = pupLotteryDuration();
-    const revealReady = new Promise<void>(resolve => { animationReveal.current = resolve; });
-    setAnimationDuration(duration);
+    const withAnimation = showDrawAnimation;
+    const revealReady = withAnimation
+      ? new Promise<void>(resolve => { animationReveal.current = resolve; })
+      : Promise.resolve();
+    if (withAnimation) setAnimationDuration(pupLotteryDuration());
     setIsAnimating(true);
     setBatchDrawSummary(null);
     try {
@@ -213,7 +214,8 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       );
       onApplyState(backendResult);
       triggerCelebration();
-      if (fullscreenRef.current && autoCarouselRef.current) {
+      // 全螢幕展示時，抽籤完成一律自動輪播結果
+      if (fullscreenRef.current) {
         setCarouselScope([...drawFields]);
       }
     } catch (apiErr) {
@@ -335,7 +337,12 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
           {isAnimating ? (
             <div className={`${isFullscreen ? 'stage-presentation-animation' : ''} w-full py-3 sm:py-5`}>
               <p className="text-sm font-bold tracking-wide text-blue-700">{selectedField === 'ALL' ? '全校各領域' : selectedField} · 現場抽籤中</p>
-              <PupLotteryAnimation duration={animationDuration} onReveal={handleAnimationReveal} />
+              {showDrawAnimation
+                ? <PupLotteryAnimation duration={animationDuration} onReveal={handleAnimationReveal} />
+                : <div className="flex flex-col items-center gap-3 py-10" role="status">
+                    <div className="h-10 w-10 rounded-full border-4 border-blue-100 border-t-blue-700 animate-spin" aria-hidden="true" />
+                    <span className="text-base font-bold text-slate-600">正在產生抽籤結果…</span>
+                  </div>}
             </div>
           ) : isFullscreen ? (
             <div className="stage-presentation-ready">
@@ -493,8 +500,8 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
           {isFullscreen && drawnPool.length > 0 && !isAnimating && <button type="button" onClick={openCarousel} className="stage-presentation-play"><Play size={22} />輪播結果</button>}
           </div>
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-600 cursor-pointer">
-            <input type="checkbox" checked={autoCarousel} onChange={(event) => setAutoCarousel(event.target.checked)} className="h-4 w-4 accent-blue-700" />
-            全螢幕展示時，抽籤完成自動輪播結果
+            <input type="checkbox" checked={showDrawAnimation} disabled={isAnimating} onChange={(event) => setShowDrawAnimation(event.target.checked)} className="h-4 w-4 accent-blue-700" />
+            播放抽籤動畫
           </label>
         </div>
       </section>
