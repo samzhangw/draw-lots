@@ -67,6 +67,9 @@ function clientIp(req: Request): string {
   // Cloudflare supplies this header; Node uses its socket address.
   return runtimeEnv().LOGIN_LIMITER ? req.get('cf-connecting-ip') || req.ip || 'unknown' : req.ip || 'unknown';
 }
+function campusStudent(scope: SessionScope): boolean {
+  return scope === 'student' && runtimeEnv().CAMPUS_NETWORK_ONLY === 'true';
+}
 export function loginLimiter(scope: 'staff' | 'student', accountLimit = 10, ipLimit = 100, windowMs = 15 * 60 * 1000) {
   const buckets: Buckets = new Map();
   let nextSweep = 0;
@@ -78,7 +81,7 @@ export function loginLimiter(scope: 'staff' | 'student', accountLimit = 10, ipLi
     }
     const context = { scope, account: rawAccount.trim().toLowerCase(), ip: clientIp(req), password: typeof req.body?.password === 'string' ? req.body.password : '' };
     const entries = [
-      { key: `${scope}:ip:${fingerprint(context.ip)}`, limit: ipLimit },
+      ...(campusStudent(scope) ? [] : [{ key: `${scope}:ip:${fingerprint(context.ip)}`, limit: ipLimit }]),
       { key: `${scope}:account:${fingerprint(context.account)}`, limit: accountLimit },
     ];
     const proof = verifyLoginProof(req.body?.loginProof, context);
@@ -129,7 +132,7 @@ export function sessionLimiter(scope: SessionScope, tokenLimit = 600, ipLimit = 
     if (!token) throw new ApiError(401, '請重新登入。');
     return [
       { key: `session:${scope}:token:${fingerprint(token)}`, limit: tokenLimit },
-      { key: `session:${scope}:ip:${fingerprint(clientIp(req))}`, limit: ipLimit },
+      ...(campusStudent(scope) ? [] : [{ key: `session:${scope}:ip:${fingerprint(clientIp(req))}`, limit: ipLimit }]),
       { key: 'session:global', limit: globalLimit },
     ];
   }, 60000, '查詢或操作過於頻繁，請稍後再試。', sessionBuckets, true);

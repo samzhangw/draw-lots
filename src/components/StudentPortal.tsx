@@ -15,6 +15,7 @@ import {
   Eye,
   EyeOff,
   LogIn,
+  LogOut,
   Hash,
   LoaderCircle,
 } from 'lucide-react';
@@ -226,8 +227,10 @@ export const StudentPortal: React.FC = () => {
                 disabled={isLoading}
                 className="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2.5 text-[13px] font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60 sm:w-auto sm:px-3.5 sm:text-sm"
               >
-                {loadingAction === 'logout' && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
-                {loadingAction === 'logout' ? '登出中…' : '登出／切換學號'}
+                {loadingAction === 'logout'
+                  ? <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                  : <LogOut className="h-4 w-4" aria-hidden="true" />}
+                {loadingAction === 'logout' ? '登出中…' : '登出'}
               </button>
             </div>
           </div>

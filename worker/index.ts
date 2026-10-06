@@ -80,7 +80,9 @@ export class LoginLimiter {
   }
   private async checkLoginBudgets(budgets: LoginBudget[], windowMs: number, proof: boolean) {
     const first = /^(staff|student):ip:[a-f0-9]{64}$/.exec(budgets[0]?.key || '');
-    if (budgets.length !== 2 || !first || !new RegExp(`^${first[1]}:account:[a-f0-9]{64}$`).test(budgets[1].key)
+    const validKeys = (budgets.length === 1 && /^student:account:[a-f0-9]{64}$/.test(budgets[0].key))
+      || (budgets.length === 2 && first && new RegExp(`^${first[1]}:account:[a-f0-9]{64}$`).test(budgets[1].key));
+    if (!validKeys
       || windowMs !== 900000 || budgets.some(b => !Number.isInteger(b.limit) || b.limit < 1)) return new Response('Invalid login budgets', { status: 400 });
     const now = Date.now();
     const decision = await this.ctx.storage.transaction(async tx => {
@@ -108,8 +110,12 @@ export class LoginLimiter {
     return Response.json(decision);
   }
   private async checkSessionBudgets(budgets: Array<{ key: string; limit: number }>, windowMs: number) {
-    // Session requests have exactly three server-generated budgets; callers are internal bindings.
-    if (budgets.length !== 3 || windowMs !== 60000 || budgets.some(b => !b.key.startsWith('session:') || !Number.isInteger(b.limit) || b.limit < 1)) return new Response('Invalid budgets', { status: 400 });
+    // Campus students omit the IP budget. Token and aggregate budgets remain mandatory.
+    const scope = /^session:(staff|student):token:[a-f0-9]{64}$/.exec(budgets[0]?.key || '');
+    const validKeys = scope && budgets.at(-1)?.key === 'session:global'
+      && ((budgets.length === 2 && scope[1] === 'student')
+        || (budgets.length === 3 && new RegExp(`^session:${scope[1]}:ip:[a-f0-9]{64}$`).test(budgets[1].key)));
+    if (!validKeys || windowMs !== 60000 || budgets.some(b => !Number.isInteger(b.limit) || b.limit < 1)) return new Response('Invalid budgets', { status: 400 });
     const now = Date.now();
     const result = await this.ctx.storage.transaction(async tx => {
       const resetAt = await tx.get<number>('resetAt');

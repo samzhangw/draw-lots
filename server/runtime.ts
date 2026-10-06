@@ -9,6 +9,7 @@ export interface RuntimeEnvironment {
   SUPABASE_ANON_KEY?: string;
   NODE_ENV?: string;
   PASSWORD_HASH_CONCURRENCY?: string;
+  CAMPUS_NETWORK_ONLY?: string;
   LOGIN_LIMITER?: DurableObjectNamespace;
 }
 const context = new AsyncLocalStorage<RuntimeEnvironment>();
