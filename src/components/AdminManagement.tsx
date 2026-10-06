@@ -644,7 +644,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       {/* Page title */}
       <div className="flex items-center gap-3 pb-1">
         <img
-          src="/android-chrome-512x512.png"
+          width={64} height={64} src="/college-logo-64.webp" srcSet="/college-logo-64.webp 1x, /college-logo-128.webp 2x"
           alt="國立臺中科技大學 資訊與流通學院"
           className="h-10 sm:h-11 w-auto object-contain shrink-0"
         />

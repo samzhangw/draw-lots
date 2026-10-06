@@ -137,7 +137,7 @@ export const StudentPortal: React.FC = () => {
           <div className="absolute right-36 bottom-0 h-28 w-28 rounded-full bg-amber-100/70 blur-2xl pointer-events-none" />
           <div className="relative flex items-start gap-4 sm:gap-6">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-white p-1.5 shadow-sm sm:h-16 sm:w-16 sm:rounded-2xl sm:p-2">
-              <img src="/android-chrome-512x512.png" alt="國立臺中科技大學 資訊與流通學院" className="max-h-full max-w-full object-contain" />
+              <img width={64} height={64} src="/college-logo-64.webp" srcSet="/college-logo-64.webp 1x, /college-logo-128.webp 2x" alt="國立臺中科技大學 資訊與流通學院" className="max-h-full max-w-full object-contain" />
             </div>
             <div className="min-w-0">
               <p className="text-xs sm:text-sm font-semibold text-blue-700">國立臺中科技大學 · 資訊與流通學院</p>

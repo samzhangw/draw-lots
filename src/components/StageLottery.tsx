@@ -274,7 +274,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       <div hidden={carouselScope !== null} className={isFullscreen ? 'stage-fullscreen-layout' : 'space-y-5 sm:space-y-7'}>
       {isFullscreen && <header className="stage-presentation-header">
         <div className="stage-presentation-brand">
-          <img className="stage-presentation-logo" src="/android-chrome-512x512.png" alt="專題報告抽籤系統圖標" width={56} height={56} />
+          <img className="stage-presentation-logo" src="/college-logo-64.webp" srcSet="/college-logo-64.webp 1x, /college-logo-128.webp 2x" alt="專題報告抽籤系統圖標" width={56} height={56} />
           <div><p>國立臺中科技大學 · 資訊與流通學院</p><h1>專題報告抽籤現場</h1></div>
         </div>
         <div className="stage-presentation-tools">
@@ -294,7 +294,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
             <div className="flex items-center gap-4 min-w-0">
               <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl border border-slate-100 bg-white flex items-center justify-center shrink-0 p-2 shadow-sm">
-                <img src="/android-chrome-512x512.png" alt="國立臺中科技大學 資訊與流通學院" className="max-h-full max-w-full object-contain" />
+                <img width={64} height={64} src="/college-logo-64.webp" srcSet="/college-logo-64.webp 1x, /college-logo-128.webp 2x" alt="國立臺中科技大學 資訊與流通學院" className="max-h-full max-w-full object-contain" />
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] sm:text-xs font-semibold tracking-wide text-blue-700">國立臺中科技大學 · 資訊與流通學院</p>

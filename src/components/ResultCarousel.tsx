@@ -81,7 +81,7 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
     <section className="result-carousel" role="dialog" aria-modal="true" aria-label="抽籤結果輪播">
       <header className="result-carousel-header">
         <div className="result-carousel-heading">
-          <img className="result-carousel-logo" src="/android-chrome-512x512.png" alt="專題報告抽籤系統圖標" width={64} height={64} />
+          <img className="result-carousel-logo" src="/college-logo-64.webp" srcSet="/college-logo-64.webp 1x, /college-logo-128.webp 2x" alt="專題報告抽籤系統圖標" width={64} height={64} />
           <div className="result-carousel-heading-text">
             <p>國立臺中科技大學 · 專題報告抽籤結果</p>
             <h2>{slide?.field ?? '目前沒有可展示的抽籤結果'}</h2>
