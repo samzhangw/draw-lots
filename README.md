@@ -54,8 +54,8 @@ React + Vite 前端，Express API 統一使用 Supabase Database 與 Supabase Au
 - 每件專題以 JSONB 獨立儲存於 `ntcust_projects`，保留 `assigned_group`、`evaluators` 等欄位；`ntcust_lottery_state` 儲存領域、評審設定與資料版本。整份名冊取代時，刪除與清空也會同步生效。
 - 每次修改以 `version` 比對更新，名冊與設定在同一個資料庫操作提交。其他裝置已更新時回傳 HTTP 409，請重新載入後再操作。
 - 匿名 `/api/health` 只回 status，使用小型 HEAD 查詢與 2 秒後端快取；每 IP 每分鐘最多 120 次，全站 3600 次。Workers 使用共享 Durable Object 計數，Node 單行程使用有上限的記憶體計數。超限回 429 與 Retry-After。
-- 登入 JSON 上限 4 KB，其他小操作 64 KB。名冊寫入先驗證管理員才解析最多 5 MB，另限制文字欄位、領域與評審數量。學生登入每個行程／isolate 最多 16 件執行、768 件等待，等待最多 30 秒；工作人員為 2 件執行、8 件等待、3 秒，兩者獨立。限流先於入隊，查榜不進登入隊列。
-- scrypt 在同一行程／isolate 一次只執行 1 件、最多等待 32 件／8 秒，涵蓋學生登入、個別密碼更新與共用密碼產生；避免多個 ApiBackend 物件同時耗用雜湊記憶體。滿載或等待逾時回 503 與 Retry-After: 2。Supabase 請求設 5 秒期限；匿名快取刷新也有總共 5 秒期限，不會快取失敗回應。
+- 登入 JSON 上限 4 KB，其他小操作 64 KB。名冊寫入先驗證管理員才解析最多 5 MB，另限制文字欄位、領域與評審數量。學生登入每個行程／isolate 最多 16 件執行、768 件等待，等待最多 120 秒；工作人員為 2 件執行、8 件等待、3 秒，兩者獨立。限流先於入隊，查榜不進登入隊列。
+- scrypt 在 Node 同一行程預設同時執行 8 件，Workers 同一 isolate 預設仍為 1 件；最多等待 32 件／15 秒，涵蓋學生登入、個別密碼更新與共用密碼產生。密碼強度與隨機 salt 不變。可用 `PASSWORD_HASH_CONCURRENCY` 調整（Node 1–8、Workers 1–2），第一次雜湊才讀取設定，以支援 dotenv／Worker bindings；更改需重啟。Workers 增至 2 前需確認記憶體與 CPU；Node 預設適用於本次規劃的學校 12 核心伺服器，其他主機應依實際資源調低並壓測。增加設定值不保證加速。所有 ApiBackend 在同一 isolate 共享有上限的雜湊 executor。滿載或等待逾時回 503 與 Retry-After: 2。Supabase 請求設 5 秒期限；匿名快取刷新也有總共 5 秒期限，不會快取失敗回應。
 - 學生個別查榜不快取，仍直接讀取自己的專題。這些程式界限不能取代 Cloudflare WAF 或正式容量測試。
 - 登入限流固定以實際認證帳號計數：工作人員使用 Email、學生使用組長學號。額外欄位不能改變限流帳號；同帳號大小寫與前後空白統一，跨 IP 仍共用帳號次數。無效帳號在建立限流桶前拒絕。
 - RLS 與資料表權限禁止瀏覽器直接存取，由 API 查驗後端 session 與 Supabase Auth 身分後讀寫。`admin` 可修改名冊與設定；`stage` 可抽籤及重設。
@@ -113,6 +113,10 @@ npm run build
 NODE_ENV=production npm start
 ```
 
+`npm start` 與 `npm run dev` 透過 `scripts/start-server.mjs` 啟動 Node，在子行程啟動前設定 `UV_THREADPOOL_SIZE`（預設 8）。設定讀取順序為啟動環境、`.env.local`、`.env`，既有設定優先；兩個環境檔仍由伺服器正常讀取。可在環境檔設定 `PASSWORD_HASH_CONCURRENCY`（Node 1–8）及 `UV_THREADPOOL_SIZE` 以調整，修改後需重啟。若既有環境檔寫有 `PASSWORD_HASH_CONCURRENCY=4`，會繼續使用 4；請改為 8 或移除該項才會使用新預設。直接執行 `tsx server.ts` 不經此啟動器，必須自行在啟動前設定執行緒池。
+
+學校伺服器請先以單一 Node 行程、密碼驗證並行 8／執行緒池 8 測試；不要直接將並行數設為 24。以學校網路同一出口 IP 測試 500 個不同帳號登入與同步查詢，確認成功率、P95 延遲、CPU 及 Supabase 延遲後再上線。
+
 ### Cloudflare Workers 部署
 
 目前部署網址：[學生查榜首頁](https://nutc.cc.cd/)、[管理後台](https://nutc.cc.cd/admin)、[台上抽籤](https://nutc.cc.cd/stage)。備用網域：`special-exhibition-lottery.ymhs0208.workers.dev`。
@@ -163,7 +167,7 @@ npm run dev:cloudflare
 
 Session 負載防護（S09）：學生與工作人員 Cookie 使用綁定用途的 HMAC 簽章，簽章 key 從後端 `SUPABASE_SECRET_KEY`（或 `SUPABASE_SERVICE_ROLE_KEY`）以獨立標記派生，不需新增環境變數。假簽章、舊版無簽章 Cookie 不會查詢或刪除資料庫 session；上線後既有使用者需重新登入，輪替後端 secret 也會使既有 Cookie 失效。所有 Node instances／Workers shards 應使用相同後端 key；簽章有效仍需驗證資料庫到期、密碼版本與角色，不能代替權限驗證。
 
-需要驗證 session 的 API 在資料庫存取前限流：每個 token 每分鐘 600 次、每種 session 的 IP 每分鐘 3000 次、學生與工作人員合計全站每分鐘 12000 次，超出回 429 與 Retry-After。IP 額度保留校園多人共用出口的空間；反向代理環境仍需確認實際來源 IP，不能盲目信任任意 X-Forwarded-For。Node 計數為 process-local，Workers 計數透過既有 LOGIN_LIMITER 共享；Node 多程序部署需另外共用限流儲存。Session 查詢／建立／刪除在同一 process／isolate 共享最多 16 件並行、512 件等待，等待超過 5 秒或佇列滿載回 503 與 Retry-After；並行界限不是跨所有雲端 isolates 的全域上限。
+需要驗證 session 的 API 在資料庫存取前限流：每個 token 每分鐘 600 次、每種 session 的 IP 每分鐘 3000 次、學生與工作人員合計全站每分鐘 12000 次，超出回 429 與 Retry-After。IP 額度保留校園多人共用出口的空間；反向代理環境仍需確認實際來源 IP，不能盲目信任任意 X-Forwarded-For。Node 計數為 process-local，Workers 計數透過既有 LOGIN_LIMITER 共享；Node 多程序部署需另外共用限流儲存。Session 查詢／建立／刪除在同一 process／isolate 共享最多 16 件並行、512 件等待，等待超過 10 秒或佇列滿載回 503 與 Retry-After；並行界限不是跨所有雲端 isolates 的全域上限。
 
 測試使用本機模擬 Supabase HTTP 服務，涵蓋工作人員 cookie／登出撤銷／重啟恢復、匿名讀取限制、學生專題存取、cookie、密碼雜湊／重設／舊密碼停用、API 權限、完整欄位儲存、刪除／清空、抽籤／重設、版本衝突、登入限流與連線失敗，另測試 Excel 匯入匯出。實際 Supabase migration 與雲端連線需填入專案資訊後驗證。
 
@@ -187,7 +191,9 @@ API 內部錯誤僅回傳固定訊息與事件 ID；5xx 不會回傳資料庫錯
 
 ### 前端請求期限與取消
 
-前端 API 讀取最多等候 15 秒，學生／工作人員登入最多 45 秒，寫入最多 60 秒；學生初始登入恢復為 10 秒。期限涵蓋回應標頭與 JSON 讀取，逾時會中止瀏覽器 fetch，顯示中文提示並解除操作的等待狀態。頁面元件卸載會取消其請求，新的名冊讀取取代舊讀取，學生開始登入／更新／登出時會取消舊的登入恢復；關閉抽籤試跑視窗亦取消試跑請求。主動取消不顯示斷線錯誤，取消或逾時的遲到回應不套用狀態。
+前端一般 API 讀取最多等候 15 秒，學生查詢／初始 session 恢復為 30 秒；工作人員登入最多 45 秒、學生登入 180 秒，寫入最多 60 秒。學生較長期限涵蓋登入排隊與密碼驗證；查詢期限也涵蓋未安裝 lookup RPC 時的相容讀取。不代表應每次等滿或保證所有流量都成功。期限涵蓋回應標頭與 JSON 讀取，逾時會中止瀏覽器 fetch，顯示中文提示並解除操作的等待狀態。頁面元件卸載會取消其請求，新的名冊讀取取代舊讀取，學生開始登入／更新／登出時會取消舊的登入恢復；關閉抽籤試跑視窗亦取消試跑請求。主動取消不顯示斷線錯誤，取消或逾時的遲到回應不套用狀態。
+
+只有唯讀 `GET /api/student/me` 在連線失敗（瀏覽器不是離線）或 HTTP 503 時最多重試一次，加入隨機延遲；503 遵守秒數格式的 Retry-After，超過 5 秒、日期格式或原請求剩餘期限不足時不自動重試。等待與重試共用原本的總期限，取消會清除等待，不會額外送出請求。401、429、登入及所有寫入不自動重試。
 
 逾時／取消只中止瀏覽器等候，**不保證伺服器尚未提交寫入**。抽籤、匯入、密碼產生、重設與儲存不會自動重送；收到寫入逾時提示後，先重新載入確認版本與結果，再決定是否重試。新登入也不會被舊請求遲到的 401 清除。一般可預期的網路錯誤與逾時不會觸發整頁錯誤畫面。
 

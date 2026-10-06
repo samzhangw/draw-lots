@@ -8,12 +8,19 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { STUDENT_LOGIN_LIMITS } from '../server/loginAdmission';
-import { hashPassword, fingerprint, type StoredProject } from '../server/credentials';
+import { SESSION_WORK_LIMITS } from '../server/sessionSecurity';
+import { API_TIMEOUTS, requestTimeoutMs } from '../src/lib/api';
+import { hashPassword, fingerprint, publicStudentProjectDto, studentProjectDto, passwordHashLimits, type StoredProject } from '../server/credentials';
 
 const mode = process.argv.includes('--workers') ? 'Workers' : 'Node';
 const delayArg = process.argv.find(arg => arg.startsWith('--db-delay-ms='));
 const delayMs = Number(delayArg?.split('=')[1] || 30);
 if (!Number.isInteger(delayMs) || delayMs < 0 || delayMs > 1000) throw new Error('Database delay must be 0–1000 ms');
+const queryDelayMs = Number(process.argv.find(arg => arg.startsWith('--query-db-delay-ms='))?.split('=')[1] ?? delayMs);
+if (!Number.isInteger(queryDelayMs) || queryDelayMs < 0 || queryDelayMs > 1000) throw new Error('Query database delay must be 0–1000 ms');
+const sharedPassword = !process.argv.includes('--individual-passwords');
+const queryRounds = Number(process.argv.find(arg => arg.startsWith('--query-rounds='))?.split('=')[1] ?? 1);
+if (!Number.isInteger(queryRounds) || queryRounds < 0 || queryRounds > 7) throw new Error('Query rounds must be 0–7');
 const count = Number(process.argv.find(arg => arg.startsWith('--students='))?.split('=')[1] || 300);
 if (!Number.isInteger(count) || count < 1 || count > 1000) throw new Error('Students must be 1–1000');
 const commonPassword = 'local-load-test-password';
@@ -22,7 +29,7 @@ const projects: StoredProject[] = Array.from({ length: count }, (_, n) => ({
   id: `load-project-${n}`, leader_id: `load-student-${n}`, project_title: `測試專題 ${n + 1}`,
   seq_no: String(n + 1), education_system: '四技', department: '測試', class_name: '測試', advisor: '測試老師',
   field: '企業智慧化', original_code: `A${String(n + 1).padStart(2, '0')}`, password_hash: passwordHash,
-  shared_password_mode: true, assigned_group: 1, draw_order: n + 1, draw_code: `A${String(n + 1).padStart(2, '0')}`,
+  shared_password_mode: sharedPassword, assigned_group: 1, draw_order: n + 1, draw_code: `A${String(n + 1).padStart(2, '0')}`,
   draw_time: null, evaluators: [],
 }));
 const byId = new Map(projects.map(p => [p.id, p]));
@@ -44,7 +51,7 @@ const mock = http.createServer(async (req, res) => {
     if (req.method === 'HEAD') {
       type = 'health'; res.setHeader('Content-Range', '0-0/1'); res.end(); return;
     }
-    await sleep(delayMs);
+    await sleep(url.pathname === '/rest/v1/rpc/ntcust_student_lookup' ? queryDelayMs : delayMs);
     if (url.pathname === '/rest/v1/ntcust_projects') {
       const id = url.searchParams.get('id')?.slice(3);
       const leader = url.searchParams.get('leader_key')?.slice(3);
@@ -95,14 +102,16 @@ if (mode === 'Workers') process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // Local
 const args = mode === 'Workers' ? ['node_modules/wrangler/bin/wrangler.js', 'dev', '--ip', '127.0.0.1', '--port', String(port),
   '--local-protocol', 'https', '--persist-to', persistence,
   '--var', `SUPABASE_URL:${env.SUPABASE_URL}`, '--var', `SUPABASE_SECRET_KEY:${env.SUPABASE_SECRET_KEY}`,
-  '--var', `SUPABASE_PUBLISHABLE_KEY:${env.SUPABASE_PUBLISHABLE_KEY}`] : ['--import', 'tsx', 'server.ts'];
+  '--var', `SUPABASE_PUBLISHABLE_KEY:${env.SUPABASE_PUBLISHABLE_KEY}`,
+  ...(process.env.PASSWORD_HASH_CONCURRENCY ? ['--var', `PASSWORD_HASH_CONCURRENCY:${process.env.PASSWORD_HASH_CONCURRENCY}`] : [])] : ['scripts/start-server.mjs'];
 let child: ChildProcess | undefined; let log = '';
 const base = `${mode === 'Workers' ? 'https' : 'http'}://127.0.0.1:${port}`;
 type ApiResponse = { status: number; elapsed: number; data?: any; cookie?: string; retryAfter: number; error?: string };
 const agents = new Map(projects.map(p => [p.leader_id, mode === 'Workers'
   ? new https.Agent({ keepAlive: true, maxSockets: 1, rejectUnauthorized: false })
   : new http.Agent({ keepAlive: true, maxSockets: 1 })]));
-const request = (path: string, body?: Record<string, string>, cookie?: string, agent?: http.Agent, method?: string): Promise<ApiResponse> => {
+let staleConnectionRetries = 0;
+const request = (path: string, body?: Record<string, string>, cookie?: string, agent?: http.Agent, method?: string, transportAttempt = 0): Promise<ApiResponse> => {
   const start = performance.now(); const rawBody = body ? JSON.stringify(body) : undefined;
   return new Promise(resolve => {
     const req = (mode === 'Workers' ? https : http).request(`${base}${path}`, {
@@ -121,8 +130,18 @@ const request = (path: string, body?: Record<string, string>, cookie?: string, a
           cookie: res.headers['set-cookie']?.at(-1)?.split(';')[0], retryAfter: Number(res.headers['retry-after'] || 0) });
       });
     });
-    req.on('error', error => resolve({ status: 0, elapsed: performance.now() - start, error: String(error), retryAfter: 0 }));
-    req.setTimeout(45000, () => req.destroy(new Error('Request timed out')));
+    req.on('error', error => {
+      // Node's low-level client does not replay a GET after an idle keep-alive
+      // socket closes. Retry that specific race once, and report it explicitly.
+      if (transportAttempt === 0 && !body && (!method || method === 'GET') && req.reusedSocket && (error as NodeJS.ErrnoException).code === 'ECONNRESET') {
+        staleConnectionRetries++;
+        const failedMs = performance.now() - start;
+        void request(path, body, cookie, agent, method, 1).then(retried => resolve({ ...retried, elapsed: failedMs + retried.elapsed }));
+        return;
+      }
+      resolve({ status: 0, elapsed: performance.now() - start, error: String(error), retryAfter: 0 });
+    });
+    req.setTimeout(requestTimeoutMs(path, !!body), () => req.destroy(new Error('Request timed out')));
     req.end(rawBody);
   });
 };
@@ -157,12 +176,16 @@ try {
     }
   }
   measured = true;
+  staleConnectionRetries = 0;
   const started = performance.now();
-  const lookups: Array<{ status: number; elapsed: number; matches: boolean }> = [];
+  const lookups: Array<{ status: number; elapsed: number; matches: boolean; error?: string }> = [];
   const query = async (entry: { project: StoredProject; response: ApiResponse }) => {
     const result = await request('/api/student/me', undefined, entry.response.cookie, agents.get(entry.project.leader_id));
-    const matches = result.data?.project?.leader_id === entry.project.leader_id;
-    lookups.push({ status: result.status, elapsed: result.elapsed, matches });
+    // The API intentionally masks leader IDs. Compare the full expected DTO,
+    // including each synthetic student's unique title/code, to detect mixups.
+    const expected = sharedPassword ? publicStudentProjectDto(entry.project) : studentProjectDto(entry.project);
+    const matches = JSON.stringify(result.data?.project) === JSON.stringify(expected);
+    lookups.push({ status: result.status, elapsed: result.elapsed, matches, error: result.error });
   };
   const first = await Promise.all(projects.map(async project => {
     const response = await request('/api/student/verify', { leaderId: project.leader_id, password: commonPassword }, undefined, agents.get(project.leader_id));
@@ -184,26 +207,41 @@ try {
     return retried;
   }));
   const retryOk = retries.filter(r => r.response.status === 200 && r.response.cookie);
-  const elapsedMs = performance.now() - started;
+  const retryPhaseMs = Math.round(performance.now() - retryStarted);
+  const successful = [...firstOk, ...retryOk];
+  const refreshBursts = [];
+  for (let round = 0; round < queryRounds; round++) {
+    const start = performance.now();
+    const before = lookups.length;
+    await Promise.all(successful.map(query));
+    const responses = lookups.slice(before);
+    refreshBursts.push({ round: round + 1, attempted: responses.length, statuses: statuses(responses),
+      successful: responses.filter(r => r.status === 200 && r.matches).length,
+      incorrectResults: responses.filter(r => r.status === 200 && !r.matches).length,
+      sampleErrors: [...new Set(responses.map(r => r.error).filter(Boolean))].slice(0, 5),
+      latency: percentiles(responses.map(r => r.elapsed)), elapsedMs: Math.round(performance.now() - start) });
+  }
   const requestTimes = dbRequests.map(r => r.started).sort((a, b) => a - b);
   let peakRequestsPerSecond = 0; let left = 0;
   for (let right = 0; right < requestTimes.length; right++) {
     while (requestTimes[right] - requestTimes[left] >= 1000) left++;
     peakRequestsPerSecond = Math.max(peakRequestsPerSecond, right - left + 1);
   }
-  const successful = [...firstOk, ...retryOk];
-  const result = { mode, students: count, sameSourceIp: true, sharedPassword: true, cacheInitiallyCold: true, connectionsPrewarmed: true, workerPoolWarmupErrors: warmupErrors,
-    studentLoginAdmission: STUDENT_LOGIN_LIMITS, simulatedDatabaseDelayMs: delayMs, nodeVersion: process.version,
+  const result = { mode, students: count, sameSourceIp: true, sharedPassword, cacheInitiallyCold: true, connectionsPrewarmed: true, workerPoolWarmupErrors: warmupErrors,
+    studentLoginAdmission: STUDENT_LOGIN_LIMITS, sessionWorkLimits: SESSION_WORK_LIMITS,
+    passwordHashLimits: passwordHashLimits({ ...env, ...(mode === 'Workers' ? { LOGIN_LIMITER: {} as any } : {}) }),
+    apiTimeouts: API_TIMEOUTS, simulatedDatabaseDelayMs: delayMs, simulatedQueryDelayMs: queryDelayMs, nodeVersion: process.version,
     firstAttempt: { statuses: statuses(first.map(r => r.response)), successful: firstOk.length,
       successPercent: Number((firstOk.length / count * 100).toFixed(1)), burstMs: Math.round(burstMs),
       successfulLatency: percentiles(firstOk.map(r => r.response.elapsed)), allLatency: percentiles(first.map(r => r.response.elapsed)),
       transportOrNonJsonErrors: first.filter(r => r.response.error).length,
       sampleErrors: [...new Set(first.map(r => r.response.error).filter(Boolean))].slice(0, 5), databaseRequestsIncludingQueries: firstDb },
     oneBusyRetry: { attempted: retries.length, statuses: statuses(retries.map(r => r.response)), additionalSuccessful: retryOk.length,
-      successfulLatency: percentiles(retryOk.map(r => r.response.elapsed)), phaseMs: Math.round(performance.now() - retryStarted) },
+      successfulLatency: percentiles(retryOk.map(r => r.response.elapsed)), phaseMs: retryPhaseMs },
     final: { successfulLogins: successful.length, successfulQueries: lookups.filter(r => r.status === 200 && r.matches).length,
       uniqueCookies: new Set(successful.map(r => r.response.cookie)).size, incorrectStudentResults: lookups.filter(r => r.status === 200 && !r.matches).length,
-      remainingStudents: count - successful.length, elapsedMs: Math.round(elapsedMs), queryStatuses: statuses(lookups), queryLatency: percentiles(lookups.map(r => r.elapsed)) },
+      remainingStudents: count - successful.length, elapsedMs: Math.round(performance.now() - started), queryStatuses: statuses(lookups), queryLatency: percentiles(lookups.map(r => r.elapsed)) },
+    refreshBursts, staleConnectionRetries,
     database: { totalRequests: dbRequests.length, types: dbRequests.reduce<Record<string, number>>((acc, r) => { acc[r.type] = (acc[r.type] || 0) + 1; return acc; }, {}),
       peakConcurrentRequests: dbPeak, peakRequestsPerSecond, latency: percentiles(dbRequests.map(r => r.duration)), persistedSessions: sessions.size },
     limitation: 'Local API benchmark with simulated Supabase HTTP responses; not production Supabase CPU/IO, campus network, or browser rendering. Measures current bounded login queues and limits.' };
