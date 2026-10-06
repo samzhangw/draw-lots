@@ -5,6 +5,7 @@ import { app } from '../server/app';
 import { frontendCacheControl } from '../server/frontendAssets';
 import { withRuntime, type RuntimeEnvironment } from '../server/runtime';
 import { runScheduledMaintenance } from '../server/sessionCleanup';
+import { decideLoginBudgets, type LoginBudget, type LoginBucket } from '../server/loginBudgets';
 
 interface Env extends RuntimeEnvironment { ASSETS: Fetcher; LOGIN_LIMITER: DurableObjectNamespace; API_BACKEND: DurableObjectNamespace; }
 createServer(app).listen(8080);
@@ -62,7 +63,8 @@ export class ApiBackend {
 export class LoginLimiter {
   constructor(private ctx: DurableObjectState) {}
   async fetch(request: Request) {
-    const { limit, windowMs, budgets } = await request.json() as { limit: number; windowMs: number; budgets?: Array<{ key: string; limit: number }> };
+    const { limit, windowMs, budgets, loginBudgets, proof } = await request.json() as { limit: number; windowMs: number; budgets?: Array<{ key: string; limit: number }>; loginBudgets?: LoginBudget[]; proof?: boolean };
+    if (loginBudgets) return this.checkLoginBudgets(loginBudgets, windowMs, proof === true);
     if (budgets) return this.checkSessionBudgets(budgets, windowMs);
     const now = Date.now();
     const result = await this.ctx.storage.transaction(async tx => {
@@ -75,6 +77,35 @@ export class LoginLimiter {
       return { success: true, retryAfter: 0 };
     });
     return Response.json(result);
+  }
+  private async checkLoginBudgets(budgets: LoginBudget[], windowMs: number, proof: boolean) {
+    const first = /^(staff|student):ip:[a-f0-9]{64}$/.exec(budgets[0]?.key || '');
+    if (budgets.length !== 2 || !first || !new RegExp(`^${first[1]}:account:[a-f0-9]{64}$`).test(budgets[1].key)
+      || windowMs !== 900000 || budgets.some(b => !Number.isInteger(b.limit) || b.limit < 1)) return new Response('Invalid login budgets', { status: 400 });
+    const now = Date.now();
+    const decision = await this.ctx.storage.transaction(async tx => {
+      const resetAt = await tx.get<number>('resetAt');
+      if (resetAt && resetAt <= now) {
+        for (;;) {
+          const page = await tx.list({ limit: 1000 });
+          if (!page.size) break;
+          await tx.delete([...page.keys()]);
+        }
+      }
+      const stored = await tx.get<LoginBucket>(budgets.map(b => b.key));
+      const additions = budgets.filter(b => !stored.has(b.key)).length;
+      const expires = resetAt && resetAt > now ? resetAt : now + windowMs;
+      for (const b of budgets) if (!stored.has(b.key)) stored.set(b.key, { count: 0, resetAt: expires });
+      const result = decideLoginBudgets(budgets, stored, now, windowMs, proof);
+      if (result.updates) {
+        const count = await tx.get<number>('count') || 0;
+        if (count + additions > 10000) return { success: false, retryAfter: Math.ceil(((resetAt || now + windowMs) - now) / 1000) };
+        await tx.put({ ...Object.fromEntries(result.updates), count: count + additions, resetAt: expires });
+        await tx.setAlarm(expires);
+      }
+      return result.decision;
+    });
+    return Response.json(decision);
   }
   private async checkSessionBudgets(budgets: Array<{ key: string; limit: number }>, windowMs: number) {
     // Session requests have exactly three server-generated budgets; callers are internal bindings.

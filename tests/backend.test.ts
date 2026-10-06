@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { createStore, validateDomains, validateProjects } from '../server/store';
 import { projectDto, hashPassword, verifyPassword, fingerprint, type StoredProject } from '../server/credentials';
 import type { ProjectItem, DomainConfig } from '../src/types';
+import { solveLoginChallenge } from '../src/lib/loginProof';
 
 const cloudflareTest = process.env.CLOUDFLARE_TEST === '1';
 // Wrangler's local HTTPS certificate is self-signed; only this test process trusts it.
@@ -271,6 +272,12 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const res = await fetch(`${base}${endpoint}`, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', ...((token || cookie) ? { Cookie: [token, cookie].filter(Boolean).join('; ') } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
     return { status: res.status, data: await readJson(res), cookie: res.headers.getSetCookie().at(-1), retryAfter: res.headers.get('retry-after') };
   };
+  const loginRequest = async (endpoint: string, body: Record<string, unknown>, token?: string, cookie?: string) => {
+    const response = await request(endpoint, body, token, cookie);
+    if (response.status !== 429 || !response.data.loginChallenge) return response;
+    const loginProof = await solveLoginChallenge(response.data.loginChallenge, new AbortController().signal);
+    return request(endpoint, { ...body, loginProof }, token, cookie);
+  };
   try {
     const cleanupExpired = 'e'.repeat(64);
     const cleanupActive = 'a'.repeat(64);
@@ -409,6 +416,16 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       username: 'admin-limit@test.local', password: 'wrong-password', targetView: 'admin', leaderId: {},
     });
     assert.equal(blockedExtraField.status, 429);
+    assert.ok(blockedExtraField.data.loginChallenge);
+    const authBeforeChallenge = authRequests;
+    const legitimateBody = { username: 'admin-limit@test.local', password: 'valid-password', targetView: 'admin' };
+    const legitimateChallenge = await request('/api/auth/verify', legitimateBody);
+    assert.equal(legitimateChallenge.status, 429);
+    assert.equal(authRequests, authBeforeChallenge, 'challenge must be issued before contacting Auth');
+    const loginProof = await solveLoginChallenge(legitimateChallenge.data.loginChallenge, new AbortController().signal);
+    assert.equal((await request('/api/auth/verify', { ...legitimateBody, password: 'wrong-password', loginProof })).status, 429, 'proof cannot be reused for another guess');
+    assert.equal(authRequests, authBeforeChallenge);
+    assert.equal((await request('/api/auth/verify', { ...legitimateBody, loginProof })).status, 200, 'valid caller can authenticate despite account risk threshold');
     assert.equal((await request('/api/auth/verify', {
       username: {}, password: 'wrong-password', targetView: 'admin', leaderId: 'valid-extra',
     })).status, 400);
@@ -449,8 +466,13 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal((await request('/api/projects', { projects: [{ ...project, password: '5678' }], version: saved.data.version }, admin)).status, 400);
     assert.equal((await request('/api/projects', { projects: [{ ...project, password_hash: 'forged' }], version: saved.data.version }, admin)).status, 400);
     assert.equal((await request('/api/student/verify', { leaderId: project.leader_id, password: '5678' })).status, 401);
+    for (let n = 0; n < 9; n++) assert.equal((await request('/api/student/verify', { leaderId: project.leader_id, password: 'wrong-password' })).status, 401);
     const readsBeforeLogin = rosterReads;
-    const student = await request('/api/student/verify', { leaderId: `  ${project.leader_id}  `, password: project.password });
+    const studentBody = { leaderId: `  ${project.leader_id}  `, password: project.password };
+    const studentChallenge = await request('/api/student/verify', studentBody);
+    assert.equal(studentChallenge.status, 429);
+    const studentProof = await solveLoginChallenge(studentChallenge.data.loginChallenge, new AbortController().signal);
+    const student = await request('/api/student/verify', { ...studentBody, loginProof: studentProof });
     assert.equal(rosterReads, readsBeforeLogin, 'student login must not read the full roster');
     assert.equal(student.status, 200); assert.equal(student.data.project.password, undefined);
     assert.equal(student.data.project.password_hash, undefined);
@@ -586,9 +608,9 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const changedPassword = await request('/api/projects', { projects: [{ ...renamed.data.projects.find((p: ProjectItem) => p.id === project.id), password: 'A-new-password-123' }], version: renamed.data.version }, admin);
     assert.equal(changedPassword.status, 200); assert.notEqual(state.projects.find(p => p.id === project.id)!.password_hash, previousHash);
     assert.equal((await request('/api/student/me', undefined, undefined, studentCookie)).status, 401);
-    assert.equal((await request('/api/student/verify', { leaderId: project.leader_id, password: project.password })).status, 401);
+    assert.equal((await loginRequest('/api/student/verify', { leaderId: project.leader_id, password: project.password })).status, 401);
     assert.equal(await verifyPassword('A-new-password-123', state.projects.find(p => p.id === project.id)!.password_hash), true);
-    const newLogin = await request('/api/student/verify', { leaderId: project.leader_id, password: 'A-new-password-123' });
+    const newLogin = await loginRequest('/api/student/verify', { leaderId: project.leader_id, password: 'A-new-password-123' });
     assert.equal(newLogin.status, 200, JSON.stringify(newLogin.data));
     const newCookie = newLogin.cookie!.split(';')[0];
     assert.equal((await request('/api/student/logout', {}, undefined, newCookie)).status, 200);
@@ -652,7 +674,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.ok(specialDraw.data.projects.every((p: ProjectItem) => p.draw_order && p.assigned_group));
     // Legacy credentials remain unusable even if SQL migration has not yet scrubbed them.
     state.projects = [{ ...project }];
-    assert.equal((await request('/api/student/verify', { leaderId: project.leader_id, password: project.password })).status, 401);
+    assert.equal((await loginRequest('/api/student/verify', { leaderId: project.leader_id, password: project.password })).status, 401);
     const legacySave = await store.save(await store.load(), state.version);
     assert.equal(legacySave.projects[0].password, undefined);
     assert.equal(legacySave.projects[0].password_hash, undefined);
@@ -686,13 +708,13 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(appended.status, 200);
     assert.equal(state.projects[1].password_hash, state.projects[0].password_hash);
     // Start distinct student logins together before the shared verification cache is warm.
-    const firstCommonLogins = await Promise.all(state.projects.map(p => request('/api/student/verify', { leaderId: p.leader_id, password: generated.data.password })));
+    const firstCommonLogins = await Promise.all(state.projects.map(p => loginRequest('/api/student/verify', { leaderId: p.leader_id, password: generated.data.password })));
     assert.ok(firstCommonLogins.every(r => r.status === 200));
     assert.equal(new Set(firstCommonLogins.map(r => r.cookie!.split(';')[0])).size, state.projects.length);
     const beforeReplace = databaseRequests;
     const oldCookie = firstCommonLogins[2].cookie!.split(';')[0];
     const oldDigest = fingerprint(oldCookie.split('=')[1].split('.')[0]);
-    const replacement = await request('/api/student/verify', { leaderId: state.projects[2].leader_id, password: generated.data.password }, undefined, oldCookie);
+    const replacement = await loginRequest('/api/student/verify', { leaderId: state.projects[2].leader_id, password: generated.data.password }, undefined, oldCookie);
     assert.equal(replacement.status, 200);
     assert.equal(databaseRequests - beforeReplace, 2, 'leader lookup plus one finalize RPC');
     assert.equal(sessions.has(oldDigest), false);
@@ -704,14 +726,14 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       finalizeError = code;
       const beforeFailure = databaseRequests;
       const beforeSessions = structuredClone([...sessions]);
-      const failed = await request('/api/student/verify', { leaderId: 'rpc-test', password: generated.data.password }, undefined, retainedCookie);
+      const failed = await loginRequest('/api/student/verify', { leaderId: 'rpc-test', password: generated.data.password }, undefined, retainedCookie);
       assert.equal(failed.status, code === 'PT401' ? 401 : 503);
       assert.equal(failed.cookie, undefined);
       assert.deepEqual([...sessions], beforeSessions);
       assert.equal(databaseRequests - beforeFailure, 2, 'RPC errors must never use fallback');
     }
     finalizeError = 'PGRST202';
-    const fallback = await request('/api/student/verify', { leaderId: 'rpc-test', password: generated.data.password });
+    const fallback = await loginRequest('/api/student/verify', { leaderId: 'rpc-test', password: generated.data.password });
     assert.equal(fallback.status, 200, 'only missing RPC allows rolling-deployment compatibility');
     finalizeError = undefined;
     assert.ok(sessions.has(retainedDigest));
@@ -729,7 +751,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(commonMe.data.project.leader_id, undefined);
     assert.equal(JSON.stringify(commonMe.data).includes(project.leader_id), false);
     assert.equal((await request('/api/projects', { projects: [{ ...projectDto(project), password: 'Another-password-123' }], version: state.version }, adminAgain)).status, 400);
-    const commonLogins = await Promise.all(state.projects.map(p => request('/api/student/verify', { leaderId: p.leader_id, password: generated.data.password })));
+    const commonLogins = await Promise.all(state.projects.map(p => loginRequest('/api/student/verify', { leaderId: p.leader_id, password: generated.data.password })));
     assert.ok(commonLogins.every(r => r.status === 200));
     const separateCookies = commonLogins.map(r => r.cookie!.split(';')[0]);
     assert.equal(new Set(separateCookies).size, state.projects.length, 'shared verification must still create independent student sessions');
@@ -741,7 +763,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     for (const change of ['hash', 'leader', 'disabled', 'deleted'] as const) {
       changedSharedCredential = change;
       const sessionsBeforeChange = sessions.size;
-      const staleLogin = await request('/api/student/verify', { leaderId: 'new-student', password: generated.data.password });
+      const staleLogin = await loginRequest('/api/student/verify', { leaderId: 'new-student', password: generated.data.password });
       assert.equal(staleLogin.status, 401, 'cached verification cannot bypass a concurrent credential/leader change');
       assert.equal(sessions.size, sessionsBeforeChange);
       changedSharedCredential = undefined;
@@ -751,13 +773,13 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.notEqual(rotated.data.password, generated.data.password);
     assert.match(rotated.data.password, /^[0-9A-HJKMNP-TV-Z]{8}$/);
     assert.equal((await request('/api/student/me', undefined, undefined, commonCookie)).status, 401);
-    assert.equal((await request('/api/student/verify', { leaderId: project.leader_id, password: generated.data.password })).status, 401);
-    assert.equal((await request('/api/student/verify', { leaderId: project.leader_id, password: rotated.data.password })).status, 200);
+    assert.equal((await loginRequest('/api/student/verify', { leaderId: project.leader_id, password: generated.data.password })).status, 401);
+    assert.equal((await loginRequest('/api/student/verify', { leaderId: project.leader_id, password: rotated.data.password })).status, 200);
     const disabled = await request('/api/student/shared-password', { action: 'clear', version: state.version }, adminAgain);
     assert.equal(disabled.status, 200);
     assert.equal(disabled.data.sharedPasswordEnabled, false);
     assert.equal(state.projects[0].password_hash, undefined);
-    assert.equal((await request('/api/student/verify', { leaderId: project.leader_id, password: rotated.data.password })).status, 401);
+    assert.equal((await loginRequest('/api/student/verify', { leaderId: project.leader_id, password: rotated.data.password })).status, 401);
     // R09: auto-created domains share the same 100-domain limit as settings.
     // Count existing empty domains too; never save a partial import or version.
     const beforeDomainLimit = structuredClone(state);

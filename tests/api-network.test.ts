@@ -2,6 +2,58 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { apiRequest, ApiRequestError } from '../src/lib/api';
 import { getAuthSession, saveAuthSession, clearAuthSession } from '../src/lib/auth';
+import { issueLoginChallenge, verifyLoginProof } from '../server/loginChallenge';
+import { withRuntime } from '../server/runtime';
+
+test('explicit pre-auth challenge is solved once without replaying network failures or arbitrary writes', async () => {
+  const originalFetch = globalThis.fetch;
+  const context = { scope: 'student', account: 'victim', ip: '127.0.0.1', password: 'correct-password' };
+  const env = { SUPABASE_SECRET_KEY: 'browser-proof-test-secret' };
+  const challenge = withRuntime(env, () => issueLoginChallenge(context));
+  let calls = 0;
+  globalThis.fetch = async (_url, init) => {
+    calls++;
+    if (calls === 1) return Response.json({ success: false, loginChallenge: challenge }, { status: 429 });
+    const body = JSON.parse(String(init?.body));
+    assert.equal(body.password, context.password);
+    assert.equal(withRuntime(env, () => verifyLoginProof(body.loginProof, context)), true);
+    return Response.json({ success: true });
+  };
+  try {
+    assert.deepEqual(await apiRequest('/api/student/verify', { leaderId: context.account, password: context.password }), { success: true });
+    assert.equal(calls, 2);
+    calls = 0;
+    await assert.rejects(apiRequest('/api/lottery/draw', { version: 1 }), (error: any) => error.status === 429);
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('cancelling a login challenge prevents credential resubmission', async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++; controller.abort();
+    return Response.json({ success: false, loginChallenge: { token: 'x.' + 'a'.repeat(64), bits: 16 } }, { status: 429 });
+  };
+  try {
+    await assert.rejects(apiRequest('/api/student/verify', { leaderId: 'victim', password: 'password' }, { signal: controller.signal }), /已取消/);
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('unsupported challenge is bounded and shows a verification error without resubmission', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return Response.json({ success: false, loginChallenge: { token: 'x.' + 'a'.repeat(64), bits: 24 } }, { status: 429 });
+  };
+  try {
+    await assert.rejects(apiRequest('/api/student/verify', { leaderId: 'victim', password: 'password' }), /登入驗證無法完成/);
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});
 
 test('network failures show Chinese messages without clearing the staff session', async () => {
   const originalFetch = globalThis.fetch;
