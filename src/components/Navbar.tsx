@@ -49,7 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
         <a href="/" className="group flex min-w-0 items-center gap-2.5 rounded-lg sm:gap-3 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label="返回專題報告場次查詢首頁">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center p-1 sm:h-11 sm:w-11">
             <img
-              src="/android-chrome-512x512.png"
+              width={64} height={64} src="/college-logo-64.webp" srcSet="/college-logo-64.webp 1x, /college-logo-128.webp 2x"
               alt=""
               className="max-h-full max-w-full object-contain"
               loading="eager"
