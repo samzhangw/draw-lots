@@ -252,7 +252,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       'node_modules/wrangler/bin/wrangler.js', 'dev', '--test-scheduled', '--ip', '127.0.0.1', '--port', String(appPort), '--local-protocol', 'https', '--persist-to', persistence,
       '--var', `SUPABASE_URL:${env.SUPABASE_URL}`, '--var', `SUPABASE_SECRET_KEY:${env.SUPABASE_SECRET_KEY}`,
       '--var', `SUPABASE_PUBLISHABLE_KEY:${env.SUPABASE_PUBLISHABLE_KEY}`,
-    ] : ['--import', 'tsx', 'server.ts'];
+    ] : ['scripts/start-server.mjs'];
     child = spawn(process.execPath, args, { env: { ...env, CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: 'false', WRANGLER_SEND_METRICS: 'false' }, stdio: ['ignore', 'pipe', 'pipe'] });
     output = ''; child.stdout!.on('data', data => output += data); child.stderr!.on('data', data => output += data);
     for (let n = 0; n < 400; n++) {

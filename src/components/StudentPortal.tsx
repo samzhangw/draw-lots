@@ -1,6 +1,6 @@
 import { useApiRequest } from '../lib/useApiRequest';
 import React, { useState, useEffect, useRef } from 'react';
-import { ApiRequestError, isApiRequestCancelled } from '../lib/api';
+import { API_TIMEOUTS, ApiRequestError, isApiRequestCancelled } from '../lib/api';
 import { hasStudentSessionHint, rememberStudentSessionHint, clearStudentSessionHint } from '../lib/studentSessionHint';
 import { StudentQueryProject } from '../types';
 import {
@@ -62,7 +62,7 @@ export const StudentPortal: React.FC = () => {
     const epoch = requestEpoch.current;
     const controller = new AbortController();
     restoreController.current = controller;
-    request<{ project: StudentQueryProject; sharedPasswordMode: boolean }>('/api/student/me', undefined, { signal: controller.signal, timeoutMs: 10000 })
+    request<{ project: StudentQueryProject; sharedPasswordMode: boolean }>('/api/student/me', undefined, { signal: controller.signal, timeoutMs: API_TIMEOUTS.studentRead })
       .then(data => { if (!cancelled && requestEpoch.current === epoch) { if (!hasStudentSessionHint()) rememberStudentSessionHint(); setMyProject(data.project); setLastUpdatedAt(new Date()); setSharedPasswordMode(data.sharedPasswordMode); } })
       .catch(error => {
         if (!cancelled && requestEpoch.current === epoch && !isApiRequestCancelled(error)) {
@@ -186,6 +186,7 @@ export const StudentPortal: React.FC = () => {
                 <p className="mt-2 text-xs leading-relaxed text-slate-500">尚未取得密碼或忘記密碼，請洽大會管理員。</p>
               </div>
               {errorMessage && <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-700"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{errorMessage}</span></div>}
+              {loadingAction === 'login' && <p role="status" className="text-sm leading-relaxed text-slate-600">正在確認登入資料。多人同時登入時可能需要較長時間，請等候，勿重複送出。</p>}
               <button type="submit" disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3.5 text-base font-bold text-white shadow-sm transition hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-wait disabled:opacity-60">
                 {loadingAction === 'login' ? <LoaderCircle className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <LogIn className="h-5 w-5" />}
                 <span>{loadingAction === 'login' ? '查詢中…' : '登入並查詢順序'}</span>

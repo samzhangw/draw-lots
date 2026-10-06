@@ -48,7 +48,8 @@ test('server validation messages and status remain available', async () => {
 test('read, login and write have separate deadlines', async () => {
   const { API_TIMEOUTS, requestTimeoutMs } = await import('../src/lib/api');
   assert.equal(requestTimeoutMs('/api/state', false), API_TIMEOUTS.read);
-  assert.equal(requestTimeoutMs('/api/student/verify', true), API_TIMEOUTS.login);
+  assert.equal(requestTimeoutMs('/api/student/verify', true), API_TIMEOUTS.studentLogin);
+  assert.equal(requestTimeoutMs('/api/student/me', false), API_TIMEOUTS.studentRead);
   assert.equal(requestTimeoutMs('/api/auth/verify', true), API_TIMEOUTS.login);
   assert.equal(requestTimeoutMs('/api/lottery/draw', true), API_TIMEOUTS.write);
 });
@@ -142,4 +143,72 @@ test('an old request cannot clear a newly established staff session', async () =
     await assert.rejects(request, /expired/);
     assert.equal(getAuthSession(), newSession);
   } finally { globalThis.fetch = originalFetch; if (originalSession) saveAuthSession(originalSession); else clearAuthSession(); }
+});
+
+test('student reads retry a busy response once, while logins and other statuses are never replayed', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  let calls = 0;
+  try {
+    globalThis.fetch = async () => {
+      calls++;
+      return calls === 1 ? new Response('{"success":false,"error":"busy"}', { status: 503, headers: { 'Retry-After': '0' } })
+        : new Response('{"success":true,"project":{"project_title":"own project"}}');
+    };
+    assert.equal((await apiRequest<any>('/api/student/me')).project.project_title, 'own project');
+    assert.equal(calls, 2);
+    for (const status of [401, 429, 503]) {
+      calls = 0;
+      globalThis.fetch = async () => { calls++; return new Response('{"success":false,"error":"rejected"}', { status, headers: { 'Retry-After': '0' } }); };
+      await assert.rejects(apiRequest('/api/student/verify', { leaderId: 'student', password: 'secret' }), ApiRequestError);
+      assert.equal(calls, 1, 'login must never be replayed');
+      if (status !== 503) {
+        calls = 0;
+        await assert.rejects(apiRequest('/api/student/me'), ApiRequestError);
+        assert.equal(calls, 1);
+      }
+    }
+    calls = 0;
+    globalThis.fetch = async () => { calls++; return new Response('{"success":false,"error":"busy"}', { status: 503, headers: { 'Retry-After': '0' } }); };
+    await assert.rejects(apiRequest('/api/student/me'), ApiRequestError);
+    assert.equal(calls, 2, 'a second 503 ends the bounded retry');
+  } finally { globalThis.fetch = originalFetch; Math.random = originalRandom; }
+});
+
+test('student read retry respects the deadline, long Retry-After, and cancellation during backoff', async () => {
+  const { ApiRequestCancelledError } = await import('../src/lib/api');
+  const originalFetch = globalThis.fetch;
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  let calls = 0;
+  try {
+    globalThis.fetch = async () => { calls++; return new Response('{"success":false,"error":"busy"}', { status: 503, headers: { 'Retry-After': '60' } }); };
+    await assert.rejects(apiRequest('/api/student/me'), ApiRequestError);
+    assert.equal(calls, 1, 'do not retry earlier than a long server delay');
+    calls = 0;
+    globalThis.fetch = async () => { calls++; return new Response('{"success":false,"error":"busy"}', { status: 503, headers: { 'Retry-After': '2' } }); };
+    await assert.rejects(apiRequest('/api/student/me', undefined, { timeoutMs: 100 }), ApiRequestError);
+    assert.equal(calls, 1, 'do not start a retry beyond the original deadline');
+    calls = 0;
+    const controller = new AbortController();
+    const pending = apiRequest('/api/student/me', undefined, { timeoutMs: 10000, signal: controller.signal });
+    const aborted = assert.rejects(pending, ApiRequestCancelledError);
+    await new Promise(resolve => setTimeout(resolve, 10));
+    controller.abort();
+    await aborted;
+    assert.equal(calls, 1, 'cancelling backoff must prevent another fetch');
+  } finally { globalThis.fetch = originalFetch; Math.random = originalRandom; }
+});
+
+test('student read retries a transient transport failure once', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  let calls = 0;
+  try {
+    globalThis.fetch = async () => { if (++calls === 1) throw new TypeError('connection reset'); return new Response('{"success":true}'); };
+    await apiRequest('/api/student/me');
+    assert.equal(calls, 2);
+  } finally { globalThis.fetch = originalFetch; Math.random = originalRandom; }
 });

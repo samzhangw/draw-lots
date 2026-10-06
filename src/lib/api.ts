@@ -16,10 +16,21 @@ export class ApiRequestCancelledError extends ApiRequestError {
 }
 export const isApiRequestCancelled = (error: unknown): error is ApiRequestCancelledError => error instanceof ApiRequestCancelledError;
 export interface ApiRequestOptions { signal?: AbortSignal; timeoutMs?: number; }
-export const API_TIMEOUTS = { read: 15000, login: 45000, write: 60000 } as const;
+export const API_TIMEOUTS = { read: 15000, studentRead: 30000, login: 45000, studentLogin: 180000, write: 60000 } as const;
 export function requestTimeoutMs(url: string, writing: boolean): number {
-  return ['/api/auth/verify', '/api/student/verify'].includes(url) ? API_TIMEOUTS.login
+  return url === '/api/student/verify' ? API_TIMEOUTS.studentLogin
+    : url === '/api/student/me' && !writing ? API_TIMEOUTS.studentRead
+    : url === '/api/auth/verify' ? API_TIMEOUTS.login
     : writing ? API_TIMEOUTS.write : API_TIMEOUTS.read;
+}
+
+function retryPause(ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.reject(new ApiRequestCancelledError());
+  return new Promise((resolve, reject) => {
+    const cancel = () => { clearTimeout(timer); signal.removeEventListener('abort', cancel); reject(new ApiRequestCancelledError()); };
+    const timer = setTimeout(() => { signal.removeEventListener('abort', cancel); resolve(); }, ms);
+    signal.addEventListener('abort', cancel, { once: true });
+  });
 }
 
 export async function apiRequest<T = StoreState>(url: string, body?: Record<string, unknown>, options: ApiRequestOptions = {}): Promise<T> {
@@ -28,6 +39,9 @@ export async function apiRequest<T = StoreState>(url: string, body?: Record<stri
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new RangeError('請求期限必須為正數。');
   if (options.signal?.aborted) throw new ApiRequestCancelledError();
   const controller = new AbortController();
+  const deadline = Date.now() + timeoutMs;
+  const retryableRead = url === '/api/student/me' && !body;
+  const canRetry = (delay: number) => retryableRead && !controller.signal.aborted && Date.now() + delay + 1000 < deadline;
   let timedOut = false;
   const cancel = () => controller.abort();
   let rejectAbort!: () => void;
@@ -44,12 +58,32 @@ export async function apiRequest<T = StoreState>(url: string, body?: Record<stri
     // response from changing auth/state if a transport ignores cancellation.
     const { res, data } = await Promise.race([
       (async () => {
-        const res = await fetch(url, {
-          method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', signal: controller.signal,
-          ...(body ? { body: JSON.stringify(body) } : {}),
-        });
-        const data = await res.json().catch(error => { if (controller.signal.aborted) throw error; return null; });
-        return { res, data };
+        for (let attempt = 0; ; attempt++) {
+          let res: Response;
+          try {
+            res = await fetch(url, {
+              method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', signal: controller.signal,
+              ...(body ? { body: JSON.stringify(body) } : {}),
+            });
+          } catch (error) {
+            const delay = 500 + Math.floor(Math.random() * 1000);
+            const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+            if (attempt === 0 && !offline && canRetry(delay)) {
+              await retryPause(delay, controller.signal); continue;
+            }
+            throw error;
+          }
+          const data = await res.json().catch(error => { if (controller.signal.aborted) throw error; return null; });
+          if (attempt === 0 && res.status === 503) {
+            const header = res.headers.get('Retry-After');
+            const base = header === null ? 2000 : /^\d+$/.test(header) ? Number(header) * 1000 : Infinity;
+            const delay = base + Math.floor(Math.random() * 1000);
+            if (base <= 5000 && canRetry(delay)) {
+              await retryPause(delay, controller.signal); continue;
+            }
+          }
+          return { res, data };
+        }
       })(), aborted,
     ]);
     if (!res.ok || !data?.success) {

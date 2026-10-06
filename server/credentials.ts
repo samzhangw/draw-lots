@@ -3,13 +3,33 @@ import type { ProjectItem, StudentQueryProject } from '../src/types';
 import { ApiError } from './errors';
 import { SharedPasswordVerifier } from './sharedPasswordVerifier';
 import { BoundedExecutor } from './resourceLimits';
+import { runtimeEnv, type RuntimeEnvironment } from './runtime';
 
 export type StoredProject = ProjectItem & { password_hash?: string; shared_password_mode?: boolean };
 const COST = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };
 const HASH_FORMAT = /^scrypt-v1\$([a-f0-9]{32})\$([a-f0-9]{64})$/;
 // Shared by every API object in this isolate, including login and admin resets.
-const hashExecutor = new BoundedExecutor(1, 32, 8000);
-const derive = (password: string, salt: string) => hashExecutor.run(() => new Promise<Buffer>((resolve, reject) => {
+// Node can use its crypto thread pool; Workers retain a conservative memory budget.
+// Initialize after dotenv / withRuntime, and share one pool per platform in the isolate.
+export function passwordHashLimits(env: RuntimeEnvironment = runtimeEnv()) {
+  const workers = !!env.LOGIN_LIMITER;
+  const raw = env.PASSWORD_HASH_CONCURRENCY;
+  const concurrency = raw === undefined || raw === '' ? (workers ? 1 : 8) : Number(raw);
+  if ((raw && !/^[1-9]\d*$/.test(raw)) || !Number.isInteger(concurrency) || concurrency < 1 || concurrency > (workers ? 2 : 8)) {
+    throw new ApiError(503, '密碼驗證服務設定無效，請聯絡管理員。');
+  }
+  return { concurrency, maxWaiting: 32, waitMs: 15000 };
+}
+const hashExecutors: Partial<Record<'node' | 'workers', BoundedExecutor>> = {};
+function hashExecutor() {
+  const platform = runtimeEnv().LOGIN_LIMITER ? 'workers' : 'node';
+  if (!hashExecutors[platform]) {
+    const limits = passwordHashLimits();
+    hashExecutors[platform] = new BoundedExecutor(limits.concurrency, limits.maxWaiting, limits.waitMs);
+  }
+  return hashExecutors[platform]!;
+}
+const derive = (password: string, salt: string) => hashExecutor().run(() => new Promise<Buffer>((resolve, reject) => {
   scrypt(password, salt, 32, COST, (error, result) => error ? reject(error) : resolve(result));
 }));
 
