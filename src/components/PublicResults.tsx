@@ -178,11 +178,11 @@ export function PublicResults() {
                     <div className="mt-auto grid grid-cols-2 gap-3 pt-5 [container-type:inline-size]">
                       <div className="min-w-0 rounded-xl border border-blue-100 bg-blue-50 px-2 py-3 text-center sm:px-3">
                         <dt className="text-xs font-semibold text-blue-700">抽籤編號</dt>
-                        <dd className="mt-1.5 font-mono text-[clamp(1.125rem,10cqw,1.875rem)] font-black leading-9 tracking-tight sm:text-3xl text-blue-900 [overflow-wrap:anywhere]">{result.draw_code}</dd>
+                        <dd className="mt-1.5 font-mono text-[clamp(1.125rem,8.5cqw,1.75rem)] font-black leading-9 tracking-tight sm:text-[28px] text-blue-900 [overflow-wrap:anywhere]">{result.draw_code}</dd>
                       </div>
                       <div className="min-w-0 rounded-xl border border-blue-100 bg-blue-50 px-2 py-3 text-center sm:px-3">
                         <dt className="text-xs font-semibold text-blue-700">報告場次</dt>
-                        <dd className="mt-1.5 text-[clamp(1.125rem,10cqw,1.875rem)] font-black leading-9 text-blue-900 [-webkit-text-stroke:0.3px] [overflow-wrap:anywhere] sm:text-3xl">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</dd>
+                        <dd className="mt-1.5 text-[clamp(1.125rem,8.5cqw,1.75rem)] font-black leading-9 text-blue-900 [-webkit-text-stroke:0.3px] [overflow-wrap:anywhere] sm:text-[28px]">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</dd>
                       </div>
                     </div>
                   </dl>
