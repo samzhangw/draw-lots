@@ -90,7 +90,7 @@ export function PublicResults() {
         <p className="mt-2 text-sm leading-relaxed text-slate-600">選擇領域，查看報告場次與抽籤編號。</p>
       </header>
       <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <div className="min-w-0">
           <label htmlFor="public-result-field" className="mb-2 block text-sm font-bold text-slate-700">選擇領域</label>
           <select id="public-result-field" value={field} onChange={event => selectField(event.target.value)} className="min-h-12 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-base font-semibold text-slate-900 focus-visible:outline-2 focus-visible:outline-blue-600">
@@ -98,18 +98,9 @@ export function PublicResults() {
             {data.domains.map(domain => <option key={domain} value={domain}>{domain}</option>)}
           </select>
         </div>
-        <div className="grid grid-cols-1 items-end gap-3 min-[360px]:grid-cols-[minmax(0,1fr)_auto]">
-        <div>
-          <span className="mb-2 block text-sm font-bold text-slate-700">顯示方式</span>
-        <div role="group" aria-label="結果顯示方式" className="grid min-h-12 grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 lg:min-w-48">
-          <button type="button" aria-pressed={displayMode === 'cards'} onClick={() => setDisplayMode('cards')} className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${displayMode === 'cards' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}><LayoutGrid className="h-4 w-4" aria-hidden="true" />卡片</button>
-          <button type="button" aria-pressed={displayMode === 'table'} onClick={() => setDisplayMode('table')} className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${displayMode === 'table' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}><Table2 className="h-4 w-4" aria-hidden="true" />表格</button>
-        </div>
-        </div>
         <button type="button" disabled={loading || !field} onClick={() => { if (!field || loading) return; setLoading(true); setRefresh(value => value + 1); }} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />{loading ? '更新中…' : '更新結果'}
         </button>
-        </div>
         </div>
         <div className="min-w-0 border-t border-slate-100 pt-4">
           <label htmlFor="public-result-search" className="mb-2 block text-sm font-bold text-slate-700">搜尋此領域結果</label>
@@ -128,9 +119,18 @@ export function PublicResults() {
       {loading && !hasSnapshot ? <div role="status" className="flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-14 text-sm text-slate-500"><RefreshCw className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />載入抽籤結果中…</div>
         : !field ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center"><p className="font-bold text-slate-700">{data.domains.length ? '選擇領域，查看抽籤結果' : '目前尚未設定領域'}</p><p className="mt-2 text-sm text-slate-500">{data.domains.length ? '請使用上方選單選擇要查詢的領域。' : '領域設定完成後，將在此提供查詢。'}</p></div>
         : <section aria-label={`${field}抽籤結果`} className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="min-w-0 break-words text-xl font-black text-slate-900 sm:text-2xl">{field}</h2>
-            <span aria-live="polite" className="rounded-full bg-slate-200/60 px-3 py-1.5 text-xs font-semibold text-slate-600">{searchQuery.trim() ? `符合 ${matchingResults.length}／全部 ${data.results.length} 件專題` : `已公布 ${data.results.length} 件專題`}</span>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0 space-y-2">
+              <h2 className="break-words text-xl font-black text-slate-900 sm:text-2xl">{field}</h2>
+              <p aria-live="polite" className="text-xs font-medium text-slate-500">{searchQuery.trim() ? `符合 ${matchingResults.length}／全部 ${data.results.length} 件專題` : `已公布 ${data.results.length} 件專題`}</p>
+            </div>
+            <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-200 pt-3 sm:border-0 sm:pt-0">
+              <span className="text-xs font-semibold text-slate-500">顯示方式</span>
+        <div role="group" aria-label="結果顯示方式" className="grid min-h-11 shrink-0 grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+          <button type="button" aria-pressed={displayMode === 'cards'} onClick={() => setDisplayMode('cards')} className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${displayMode === 'cards' ? 'bg-blue-700 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}><LayoutGrid className="h-4 w-4" aria-hidden="true" />卡片</button>
+          <button type="button" aria-pressed={displayMode === 'table'} onClick={() => setDisplayMode('table')} className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${displayMode === 'table' ? 'bg-blue-700 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}><Table2 className="h-4 w-4" aria-hidden="true" />表格</button>
+        </div>
+            </div>
           </div>
           {!data.results.length ? <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center text-slate-500">此領域尚無已公布的抽籤結果。</p>
             : !matchingResults.length ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center"><p className="break-words text-sm text-slate-600">找不到符合「{searchQuery.trim()}」的結果。</p><button type="button" onClick={() => changeSearch('')} className="mt-3 min-h-11 rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-blue-800 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-blue-600">清除搜尋，顯示全部</button></div>
