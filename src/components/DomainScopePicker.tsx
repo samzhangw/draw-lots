@@ -33,7 +33,7 @@ export function DomainScopePicker({ domains, projects, selected, disabled, onCha
     <button type="button" className="domain-scope-trigger" disabled={disabled} aria-label={`抽籤範圍：${label}`} aria-expanded={open} onClick={() => setOpen(value => !value)}><span>{label}</span><ChevronDown size={16} /></button>
     {open && <div className="domain-scope-options" role="group" aria-label="勾選抽籤領域">
       <div className="domain-scope-heading"><strong>選擇抽籤領域</strong><span>可複選</span><button type="button" aria-label="完成領域選擇" onClick={() => setOpen(false)}><Check size={16} />完成</button></div>
-      <div className="domain-scope-shortcuts"><button type="button" onClick={() => onChange(null)}>全選</button><button type="button" onClick={() => onChange([])}>清除</button><span>已選 {checked.length} 個</span></div>
+      <div className="domain-scope-shortcuts"><button type="button" disabled={disabled || available.length === 0} onClick={() => { if (!disabled && available.length > 0) onChange(null); }}>全選</button><button type="button" onClick={() => onChange([])}>清除</button><span>已選 {checked.length} 個</span></div>
       <div className="domain-scope-list">{domains.map(domain => <label key={domain.id} aria-disabled={!available.includes(domain.field)}><input type="checkbox" disabled={disabled || !available.includes(domain.field)} checked={checked.includes(domain.field)} onChange={event => {
         if (disabled || !available.includes(domain.field)) return;
         const next = event.target.checked ? [...checked, domain.field] : checked.filter(field => field !== domain.field);
