@@ -106,7 +106,7 @@ export function PublicResults() {
           <button type="button" aria-pressed={displayMode === 'table'} onClick={() => setDisplayMode('table')} className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${displayMode === 'table' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}><Table2 className="h-4 w-4" aria-hidden="true" />表格</button>
         </div>
         </div>
-        <button type="button" disabled={loading} onClick={() => { setLoading(true); setRefresh(value => value + 1); }} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50">
+        <button type="button" disabled={loading || !field} onClick={() => { if (!field || loading) return; setLoading(true); setRefresh(value => value + 1); }} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />{loading ? '更新中…' : '更新結果'}
         </button>
         </div>
@@ -120,7 +120,10 @@ export function PublicResults() {
           </div>
         </div>
       </div>
-      {error && <p role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-relaxed text-amber-900">{error} {hasSnapshot ? '目前顯示上次取得的結果。' : ''}請按「更新結果」重試。</p>}
+      {error && <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-relaxed text-amber-900">
+        <p>{error} {hasSnapshot ? '目前顯示上次取得的結果。' : ''}{field ? '請按「更新結果」重試。' : '請重新載入領域選單。'}</p>
+        {!field && <button type="button" disabled={loading} onClick={() => { setLoading(true); setRefresh(value => value + 1); }} className="mt-3 min-h-11 rounded-xl border border-amber-300 bg-white px-4 py-2 font-bold hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-amber-700 disabled:opacity-50">重新載入領域</button>}
+      </div>}
       {loading && hasSnapshot && <p role="status" className="text-xs text-slate-500">正在更新，暫時顯示上次取得的結果。</p>}
       {loading && !hasSnapshot ? <div role="status" className="flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-14 text-sm text-slate-500"><RefreshCw className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />載入抽籤結果中…</div>
         : !field ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center"><p className="font-bold text-slate-700">{data.domains.length ? '選擇領域，查看抽籤結果' : '目前尚未設定領域'}</p><p className="mt-2 text-sm text-slate-500">{data.domains.length ? '請使用上方選單選擇要查詢的領域。' : '領域設定完成後，將在此提供查詢。'}</p></div>
