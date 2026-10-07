@@ -249,6 +249,7 @@ export const StudentPortal: React.FC = () => {
                     <h2 className="break-words text-xl font-black leading-snug text-slate-900 sm:text-3xl">
                       {myProject.project_title}
                     </h2>
+                    <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-sm leading-relaxed"><span className="text-slate-500">領域：</span><strong className="min-w-0 break-words font-semibold text-slate-700">{myProject.field}</strong></p>
                   </div>
 
                   {!sharedPasswordMode &&
@@ -263,12 +264,6 @@ export const StudentPortal: React.FC = () => {
                 </div>
 
                 <dl aria-label="專題抽籤結果" className="space-y-4">
-                  <div className="flex min-h-24 min-w-0 flex-col justify-center rounded-2xl bg-slate-100 px-4 py-3 text-left sm:min-h-26 sm:px-5">
-                    <dt className="text-sm font-bold text-slate-600">領域名稱</dt>
-                    <dd className="mt-1 break-words text-lg font-bold leading-7 text-slate-800 sm:text-[22px]">
-                      {myProject.field}
-                    </dd>
-                  </div>
                   <div className="grid grid-cols-2 gap-3 [container-type:inline-size] sm:gap-5">
                     <div className="flex min-h-24 min-w-0 flex-col justify-center rounded-2xl bg-blue-50 px-2 py-4 text-center sm:min-h-26 sm:px-5">
                       <dt className="text-sm font-bold text-blue-700">報告場次</dt>
@@ -295,7 +290,7 @@ export const StudentPortal: React.FC = () => {
                   <div className="min-w-0 space-y-3">
                     <p className="flex items-center gap-2 text-sm font-bold text-slate-500"><FileText className="h-4 w-4" aria-hidden="true" />專題名稱</p>
                     <h2 className="break-words text-xl font-black leading-snug text-slate-900 sm:text-3xl">{myProject.project_title}</h2>
-                    {!sharedPasswordMode && <p className="text-sm text-slate-600">所屬領域：{myProject.field}</p>}
+                    {!sharedPasswordMode && <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-sm leading-relaxed"><span className="text-slate-500">領域：</span><strong className="min-w-0 break-words font-semibold text-slate-700">{myProject.field}</strong></p>}
                   </div>
                 </div>
 
