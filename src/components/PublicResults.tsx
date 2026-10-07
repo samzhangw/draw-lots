@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { LayoutGrid, RefreshCw, Table2 } from 'lucide-react';
 import type { PublicDrawResult, PublicResultsResponse } from '../types';
 import { useApiRequest } from '../lib/useApiRequest';
 import { isApiRequestCancelled } from '../lib/api';
@@ -8,6 +8,13 @@ import { formatSessionLabel } from '../lib/sessionLabel';
 export function PublicResults() {
   const request = useApiRequest();
   const [field, setField] = useState('');
+  const [displayMode, setDisplayMode] = useState<'cards' | 'table'>(() => {
+    try { return localStorage.getItem('public-results-display') === 'table' ? 'table' : 'cards'; }
+    catch { return 'cards'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('public-results-display', displayMode); } catch {}
+  }, [displayMode]);
   const [data, setData] = useState<PublicResultsResponse>({ domains: [], results: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -74,6 +81,10 @@ export function PublicResults() {
             {data.domains.map(domain => <option key={domain} value={domain}>{domain}</option>)}
           </select>
         </div>
+        <div role="group" aria-label="結果顯示方式" className="inline-flex min-h-12 shrink-0 gap-1 rounded-xl bg-slate-100 p-1">
+          <button type="button" aria-pressed={displayMode === 'cards'} onClick={() => setDisplayMode('cards')} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${displayMode === 'cards' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}><LayoutGrid className="h-4 w-4" aria-hidden="true" />卡片</button>
+          <button type="button" aria-pressed={displayMode === 'table'} onClick={() => setDisplayMode('table')} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${displayMode === 'table' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}><Table2 className="h-4 w-4" aria-hidden="true" />表格</button>
+        </div>
         <button type="button" disabled={loading} onClick={() => { setLoading(true); setRefresh(value => value + 1); }} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />{loading ? '更新中…' : '更新結果'}
         </button>
@@ -95,7 +106,30 @@ export function PublicResults() {
                 <span className="text-xs font-medium text-slate-500">{results.length} 件專題</span>
                 <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
               </div>
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
+              {displayMode === 'table' ? <div className="space-y-2">
+                <p className="px-1 text-xs text-slate-500 sm:hidden">表格可左右滑動查看完整內容。</p>
+                <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm" tabIndex={0} role="region" aria-label={`${session ? formatSessionLabel(session) : '場次尚未提供'}結果表格，可左右捲動`}>
+                  <table className="w-full min-w-[640px] text-left text-sm">
+                    <caption className="sr-only">{field} · {session ? formatSessionLabel(session) : '場次尚未提供'}抽籤結果</caption>
+                    <thead className="bg-blue-50 text-blue-900">
+                      <tr>
+                        <th scope="col" className="w-28 whitespace-nowrap px-4 py-3 font-bold">抽籤編號</th>
+                        <th scope="col" className="w-36 whitespace-nowrap px-4 py-3 font-bold">報告場次</th>
+                        <th scope="col" className="px-4 py-3 font-bold">專題名稱</th>
+                        <th scope="col" className="w-32 whitespace-nowrap px-4 py-3 font-bold">組長姓名</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {results.map((result, index) => <tr key={`${result.draw_code}-${index}`} className="even:bg-slate-50/60 hover:bg-blue-50/50">
+                        <td className="px-4 py-4 font-mono text-lg font-black text-blue-900 [overflow-wrap:anywhere]">{result.draw_code}</td>
+                        <td className="px-4 py-4 font-bold text-slate-700">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</td>
+                        <td className="px-4 py-4 font-semibold leading-relaxed text-slate-900 [overflow-wrap:anywhere]">{result.project_title}</td>
+                        <td className="px-4 py-4 font-semibold text-slate-700 [overflow-wrap:anywhere]">{result.leader_name || '尚未提供'}</td>
+                      </tr>)}
+                    </tbody>
+                  </table>
+                </div>
+              </div> : <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
                 {results.map((result, index) => <article key={`${result.draw_code}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                   <dl className="grid grid-cols-2 items-start gap-x-4 gap-y-4 lg:gap-x-6">
                     <div className="col-span-2 min-w-0">
@@ -116,7 +150,7 @@ export function PublicResults() {
                     </div>
                   </dl>
                 </article>)}
-              </div>
+              </div>}
             </section>)}
         </section>}
     </div>
