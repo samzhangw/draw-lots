@@ -1,3 +1,4 @@
+import { formatSessionLabel } from '../lib/sessionLabel';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Pause, Play, Settings, X } from 'lucide-react';
 import type { DomainConfig, ProjectItem } from '../types';
@@ -91,10 +92,10 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
       </header>
       {slide && <div className="result-carousel-meta">
         <div className="result-carousel-group">
-          <strong>第 <b>{slide.group}</b> 組</strong>
+          <strong>{formatSessionLabel(slide.group)}</strong>
         </div>
         <div className="result-carousel-page-info">
-          <span className="result-carousel-group-page" aria-label={`本組第 ${slide.page + 1}／${slide.pages} 頁`}><small>本組頁碼</small><span><b>{slide.page + 1}</b>／{slide.pages} 頁</span></span>
+          <span className="result-carousel-group-page" aria-label={`本場次第 ${slide.page + 1}／${slide.pages} 頁`}><small>本場次頁碼</small><span><b>{slide.page + 1}</b>／{slide.pages} 頁</span></span>
         </div>
       </div>}
       <div className={`result-carousel-list ${pageSize === 10 ? 'result-carousel-list--two-columns' : ''}`} ref={listRef} onWheel={() => setPlaying(false)} onTouchMove={() => setPlaying(false)} style={{ '--result-rows': 5 } as React.CSSProperties}>
@@ -114,7 +115,7 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
           </div>
           <button type="button" className="result-control result-carousel-settings-trigger" onClick={() => setSettingsOpen(true)} aria-haspopup="dialog"><Settings size={18} />設定</button>
         </div>
-        <div className="result-carousel-hint"><span>{slides.length < 2 ? '單頁結果' : !visible ? '背景暫停' : settingsOpen ? '設定中 · 暫停換頁' : playing ? `${remaining} 秒後換頁 · 循環播放` : '已暫停'}{next && slides.length > 1 ? ` · 下一頁：${next.field} 第 ${next.group} 組` : ''}</span><span>← → 換頁 · 空白鍵播放／暫停 · Esc 返回</span></div>
+        <div className="result-carousel-hint"><span>{slides.length < 2 ? '單頁結果' : !visible ? '背景暫停' : settingsOpen ? '設定中 · 暫停換頁' : playing ? `${remaining} 秒後換頁 · 循環播放` : '已暫停'}{next && slides.length > 1 ? ` · 下一頁：${next.field} ${formatSessionLabel(next.group)}` : ''}</span><span>← → 換頁 · 空白鍵播放／暫停 · Esc 返回</span></div>
       </footer>
       {settingsOpen && <div className="result-carousel-settings-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>
         <div className="result-carousel-settings" role="dialog" aria-modal="true" aria-label="輪播設定">
@@ -124,7 +125,7 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
           <label>跳至場次<select aria-label="跳至場次" value={slide ? JSON.stringify([slide.field, slide.group]) : ''} onChange={(event) => {
             const found = groups.find(({ page }) => JSON.stringify([page.field, page.group]) === event.target.value);
             if (found) { setIndex(found.position); setRemaining(seconds); }
-          }}>{groups.map(({ page }) => <option key={page.key} value={JSON.stringify([page.field, page.group])}>{page.field} · 第 {page.group} 組</option>)}</select></label>
+          }}>{groups.map(({ page }) => <option key={page.key} value={JSON.stringify([page.field, page.group])}>{page.field} · {formatSessionLabel(page.group)}</option>)}</select></label>
           <label>每頁筆數<select aria-label="每頁筆數" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value) as 5 | 10)}><option value={5}>5 筆（單欄）</option><option value={10}>10 筆（左右）</option></select></label>
           <label>換頁間隔<select aria-label="換頁間隔" value={seconds} onChange={(event) => setSeconds(Number(event.target.value))}>{[3, 5, 10, 15, 20, 30].map((value) => <option key={value} value={value}>{value} 秒</option>)}</select></label>
           </div>

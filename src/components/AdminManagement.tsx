@@ -1,3 +1,4 @@
+import { formatSessionLabel } from '../lib/sessionLabel';
 import React, { useState, useRef } from 'react';
 import { ProjectItem, DomainStats, DomainConfig } from '../types';
 import { preserveImportedProjectIds } from '../lib/importProjects';
@@ -1337,7 +1338,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                           <td className="py-2.5 px-3 whitespace-nowrap font-medium text-slate-800">
                             {p.assigned_group ? (
                               <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-xs border border-blue-200">
-                                第 {p.assigned_group} 組
+                                {formatSessionLabel(p.assigned_group)}
                               </span>
                             ) : (
                               <span className="text-slate-400 italic text-xs">待分配</span>

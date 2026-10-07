@@ -44,6 +44,7 @@ export interface StudentQueryProject {
   field: string;
   isDrawn: boolean;
   draw_code: string | null;
+  assigned_group?: number | null;
   draw_time?: string | null;
   evaluators?: string[];
 }

@@ -1,4 +1,5 @@
 import { useApiRequest } from '../lib/useApiRequest';
+import { formatSessionLabel } from '../lib/sessionLabel';
 import React, { useState, useEffect, useRef } from 'react';
 import { API_TIMEOUTS, ApiRequestError, isApiRequestCancelled } from '../lib/api';
 import { hasStudentSessionHint, rememberStudentSessionHint, clearStudentSessionHint } from '../lib/studentSessionHint';
@@ -261,28 +262,28 @@ export const StudentPortal: React.FC = () => {
                   </div>}
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-blue-200">
-                  <table className="w-full table-fixed border-collapse text-center">
-                    <caption className="sr-only">專題抽籤結果</caption>
-                    <colgroup><col className="w-20 sm:w-28" /><col /></colgroup>
-                    <thead className="bg-blue-50 text-blue-700">
-                      <tr>
-                        <th scope="col" className="border-r border-blue-200 whitespace-nowrap px-2 py-3 text-sm font-bold sm:px-6 sm:py-4 sm:text-base">抽籤編號</th>
-                        <th scope="col" className="px-3 py-3 text-sm font-bold sm:px-6 sm:py-4 sm:text-base">領域名稱</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-t border-blue-200 bg-white">
-                        <td className="border-r border-blue-100 px-3 py-5 align-middle text-xl font-bold leading-relaxed text-blue-950 [overflow-wrap:anywhere] sm:px-6 sm:py-6 sm:text-2xl">
-                          {myProject.draw_code || '編號尚未提供'}
-                        </td>
-                        <td className="px-2 py-5 align-middle text-base font-bold leading-relaxed text-blue-950 [overflow-wrap:anywhere] sm:px-6 sm:py-6 sm:text-2xl">
-                          {myProject.field}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                <dl aria-label="專題抽籤結果" className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-5">
+                    <div className="min-w-0 rounded-2xl bg-blue-50 p-4 sm:p-6">
+                      <dt className="text-sm font-bold text-blue-700 sm:text-base">報告場次</dt>
+                      <dd className="mt-2 text-xl font-black leading-relaxed text-blue-950 [overflow-wrap:anywhere] sm:text-3xl">
+                        {myProject.assigned_group ? formatSessionLabel(myProject.assigned_group) : '場次尚未提供'}
+                      </dd>
+                    </div>
+                    <div className="min-w-0 rounded-2xl bg-blue-50 p-4 sm:p-6">
+                      <dt className="text-sm font-bold text-blue-700 sm:text-base">抽籤編號</dt>
+                      <dd className="mt-2 text-xl font-black leading-relaxed text-blue-950 [overflow-wrap:anywhere] sm:text-3xl">
+                        {myProject.draw_code || '編號尚未提供'}
+                      </dd>
+                    </div>
+                  </div>
+                  <div className="px-1 pt-1">
+                    <dt className="text-sm font-bold text-slate-500">領域名稱</dt>
+                    <dd className="mt-2 break-words text-lg font-bold leading-relaxed text-slate-900 sm:text-2xl">
+                      {myProject.field}
+                    </dd>
+                  </div>
+                </dl>
                 {!sharedPasswordMode && !!myProject.evaluators?.length && <p className="text-sm text-slate-600 px-1">
                   評審委員：{myProject.evaluators.join('、')}
                 </p>}
@@ -306,7 +307,7 @@ export const StudentPortal: React.FC = () => {
                     <div className="min-w-0">
                       <h3 id="student-waiting-title" className="text-base font-bold text-slate-900 sm:text-lg">等待現場抽籤</h3>
                       <p className="mt-1.5 text-sm leading-relaxed text-slate-700">您的專題已登記，抽籤編號尚未公布。</p>
-                      <p className="mt-2 text-sm leading-relaxed text-slate-600">抽籤完成後，請按上方「更新結果」查看抽籤編號與領域。</p>
+                      <p className="mt-2 text-sm leading-relaxed text-slate-600">抽籤完成後，請按上方「更新結果」查看抽籤編號、領域與報告場次。</p>
                     </div>
                   </div>
                 </section>
