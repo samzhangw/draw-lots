@@ -76,10 +76,14 @@ export function PublicResults() {
               </div>
               <div className="space-y-3">
                 {results.map((result, index) => <article key={`${result.draw_code}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                  <dl className="grid grid-cols-2 items-start gap-x-4 gap-y-4 lg:grid-cols-[7.5rem_minmax(0,1fr)_9rem] lg:gap-x-6">
-                    <div className="col-span-2 min-w-0 lg:col-span-3">
+                  <dl className="grid grid-cols-2 items-start gap-x-4 gap-y-4 lg:grid-cols-[7.5rem_minmax(0,1fr)] lg:gap-x-6">
+                    <div className="col-span-2 min-w-0">
                       <dt className="text-xs font-medium text-slate-500">專題名稱</dt>
                       <dd className="mt-1.5 break-words text-xl font-black leading-relaxed text-slate-900 sm:text-2xl">{result.project_title}</dd>
+                    </div>
+                    <div className="col-span-2 -mt-2 flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <dt className="shrink-0 text-sm font-medium text-slate-500">組長姓名</dt>
+                      <dd className="min-w-0 break-words text-base font-bold text-slate-700">{result.leader_name || '尚未提供'}</dd>
                     </div>
                     <div className="min-w-0 rounded-xl bg-blue-50 px-3 py-3 lg:text-center">
                       <dt className="text-xs font-bold text-blue-700">抽籤編號</dt>
@@ -88,10 +92,6 @@ export function PublicResults() {
                     <div className="min-w-0 pt-2">
                       <dt className="text-xs font-medium text-slate-500">報告場次</dt>
                       <dd className="mt-2 inline-flex rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-extrabold text-slate-800">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</dd>
-                    </div>
-                    <div className="col-span-2 min-w-0 border-t border-slate-100 pt-3 lg:col-span-1 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-2">
-                      <dt className="text-xs font-medium text-slate-500">組長姓名</dt>
-                      <dd className="mt-1.5 break-words text-base font-bold text-slate-700">{result.leader_name || '尚未提供'}</dd>
                     </div>
                   </dl>
                 </article>)}
