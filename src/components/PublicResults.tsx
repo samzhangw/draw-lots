@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import type { PublicResultsResponse } from '../types';
+import type { PublicDrawResult, PublicResultsResponse } from '../types';
 import { useApiRequest } from '../lib/useApiRequest';
 import { isApiRequestCancelled } from '../lib/api';
 import { formatSessionLabel } from '../lib/sessionLabel';
@@ -30,38 +30,73 @@ export function PublicResults() {
     return () => controller.abort();
   }, [field, refresh, request]);
 
+  const sessions = useMemo(() => {
+    const grouped = new Map<number | null, PublicDrawResult[]>();
+    for (const result of data.results) {
+      const group = grouped.get(result.assigned_group) || [];
+      group.push(result);
+      grouped.set(result.assigned_group, group);
+    }
+    return Array.from(grouped, ([session, results]) => ({ session, results }));
+  }, [data.results]);
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 sm:py-10">
-      <header>
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-10">
+      <header className="border-l-4 border-blue-700 pl-4 sm:pl-5">
         <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-4xl">各領域抽籤結果</h1>
-        <p className="mt-3 text-sm leading-relaxed text-slate-600">選擇領域即可查看已公布的抽籤結果，無須登入。</p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">選擇領域，查看報告場次與抽籤編號。</p>
       </header>
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="min-w-0 flex-1 basis-60">
           <label htmlFor="public-result-field" className="mb-2 block text-sm font-bold text-slate-700">選擇領域</label>
-          <select id="public-result-field" value={field} onChange={event => { setLoading(true); setField(event.target.value); }} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900 focus-visible:outline-2 focus-visible:outline-blue-600">
+          <select id="public-result-field" value={field} onChange={event => { setLoading(true); setField(event.target.value); }} className="min-h-12 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-base font-semibold text-slate-900 focus-visible:outline-2 focus-visible:outline-blue-600">
             <option value="">請選擇領域</option>
             {data.domains.map(domain => <option key={domain} value={domain}>{domain}</option>)}
           </select>
         </div>
-        <button type="button" disabled={loading} onClick={() => setRefresh(value => value + 1)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100 disabled:opacity-50">
+        <button type="button" disabled={loading} onClick={() => setRefresh(value => value + 1)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />更新結果
         </button>
       </div>
-      {error ? <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{error} 請按「更新結果」重試。</p>
-        : loading ? <p role="status" className="py-10 text-center text-slate-500">載入抽籤結果中…</p>
-        : !field ? <p className="py-10 text-center text-slate-500">{data.domains.length ? '請先選擇要查詢的領域。' : '目前尚未設定領域。'}</p>
-        : <section aria-label={`${field}抽籤結果`} className="space-y-3">
-          <h2 className="break-words text-xl font-bold text-slate-900">{field}</h2>
-          {!data.results.length ? <p className="rounded-2xl bg-white p-8 text-center text-slate-500">此領域尚無已公布的抽籤結果。</p>
-            : data.results.map((result, index) => <article key={`${result.draw_code}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-              <dl className="grid grid-cols-2 gap-4 sm:grid-cols-[7rem_9rem_minmax(0,1fr)_7rem] sm:gap-6">
-                <div className="min-w-0"><dt className="text-xs font-medium text-slate-500">抽籤編號</dt><dd className="mt-1 break-words text-xl font-black text-blue-800">{result.draw_code}</dd></div>
-                <div className="min-w-0"><dt className="text-xs font-medium text-slate-500">報告場次</dt><dd className="mt-1 text-base font-bold text-slate-800">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</dd></div>
-                <div className="col-span-2 min-w-0 sm:col-span-1"><dt className="text-xs font-medium text-slate-500">專題名稱</dt><dd className="mt-1 break-words text-base font-bold leading-relaxed text-slate-900">{result.project_title}</dd></div>
-                <div className="col-span-2 min-w-0 sm:col-span-1"><dt className="text-xs font-medium text-slate-500">組長姓名</dt><dd className="mt-1 break-words text-base font-semibold text-slate-700">{result.leader_name || '尚未提供'}</dd></div>
-              </dl>
-            </article>)}
+      {error ? <p role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-relaxed text-amber-900">{error} 請按「更新結果」重試。</p>
+        : loading ? <div role="status" className="flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-14 text-sm text-slate-500"><RefreshCw className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />載入抽籤結果中…</div>
+        : !field ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center"><p className="font-bold text-slate-700">{data.domains.length ? '選擇領域，查看抽籤結果' : '目前尚未設定領域'}</p><p className="mt-2 text-sm text-slate-500">{data.domains.length ? '請使用上方選單選擇要查詢的領域。' : '領域設定完成後，將在此提供查詢。'}</p></div>
+        : <section aria-label={`${field}抽籤結果`} className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="min-w-0 break-words text-xl font-black text-slate-900 sm:text-2xl">{field}</h2>
+            <span className="rounded-full bg-slate-200/60 px-3 py-1.5 text-xs font-semibold text-slate-600">已公布 {data.results.length} 件專題</span>
+          </div>
+          {!data.results.length ? <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center text-slate-500">此領域尚無已公布的抽籤結果。</p>
+            : sessions.map(({ session, results }) => <section key={session ?? 'pending'} aria-label={session ? formatSessionLabel(session) : '場次尚未提供'} className="space-y-3">
+              <div className="flex items-center gap-3 px-1">
+                <span className="h-5 w-1 rounded-full bg-blue-700" aria-hidden="true" />
+                <h3 className="text-base font-black text-blue-900 sm:text-lg">{session ? formatSessionLabel(session) : '場次尚未提供'}</h3>
+                <span className="text-xs font-medium text-slate-500">{results.length} 件專題</span>
+                <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
+              </div>
+              <div className="space-y-3">
+                {results.map((result, index) => <article key={`${result.draw_code}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                  <dl className="grid grid-cols-2 items-start gap-x-4 gap-y-4 lg:grid-cols-[7.5rem_minmax(0,1fr)_9rem] lg:gap-x-6">
+                    <div className="min-w-0 rounded-xl bg-blue-50 px-3 py-3 lg:row-span-2 lg:text-center">
+                      <dt className="text-xs font-bold text-blue-700">抽籤編號</dt>
+                      <dd className="mt-1 break-words font-mono text-3xl font-black tracking-tight text-blue-900 sm:text-4xl">{result.draw_code}</dd>
+                    </div>
+                    <div className="min-w-0 pt-2 lg:col-start-2 lg:row-start-1 lg:pt-0">
+                      <dt className="text-xs font-medium text-slate-500">報告場次</dt>
+                      <dd className="mt-2 inline-flex rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-extrabold text-slate-800">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</dd>
+                    </div>
+                    <div className="col-span-2 min-w-0 lg:col-span-1 lg:col-start-2 lg:row-start-2">
+                      <dt className="text-xs font-medium text-slate-500">專題名稱</dt>
+                      <dd className="mt-1.5 break-words text-lg font-bold leading-relaxed text-slate-900 sm:text-xl">{result.project_title}</dd>
+                    </div>
+                    <div className="col-span-2 min-w-0 border-t border-slate-100 pt-3 lg:col-span-1 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+                      <dt className="text-xs font-medium text-slate-500">組長姓名</dt>
+                      <dd className="mt-1.5 break-words text-base font-bold text-slate-700">{result.leader_name || '尚未提供'}</dd>
+                    </div>
+                  </dl>
+                </article>)}
+              </div>
+            </section>)}
         </section>}
     </div>
   );
