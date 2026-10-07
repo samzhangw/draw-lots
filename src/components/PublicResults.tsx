@@ -89,22 +89,29 @@ export function PublicResults() {
         <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-4xl">各領域抽籤結果</h1>
         <p className="mt-2 text-sm leading-relaxed text-slate-600">選擇領域，查看報告場次與抽籤編號。</p>
       </header>
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="min-w-0 flex-1 basis-60">
+      <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <div className="min-w-0">
           <label htmlFor="public-result-field" className="mb-2 block text-sm font-bold text-slate-700">選擇領域</label>
           <select id="public-result-field" value={field} onChange={event => selectField(event.target.value)} className="min-h-12 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-base font-semibold text-slate-900 focus-visible:outline-2 focus-visible:outline-blue-600">
             <option value="">請選擇領域</option>
             {data.domains.map(domain => <option key={domain} value={domain}>{domain}</option>)}
           </select>
         </div>
-        <div role="group" aria-label="結果顯示方式" className="inline-flex min-h-12 shrink-0 gap-1 rounded-xl bg-slate-100 p-1">
-          <button type="button" aria-pressed={displayMode === 'cards'} onClick={() => setDisplayMode('cards')} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${displayMode === 'cards' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}><LayoutGrid className="h-4 w-4" aria-hidden="true" />卡片</button>
-          <button type="button" aria-pressed={displayMode === 'table'} onClick={() => setDisplayMode('table')} className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${displayMode === 'table' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}><Table2 className="h-4 w-4" aria-hidden="true" />表格</button>
+        <div className="grid grid-cols-1 items-end gap-3 min-[360px]:grid-cols-[minmax(0,1fr)_auto]">
+        <div>
+          <span className="mb-2 block text-sm font-bold text-slate-700">顯示方式</span>
+        <div role="group" aria-label="結果顯示方式" className="grid min-h-12 grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 lg:min-w-48">
+          <button type="button" aria-pressed={displayMode === 'cards'} onClick={() => setDisplayMode('cards')} className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${displayMode === 'cards' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}><LayoutGrid className="h-4 w-4" aria-hidden="true" />卡片</button>
+          <button type="button" aria-pressed={displayMode === 'table'} onClick={() => setDisplayMode('table')} className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${displayMode === 'table' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600 hover:bg-white/60'}`}><Table2 className="h-4 w-4" aria-hidden="true" />表格</button>
+        </div>
         </div>
         <button type="button" disabled={loading} onClick={() => { setLoading(true); setRefresh(value => value + 1); }} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />{loading ? '更新中…' : '更新結果'}
         </button>
-        <div className="w-full min-w-0 border-t border-slate-100 pt-4">
+        </div>
+        </div>
+        <div className="min-w-0 border-t border-slate-100 pt-4">
           <label htmlFor="public-result-search" className="mb-2 block text-sm font-bold text-slate-700">搜尋此領域結果</label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
