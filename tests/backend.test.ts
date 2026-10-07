@@ -140,6 +140,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     if (legacySchema && url.pathname === '/rest/v1/ntcust_projects') {
       res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST205', message: 'table not found' })); return;
     }
+    if (url.pathname === '/rest/v1/rpc/ntcust_public_results_snapshot') { res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST202' })); return; }
     if (url.pathname === '/rest/v1/rpc/ntcust_cleanup_staff_audit') {
       auditCleanupRuns++;
       if (missingAudit) { res.writeHead(404); res.end(JSON.stringify({code:'PGRST202'})); return; }

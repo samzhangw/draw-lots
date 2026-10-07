@@ -5,6 +5,49 @@ import { PublicResultsCache } from '../server/publicResultsCache';
 const domains = [{ id: 'a', field: '智慧', groupCount: 1 }];
 const row = { draw_code: 'A01', assigned_group: 1, project_title: '專題', leader_name: '林同學' };
 
+test('snapshot RPC coalesces concurrent requests, checks external versions and reuses unchanged rows', async () => {
+  const cache = new PublicResultsCache(10);
+  let version = 1;
+  let calls = 0;
+  let rowReads = 0;
+  const read = async (known: number | null) => {
+    calls++;
+    if (known !== version) rowReads++;
+    return { version, domain_configs: domains, results: known === version ? null : version === 1 ? [row] : [] };
+  };
+  await Promise.all(Array.from({ length: 20 }, () => cache.getSnapshot('db', '智慧', read)));
+  assert.equal(calls, 1); assert.equal(rowReads, 1);
+  assert.equal((await cache.getSnapshot('db', '智慧', read)).results.length, 1);
+  assert.equal(calls, 2); assert.equal(rowReads, 1);
+  version++;
+  assert.deepEqual((await cache.getSnapshot('db', '智慧', read)).results, []);
+  assert.equal(rowReads, 2);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  await cache.getSnapshot('db', '智慧', read);
+  assert.equal(rowReads, 3);
+  cache.invalidate('db');
+  await cache.getSnapshot('db', '智慧', read);
+  assert.equal(rowReads, 4);
+  await assert.rejects(cache.getSnapshot('db', '智慧', async () => { throw new Error('offline'); }), /offline/);
+});
+
+test('snapshot invalidation prevents an in-flight old response from restoring cached rows', async () => {
+  const cache = new PublicResultsCache();
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let started!: () => void;
+  const ready = new Promise<void>(resolve => { started = resolve; });
+  const old = cache.getSnapshot('db', '智慧', async () => { started(); await gate; return { version: 1, domain_configs: domains, results: [row] }; });
+  await ready;
+  cache.invalidate('db');
+  await cache.getSnapshot('db', '智慧', async () => ({ version: 2, domain_configs: domains, results: [] }));
+  release(); await old;
+  await cache.getSnapshot('db', '智慧', async known => {
+    assert.equal(known, 2);
+    return { version: 2, domain_configs: domains, results: null };
+  });
+});
+
 test('concurrent public reads share one result fetch and expire after the TTL', async () => {
   const cache = new PublicResultsCache(10);
   let reads = 0;

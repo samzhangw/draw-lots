@@ -2,7 +2,7 @@ import { runtimeEnv } from './runtime';
 import { ShortCache, timedFetch } from './resourceLimits';
 import { createClient } from '@supabase/supabase-js';
 import type { DomainConfig, ProjectItem, PublicDrawResult } from '../src/types';
-import { publicResultsCache, type PublicMetadata } from './publicResultsCache';
+import { publicResultsCache, type PublicMetadata, type PublicSnapshot } from './publicResultsCache';
 import { publicResults } from './publicResults';
 import { removeLegacyCredentials, sharedPasswordHash, type StoredProject } from './credentials';
 import { normalizeOriginalCodes } from '../src/lib/originalCodes';
@@ -46,6 +46,17 @@ export function createStore() {
     load,
     async publicResults(field = '') {
       try {
+        try {
+          return await publicResultsCache.getSnapshot(url, field, async knownVersion => {
+            const { data, error } = await client.rpc('ntcust_public_results_snapshot', { p_field: field, p_known_version: knownVersion });
+            if (error) throw error;
+            if (!data || !Number.isInteger(data.version) || !Array.isArray(data.domain_configs) || (data.results !== null && !Array.isArray(data.results))) throw new ApiError(503, '抽籤結果暫時無法讀取。');
+            return data as PublicSnapshot;
+          });
+        } catch (error) {
+          // Only a missing RPC enables the pre-migration query path.
+          if ((error as { code?: string })?.code !== 'PGRST202') throw error;
+        }
         return await publicResultsCache.get(url, field, async () => {
           const { data, error } = await client.from('ntcust_lottery_state').select('version,domain_configs').eq('id', 1).single();
           if (error) throw error;
