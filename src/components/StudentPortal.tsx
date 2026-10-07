@@ -34,6 +34,17 @@ export const StudentPortal: React.FC = () => {
   const [loadingAction, setLoadingAction] = useState<'login' | 'refresh' | 'logout' | null>(null);
   const requestEpoch = useRef(0);
   const restoreController = useRef<AbortController | null>(null);
+  const resultSectionRef = useRef<HTMLDivElement | null>(null);
+  const pendingLoginScroll = useRef(false);
+
+  useEffect(() => {
+    if (!myProject || !pendingLoginScroll.current) return;
+    const frame = requestAnimationFrame(() => {
+      pendingLoginScroll.current = false;
+      resultSectionRef.current?.scrollIntoView({ block: 'start', behavior: 'instant' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [myProject]);
 
   const onRefresh = async () => {
     if (isLoading) return;
@@ -118,6 +129,7 @@ export const StudentPortal: React.FC = () => {
     try {
       const data = await request<{ project: StudentQueryProject; sharedPasswordMode: boolean }>('/api/student/verify', { leaderId: query, password: pwd });
       rememberStudentSessionHint();
+      pendingLoginScroll.current = true;
       setMyProject(data.project);
       setLastUpdatedAt(new Date());
       setSharedPasswordMode(data.sharedPasswordMode);
@@ -197,7 +209,7 @@ export const StudentPortal: React.FC = () => {
         </div>
       ) : (
         /* Logged In View */
-        <div className="space-y-5 sm:space-y-6">
+        <div ref={resultSectionRef} className="scroll-mt-24 space-y-5 sm:space-y-6">
           {/* Top Status Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
             <div className="flex items-center gap-2.5 sm:gap-3">
