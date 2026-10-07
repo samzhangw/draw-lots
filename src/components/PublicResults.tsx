@@ -182,7 +182,7 @@ export function PublicResults() {
                       </div>
                       <div className="min-w-0 rounded-xl border border-blue-100 bg-blue-50 px-2 py-3 text-center sm:px-3">
                         <dt className="text-xs font-semibold text-blue-700">報告場次</dt>
-                        <dd className="mt-1.5 text-lg font-bold leading-9 text-blue-900 [overflow-wrap:anywhere] sm:text-xl">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</dd>
+                        <dd className="mt-1.5 text-lg font-black leading-9 text-blue-900 [-webkit-text-stroke:0.3px] [overflow-wrap:anywhere] sm:text-xl">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</dd>
                       </div>
                     </div>
                   </dl>
