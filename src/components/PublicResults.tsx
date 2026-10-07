@@ -102,7 +102,6 @@ export function PublicResults() {
         <p>{error} {hasSnapshot ? '目前顯示上次取得的結果。' : ''}{field ? '請按「更新結果」重試。' : '請重新載入領域選單。'}</p>
         {!field && <button type="button" disabled={loading} onClick={() => { setLoading(true); setRefresh(value => value + 1); }} className="mt-3 min-h-11 rounded-xl border border-amber-300 bg-white px-4 py-2 font-bold hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-amber-700 disabled:opacity-50">重新載入領域</button>}
       </div>}
-      {loading && hasSnapshot && <p role="status" className="text-xs text-slate-500">正在更新，暫時顯示上次取得的結果。</p>}
       {loading && !hasSnapshot ? <div role="status" className="flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-14 text-sm text-slate-500"><RefreshCw className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />載入抽籤結果中…</div>
         : !field ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center"><p className="font-bold text-slate-700">{data.domains.length ? '選擇領域，查看抽籤結果' : '目前尚未設定領域'}</p><p className="mt-2 text-sm text-slate-500">{data.domains.length ? '請使用上方選單選擇要查詢的領域。' : '領域設定完成後，將在此提供查詢。'}</p></div>
         : <section aria-label={`${field}抽籤結果`} className="space-y-6">
