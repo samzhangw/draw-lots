@@ -126,10 +126,6 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
           </details>
         )}
       </div>
-      <nav aria-label="結果查詢選單" className="mx-auto flex max-w-7xl gap-2 border-t border-slate-100 px-4 py-2 sm:px-6 lg:px-8">
-        <a href="/" className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600">個人場次查詢</a>
-        <a href="/results" className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-blue-800 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-blue-600">各領域抽籤結果</a>
-      </nav>
     </header>
   );
 };
