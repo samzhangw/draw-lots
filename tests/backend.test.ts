@@ -32,6 +32,9 @@ function assertStageWhitelist(data: any) {
 
 test('input validation rejects malformed rosters and domain settings', () => {
   validateProjects([project]); validateDomains(domains);
+  validateProjects([{ ...project, leader_name: '林同學' }]);
+  assert.throws(() => validateProjects([{ ...project, leader_name: 123 }]));
+  assert.throws(() => validateProjects([{ ...project, leader_name: '林'.repeat(129) }]));
   assert.throws(() => validateProjects([project, project]));
   assert.throws(() => validateProjects([{ ...project, draw_order: -1 }]));
   assert.throws(() => validateProjects([{ ...project, password: {} }]));
@@ -568,6 +571,15 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(staleRoster.status, 409);
     assert.equal(state.version, draw.data.version);
     assert.ok(state.projects.every(p => p.draw_order));
+    const publicDraw = await request(`/api/public/results?field=${encodeURIComponent(project.field)}`);
+    assert.equal(publicDraw.status, 200, 'published results require no login');
+    assert.ok(publicDraw.data.results.length > 0);
+    assert.deepEqual(Object.keys(publicDraw.data.results[0]).sort(), ['assigned_group', 'draw_code', 'leader_name', 'project_title']);
+    assert.equal((await request('/api/public/results?field=first&field=second')).status, 400);
+    const domainMenu = await request('/api/public/results');
+    assert.equal(domainMenu.status, 200);
+    assert.ok(domainMenu.data.domains.includes(project.field));
+    assert.deepEqual(domainMenu.data.results, []);
     assert.equal(draw.status, 200); assert.ok(draw.data.projects[0].assigned_group); assert.ok(draw.data.projects[0].draw_order);
     assert.ok(state.projects[0].evaluators?.length); assert.equal(draw.data.projects[0].evaluators, undefined);
     assert.equal(state.projects[0].password, undefined);

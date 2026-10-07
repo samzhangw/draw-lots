@@ -12,6 +12,7 @@ export const REQUIRED_INPUT_HEADERS = [
   '編號',
   '專題名稱',
   '組長學號',
+  '組長姓名',
   '組長密碼'
 ];
 
@@ -25,6 +26,7 @@ export const REQUIRED_OUTPUT_HEADERS = [
   '編號',
   '專題名稱',
   '組長學號',
+  '組長姓名',
   '+編號(抽籤後)'
 ];
 
@@ -82,6 +84,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
     const codeKey = findKey('編號');
     const titleKey = findKey('專題名稱');
     const leaderKey = findKey('組長學號');
+    const leaderNameKey = findKey('組長姓名') || findKey('組長名');
     const passwordKey = findKey('組長密碼') || findKey('密碼') || findKey('登入密碼');
     // Check if there is already a draw code column in this excel
     const drawCodeKey = findKey('+編號(抽籤後)') || findKey('編號(抽籤後)') || findKey('抽籤後編號') || findKey('抽籤序號');
@@ -127,6 +130,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
         original_code: originalCode,
         project_title: title,
         leader_id: leaderId,
+        leader_name: leaderNameKey ? String(row[leaderNameKey] || '').trim() : '',
         password: password,
         draw_order: drawCodeVal ? parseInt(drawCodeVal.replace(/\D/g, ''), 10) || null : null,
         draw_code: drawCodeVal || null,
@@ -179,6 +183,7 @@ export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
       '編號': p.original_code,
       '專題名稱': p.project_title,
       '組長學號': p.leader_id,
+      '組長姓名': p.leader_name || '',
       '+編號(抽籤後)': p.draw_code || (p.draw_order ? `第 ${p.draw_order} 組` : '未抽籤'),
     };
   });
@@ -196,6 +201,7 @@ export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
     { wch: 12 }, // 編號
     { wch: 45 }, // 專題名稱
     { wch: 14 }, // 組長學號
+    { wch: 14 }, // 組長姓名
     { wch: 18 }, // +編號(抽籤後)
   ];
 

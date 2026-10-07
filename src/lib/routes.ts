@@ -2,6 +2,7 @@ import type { ViewMode } from '../types';
 
 interface PageLocation { pathname: string; search: string; hash: string }
 const views: Record<string, ViewMode> = {
+  results: 'results',
   audit: 'audit', student: 'student', inquiry: 'student', admin: 'admin', manage: 'admin', stage: 'stage', lottery: 'stage',
 };
 const parseView = (name: string): ViewMode | undefined => Object.hasOwn(views, name) ? views[name] : undefined;
@@ -32,6 +33,7 @@ export function canonicalPageUrl(location: PageLocation): string {
 }
 
 export const viewTitles: Record<ViewMode, string> = {
+  results: '各領域抽籤結果 | 國立臺中科技大學專題成果展',
   audit: '工作人員操作紀錄 | 國立臺中科技大學專題成果展',
   student: '專題報告場次查詢 | 國立臺中科技大學專題成果展',
   stage: '專題報告抽籤現場 | 國立臺中科技大學專題成果展',

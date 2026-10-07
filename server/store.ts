@@ -105,6 +105,7 @@ export function validateProjects(value: unknown): asserts value is ProjectItem[]
       if (p[key] != null && (!Number.isInteger(p[key]) || p[key] < 1)) throw new ApiError(400, '抽籤順位與組別必須為正整數。');
     }
     if (p.password != null && typeof p.password !== 'string') throw new ApiError(400, '密碼格式不正確。');
+    if (p.leader_name != null && (typeof p.leader_name !== 'string' || p.leader_name.length > 128)) throw new ApiError(400, '組長姓名須為 128 字元以內的文字。');
     if (p.draw_time != null && (typeof p.draw_time !== 'string' || Number.isNaN(Date.parse(p.draw_time)))) throw new ApiError(400, '抽籤時間格式不正確。');
     if (p.draw_code != null && (typeof p.draw_code !== 'string' || p.draw_code.length > 512)) throw new ApiError(400, '抽籤編號格式不正確。');
     if (p.evaluators != null && (!Array.isArray(p.evaluators) || p.evaluators.length > 100 || p.evaluators.some((x: unknown) => typeof x !== 'string' || x.length > 128))) throw new ApiError(400, '評審格式不正確。');

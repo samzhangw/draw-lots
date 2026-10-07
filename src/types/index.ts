@@ -9,6 +9,7 @@ export interface ProjectItem {
   original_code: string; // 原始編號 e.g. A01，依領域自動編號
   project_title: string; // 專題名稱
   leader_id: string; // 組長學號
+  leader_name?: string; // 組長姓名；舊名冊可未提供
   password?: string; // 僅供設定新密碼的輸入，API 不回傳
   password_set?: boolean; // 管理員可查看是否已設定密碼
   
@@ -35,7 +36,19 @@ export interface DomainConfig {
   evaluatorsPerGroup?: Record<number, string[]>; // 每一個分組 (1..N) 的評分教授清單
 }
 
-export type ViewMode = 'student' | 'stage' | 'admin' | 'audit';
+export type ViewMode = 'student' | 'results' | 'stage' | 'admin' | 'audit';
+
+export interface PublicDrawResult {
+  draw_code: string;
+  assigned_group: number | null;
+  project_title: string;
+  leader_name: string;
+}
+
+export interface PublicResultsResponse {
+  domains: string[];
+  results: PublicDrawResult[];
+}
 
 // Student results expose only fields consumed by the query page.
 export interface StudentQueryProject {

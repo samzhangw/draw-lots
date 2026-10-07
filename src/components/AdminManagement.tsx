@@ -583,6 +583,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             ...p,
             ...formData,
             leader_id: cleanLeaderId,
+            leader_name: formData.leader_name?.trim() || '',
             password: finalPassword,
             draw_order: formData.draw_code === p.draw_code ? p.draw_order : formData.draw_code ? parseInt(String(formData.draw_code).replace(/\D/g, ''), 10) || p.draw_order : p.draw_order,
           } as ProjectItem;
@@ -602,6 +603,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
         original_code: formData.original_code || `P-${nextSeq}`,
         project_title: formData.project_title,
         leader_id: cleanLeaderId,
+        leader_name: formData.leader_name?.trim() || '',
         password: finalPassword,
         draw_order: formData.draw_code ? parseInt(String(formData.draw_code).replace(/\D/g, ''), 10) || null : null,
         draw_code: formData.draw_code || null,
@@ -1866,6 +1868,10 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="project-leader-name" className="block text-slate-700 mb-1 font-semibold">組長姓名</label>
+                  <input id="project-leader-name" type="text" maxLength={128} value={formData.leader_name || ''} onChange={(e) => setFormData({ ...formData, leader_name: e.target.value })} className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="公開抽籤結果顯示的姓名" />
+                </div>
                 <div>
                   <label htmlFor="project-leader-id" className="block text-slate-700 mb-1 font-semibold">組長學號 *</label>
                   <input
