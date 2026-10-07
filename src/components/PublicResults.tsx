@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutGrid, RefreshCw, Table2 } from 'lucide-react';
+import { LayoutGrid, RefreshCw, Search, Table2, X } from 'lucide-react';
 import type { PublicDrawResult, PublicResultsResponse } from '../types';
 import { useApiRequest } from '../lib/useApiRequest';
 import { isApiRequestCancelled } from '../lib/api';
 import { formatSessionLabel } from '../lib/sessionLabel';
+import { publicResultSearchText, publicResultSearchTerms } from '../lib/publicResultSearch';
 
 export function PublicResults() {
   const request = useApiRequest();
   const [field, setField] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [displayMode, setDisplayMode] = useState<'cards' | 'table'>(() => {
     try { return localStorage.getItem('public-results-display') === 'table' ? 'table' : 'cards'; }
     catch { return 'cards'; }
@@ -25,6 +27,7 @@ export function PublicResults() {
   const selectedField = useRef('');
 
   const selectField = (next: string) => {
+    setSearchQuery('');
     selectedField.current = next;
     const cached = cachedDomains.current.get(next);
     setData(previous => cached || { domains: previous.domains, results: [] });
@@ -57,15 +60,21 @@ export function PublicResults() {
     return () => controller.abort();
   }, [field, refresh, request]);
 
+  const searchIndex = useMemo(() => data.results.map(result => ({ result, text: publicResultSearchText(result) })), [data.results]);
+  const matchingResults = useMemo(() => {
+    const terms = publicResultSearchTerms(searchQuery);
+    return terms.length ? searchIndex.filter(item => terms.every(term => item.text.includes(term))).map(item => item.result) : data.results;
+  }, [data.results, searchIndex, searchQuery]);
+
   const sessions = useMemo(() => {
     const grouped = new Map<number | null, PublicDrawResult[]>();
-    for (const result of data.results) {
+    for (const result of matchingResults) {
       const group = grouped.get(result.assigned_group) || [];
       group.push(result);
       grouped.set(result.assigned_group, group);
     }
     return Array.from(grouped, ([session, results]) => ({ session, results }));
-  }, [data.results]);
+  }, [matchingResults]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-10">
@@ -88,6 +97,14 @@ export function PublicResults() {
         <button type="button" disabled={loading} onClick={() => { setLoading(true); setRefresh(value => value + 1); }} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />{loading ? '更新中…' : '更新結果'}
         </button>
+        <div className="w-full min-w-0 border-t border-slate-100 pt-4">
+          <label htmlFor="public-result-search" className="mb-2 block text-sm font-bold text-slate-700">搜尋此領域結果</label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <input id="public-result-search" type="search" disabled={!field} value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="搜尋編號、場次、專題名稱或組長姓名" className="min-h-12 w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-10 pr-12 text-base text-slate-900 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50 [&::-webkit-search-cancel-button]:hidden" />
+            {searchQuery && <button type="button" aria-label="清除搜尋" onClick={() => setSearchQuery('')} className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 focus-visible:outline-2 focus-visible:outline-blue-600"><X className="h-4 w-4" aria-hidden="true" /></button>}
+          </div>
+        </div>
       </div>
       {error && <p role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-relaxed text-amber-900">{error} {hasSnapshot ? '目前顯示上次取得的結果。' : ''}請按「更新結果」重試。</p>}
       {loading && hasSnapshot && <p role="status" className="text-xs text-slate-500">正在更新，暫時顯示上次取得的結果。</p>}
@@ -96,9 +113,10 @@ export function PublicResults() {
         : <section aria-label={`${field}抽籤結果`} className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="min-w-0 break-words text-xl font-black text-slate-900 sm:text-2xl">{field}</h2>
-            <span className="rounded-full bg-slate-200/60 px-3 py-1.5 text-xs font-semibold text-slate-600">已公布 {data.results.length} 件專題</span>
+            <span aria-live="polite" className="rounded-full bg-slate-200/60 px-3 py-1.5 text-xs font-semibold text-slate-600">{searchQuery.trim() ? `符合 ${matchingResults.length}／全部 ${data.results.length} 件專題` : `已公布 ${data.results.length} 件專題`}</span>
           </div>
           {!data.results.length ? <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center text-slate-500">此領域尚無已公布的抽籤結果。</p>
+            : !matchingResults.length ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center"><p className="break-words text-sm text-slate-600">找不到符合「{searchQuery.trim()}」的結果。</p><button type="button" onClick={() => setSearchQuery('')} className="mt-3 min-h-11 rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-blue-800 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-blue-600">清除搜尋，顯示全部</button></div>
             : sessions.map(({ session, results }) => <section key={session ?? 'pending'} aria-label={session ? formatSessionLabel(session) : '場次尚未提供'} className="space-y-3">
               <div className="flex items-center gap-3 px-1">
                 <span className="h-5 w-1 rounded-full bg-blue-700" aria-hidden="true" />
