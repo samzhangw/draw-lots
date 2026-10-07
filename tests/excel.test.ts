@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
-import { parseExcelFile, createExportWorkbook, REQUIRED_OUTPUT_HEADERS } from '../src/lib/excel';
+import { parseExcelFile, createExportWorkbook, createInputTemplateWorkbook, REQUIRED_INPUT_HEADERS, REQUIRED_OUTPUT_HEADERS } from '../src/lib/excel';
 import { preserveImportedProjectIds } from '../src/lib/importProjects';
 
 const row = { 序號: '1', 學制: '四技', 系所: '資管', 班級: '甲', 指導老師: '王教授', 領域: '企業智慧化', 編號: 'P1', 專題名稱: '中文測試', 組長學號: '12345678', 組長姓名: '林同學', 組長密碼: 'Strong-password-123' };
@@ -66,4 +66,22 @@ test('exported file follows drawn codes numerically across domains and puts undr
   assert.deepEqual(exported.map(p => p['+編號(抽籤後)']), ['A01', 'A02', 'A03', 'A99', 'A100', 'B01', 'B02', 'B03', 'C01', 'D01', 'E01', 'F01', 'G01', '未抽籤', '未抽籤']);
   assert.deepEqual(exported.slice(-2).map(p => p.編號), ['A01', 'Z01']);
   assert.deepEqual(roster, before);
+});
+
+
+test('download template includes leader names and imports them back', async () => {
+  const bytes = XLSX.write(createInputTemplateWorkbook(), { type: 'array', bookType: 'xlsx' });
+  const workbook = XLSX.read(bytes, { type: 'array' });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const cells = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
+  assert.deepEqual(cells[0], REQUIRED_INPUT_HEADERS);
+  const parsed = await parseExcelFile(new File([bytes], 'template.xlsx'));
+  assert.equal(parsed.success, true);
+  assert.deepEqual(parsed.projects!.map(p => p.leader_name), ['王小明', '陳小華']);
+});
+
+test('empty result export retains all headers including leader name', () => {
+  const workbook = createExportWorkbook([]);
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  assert.deepEqual(XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 })[0], REQUIRED_OUTPUT_HEADERS);
 });
