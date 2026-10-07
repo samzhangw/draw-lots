@@ -1,17 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutGrid, RefreshCw, Search, Table2, X } from 'lucide-react';
+import { LayoutGrid, RefreshCw, Table2 } from 'lucide-react';
 import type { PublicDrawResult, PublicResultsResponse } from '../types';
 import { useApiRequest } from '../lib/useApiRequest';
 import { isApiRequestCancelled } from '../lib/api';
 import { formatSessionLabel } from '../lib/sessionLabel';
-import { publicResultSearchText, publicResultSearchTerms } from '../lib/publicResultSearch';
 
 export function PublicResults() {
   const request = useApiRequest();
   const [field, setField] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(50);
-  const changeSearch = (query: string) => { setSearchQuery(query); setVisibleCount(50); };
   const [displayMode, setDisplayMode] = useState<'cards' | 'table'>(() => {
     try { return localStorage.getItem('public-results-display') === 'table' ? 'table' : 'cards'; }
     catch { return 'cards'; }
@@ -29,7 +26,7 @@ export function PublicResults() {
   const selectedField = useRef('');
 
   const selectField = (next: string) => {
-    changeSearch('');
+    setVisibleCount(50);
     selectedField.current = next;
     const cached = cachedDomains.current.get(next);
     setData(previous => cached || { domains: previous.domains, results: [] });
@@ -62,15 +59,9 @@ export function PublicResults() {
     return () => controller.abort();
   }, [field, refresh, request]);
 
-  const searchIndex = useMemo(() => data.results.map(result => ({ result, text: publicResultSearchText(result) })), [data.results]);
-  const matchingResults = useMemo(() => {
-    const terms = publicResultSearchTerms(searchQuery);
-    return terms.length ? searchIndex.filter(item => terms.every(term => item.text.includes(term))).map(item => item.result) : data.results;
-  }, [data.results, searchIndex, searchQuery]);
-
   const sessions = useMemo(() => {
     const grouped = new Map<number | null, PublicDrawResult[]>();
-    for (const result of matchingResults) {
+    for (const result of data.results) {
       const group = grouped.get(result.assigned_group) || [];
       group.push(result);
       grouped.set(result.assigned_group, group);
@@ -81,7 +72,7 @@ export function PublicResults() {
       remaining = Math.max(0, remaining - allResults.length);
       return results.length ? [{ session, results, total: allResults.length }] : [];
     });
-  }, [matchingResults, visibleCount]);
+  }, [data.results, visibleCount]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-10">
@@ -102,14 +93,6 @@ export function PublicResults() {
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />{loading ? '更新中…' : '更新結果'}
         </button>
         </div>
-        <div className="min-w-0 border-t border-slate-100 pt-4">
-          <label htmlFor="public-result-search" className="mb-2 block text-sm font-bold text-slate-700">搜尋此領域結果</label>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-            <input id="public-result-search" type="search" disabled={!field} value={searchQuery} onChange={event => changeSearch(event.target.value)} placeholder="搜尋編號、場次、專題名稱或組長姓名" className="min-h-12 w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-10 pr-12 text-base text-slate-900 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50 [&::-webkit-search-cancel-button]:hidden" />
-            {searchQuery && <button type="button" aria-label="清除搜尋" onClick={() => changeSearch('')} className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 focus-visible:outline-2 focus-visible:outline-blue-600"><X className="h-4 w-4" aria-hidden="true" /></button>}
-          </div>
-        </div>
       </div>
       {error && <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-relaxed text-amber-900">
         <p>{error} {hasSnapshot ? '目前顯示上次取得的結果。' : ''}{field ? '請按「更新結果」重試。' : '請重新載入領域選單。'}</p>
@@ -122,7 +105,7 @@ export function PublicResults() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0 space-y-2">
               <h2 className="break-words text-xl font-black text-slate-900 sm:text-2xl">{field}</h2>
-              <p aria-live="polite" className="text-xs font-medium text-slate-500">{searchQuery.trim() ? `符合 ${matchingResults.length}／全部 ${data.results.length} 件專題` : `已公布 ${data.results.length} 件專題`}</p>
+              <p aria-live="polite" className="text-xs font-medium text-slate-500">{`已公布 ${data.results.length} 件專題`}</p>
             </div>
             <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-200 pt-3 sm:border-0 sm:pt-0">
               <span className="text-xs font-semibold text-slate-500">顯示方式</span>
@@ -133,7 +116,6 @@ export function PublicResults() {
             </div>
           </div>
           {!data.results.length ? <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center text-slate-500">此領域尚無已公布的抽籤結果。</p>
-            : !matchingResults.length ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center"><p className="break-words text-sm text-slate-600">找不到符合「{searchQuery.trim()}」的結果。</p><button type="button" onClick={() => changeSearch('')} className="mt-3 min-h-11 rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-blue-800 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-blue-600">清除搜尋，顯示全部</button></div>
             : sessions.map(({ session, results, total }) => <section key={session ?? 'pending'} aria-label={session ? formatSessionLabel(session) : '場次尚未提供'} className="space-y-3">
               <div className="flex items-center gap-3 px-1">
                 <span className="h-5 w-1 rounded-full bg-blue-700" aria-hidden="true" />
@@ -189,9 +171,9 @@ export function PublicResults() {
                 </article>)}
               </div>}
             </section>)}
-          {matchingResults.length > 0 && <div className="space-y-3 pt-2 text-center">
-            <p aria-live="polite" className="text-xs font-medium text-slate-500">目前顯示 {Math.min(visibleCount, matchingResults.length)}／共 {matchingResults.length} 件{searchQuery.trim() ? '符合搜尋的專題' : '專題'}</p>
-            {visibleCount < matchingResults.length && <button type="button" onClick={() => setVisibleCount(count => Math.min(count + 50, matchingResults.length))} className="min-h-12 rounded-xl border border-blue-200 bg-white px-6 py-3 text-sm font-bold text-blue-800 shadow-sm hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">載入更多（還有 {matchingResults.length - visibleCount} 件）</button>}
+          {data.results.length > 0 && <div className="space-y-3 pt-2 text-center">
+            <p aria-live="polite" className="text-xs font-medium text-slate-500">目前顯示 {Math.min(visibleCount, data.results.length)}／共 {data.results.length} 件專題</p>
+            {visibleCount < data.results.length && <button type="button" onClick={() => setVisibleCount(count => Math.min(count + 50, data.results.length))} className="min-h-12 rounded-xl border border-blue-200 bg-white px-6 py-3 text-sm font-bold text-blue-800 shadow-sm hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">載入更多（還有 {data.results.length - visibleCount} 件）</button>}
           </div>}
         </section>}
     </div>
