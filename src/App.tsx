@@ -10,7 +10,6 @@ import { ProjectItem, ViewMode, DomainConfig } from './types';
 import { StoreState, ApiRequestError, isApiRequestCancelled } from './lib/api';
 import { Navbar } from './components/Navbar';
 import { StudentPortal } from './components/StudentPortal';
-import { PublicResults } from './components/PublicResults';
 import { AuthGate } from './components/AuthGate';
 import { FloatingNotice } from './components/FloatingNotice';
 import {
@@ -23,6 +22,7 @@ import {
 
 import { getViewFromLocation, canonicalPageUrl, viewPath, viewTitles } from './lib/routes';
 
+const PublicResults = lazy(() => import('./components/PublicResults').then(module => ({ default: module.PublicResults })));
 const StageLottery = lazy(() => import('./components/StageLottery').then(module => ({ default: module.StageLottery })));
 const AdminManagement = lazy(() => import('./components/AdminManagement').then(module => ({ default: module.AdminManagement })));
 

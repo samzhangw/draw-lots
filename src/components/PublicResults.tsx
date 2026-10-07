@@ -10,6 +10,8 @@ export function PublicResults() {
   const request = useApiRequest();
   const [field, setField] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [visibleCount, setVisibleCount] = useState(50);
+  const changeSearch = (query: string) => { setSearchQuery(query); setVisibleCount(50); };
   const [displayMode, setDisplayMode] = useState<'cards' | 'table'>(() => {
     try { return localStorage.getItem('public-results-display') === 'table' ? 'table' : 'cards'; }
     catch { return 'cards'; }
@@ -27,7 +29,7 @@ export function PublicResults() {
   const selectedField = useRef('');
 
   const selectField = (next: string) => {
-    setSearchQuery('');
+    changeSearch('');
     selectedField.current = next;
     const cached = cachedDomains.current.get(next);
     setData(previous => cached || { domains: previous.domains, results: [] });
@@ -73,8 +75,13 @@ export function PublicResults() {
       group.push(result);
       grouped.set(result.assigned_group, group);
     }
-    return Array.from(grouped, ([session, results]) => ({ session, results }));
-  }, [matchingResults]);
+    let remaining = visibleCount;
+    return Array.from(grouped).flatMap(([session, allResults]) => {
+      const results = allResults.slice(0, remaining);
+      remaining = Math.max(0, remaining - allResults.length);
+      return results.length ? [{ session, results, total: allResults.length }] : [];
+    });
+  }, [matchingResults, visibleCount]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-10">
@@ -101,8 +108,8 @@ export function PublicResults() {
           <label htmlFor="public-result-search" className="mb-2 block text-sm font-bold text-slate-700">搜尋此領域結果</label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-            <input id="public-result-search" type="search" disabled={!field} value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="搜尋編號、場次、專題名稱或組長姓名" className="min-h-12 w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-10 pr-12 text-base text-slate-900 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50 [&::-webkit-search-cancel-button]:hidden" />
-            {searchQuery && <button type="button" aria-label="清除搜尋" onClick={() => setSearchQuery('')} className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 focus-visible:outline-2 focus-visible:outline-blue-600"><X className="h-4 w-4" aria-hidden="true" /></button>}
+            <input id="public-result-search" type="search" disabled={!field} value={searchQuery} onChange={event => changeSearch(event.target.value)} placeholder="搜尋編號、場次、專題名稱或組長姓名" className="min-h-12 w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-10 pr-12 text-base text-slate-900 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50 [&::-webkit-search-cancel-button]:hidden" />
+            {searchQuery && <button type="button" aria-label="清除搜尋" onClick={() => changeSearch('')} className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 focus-visible:outline-2 focus-visible:outline-blue-600"><X className="h-4 w-4" aria-hidden="true" /></button>}
           </div>
         </div>
       </div>
@@ -116,12 +123,12 @@ export function PublicResults() {
             <span aria-live="polite" className="rounded-full bg-slate-200/60 px-3 py-1.5 text-xs font-semibold text-slate-600">{searchQuery.trim() ? `符合 ${matchingResults.length}／全部 ${data.results.length} 件專題` : `已公布 ${data.results.length} 件專題`}</span>
           </div>
           {!data.results.length ? <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center text-slate-500">此領域尚無已公布的抽籤結果。</p>
-            : !matchingResults.length ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center"><p className="break-words text-sm text-slate-600">找不到符合「{searchQuery.trim()}」的結果。</p><button type="button" onClick={() => setSearchQuery('')} className="mt-3 min-h-11 rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-blue-800 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-blue-600">清除搜尋，顯示全部</button></div>
-            : sessions.map(({ session, results }) => <section key={session ?? 'pending'} aria-label={session ? formatSessionLabel(session) : '場次尚未提供'} className="space-y-3">
+            : !matchingResults.length ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center"><p className="break-words text-sm text-slate-600">找不到符合「{searchQuery.trim()}」的結果。</p><button type="button" onClick={() => changeSearch('')} className="mt-3 min-h-11 rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-blue-800 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-blue-600">清除搜尋，顯示全部</button></div>
+            : sessions.map(({ session, results, total }) => <section key={session ?? 'pending'} aria-label={session ? formatSessionLabel(session) : '場次尚未提供'} className="space-y-3">
               <div className="flex items-center gap-3 px-1">
                 <span className="h-5 w-1 rounded-full bg-blue-700" aria-hidden="true" />
                 <h3 className="text-base font-black text-blue-900 sm:text-lg">{session ? formatSessionLabel(session) : '場次尚未提供'}</h3>
-                <span className="text-xs font-medium text-slate-500">{results.length} 件專題</span>
+                <span className="text-xs font-medium text-slate-500">{results.length === total ? `${total} 件專題` : `已顯示 ${results.length}／共 ${total} 件`}</span>
                 <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
               </div>
               {displayMode === 'table' ? <div className="space-y-2">
@@ -170,6 +177,10 @@ export function PublicResults() {
                 </article>)}
               </div>}
             </section>)}
+          {matchingResults.length > 0 && <div className="space-y-3 pt-2 text-center">
+            <p aria-live="polite" className="text-xs font-medium text-slate-500">目前顯示 {Math.min(visibleCount, matchingResults.length)}／共 {matchingResults.length} 件{searchQuery.trim() ? '符合搜尋的專題' : '專題'}</p>
+            {visibleCount < matchingResults.length && <button type="button" onClick={() => setVisibleCount(count => Math.min(count + 50, matchingResults.length))} className="min-h-12 rounded-xl border border-blue-200 bg-white px-6 py-3 text-sm font-bold text-blue-800 shadow-sm hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">載入更多（還有 {matchingResults.length - visibleCount} 件）</button>}
+          </div>}
         </section>}
     </div>
   );
