@@ -171,8 +171,8 @@ export function PublicResults() {
                       <dt className="text-xs font-semibold tracking-wide text-slate-500">專題名稱</dt>
                       <dd className="mt-2 text-lg font-bold leading-relaxed text-slate-900 [overflow-wrap:anywhere] sm:text-xl">{result.project_title}</dd>
                     </div>
-                    <div className="mt-3 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <dt className="shrink-0 text-xs font-medium text-slate-500">組長姓名</dt>
+                    <div className="mt-3 flex min-w-0 flex-wrap items-baseline gap-y-1">
+                      <dt className="shrink-0 text-sm font-medium text-slate-500">組長：</dt>
                       <dd className="min-w-0 text-sm font-semibold text-slate-700 [overflow-wrap:anywhere]">{result.leader_name || '尚未提供'}</dd>
                     </div>
                     <div className="mt-auto grid grid-cols-2 gap-3 pt-5">
