@@ -21,7 +21,8 @@ export function PublicResults() {
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
   const [hasSnapshot, setHasSnapshot] = useState(false);
-  const cachedDomains = useRef(new Map<string, PublicResultsResponse>());
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const cachedDomains = useRef(new Map<string, { data: PublicResultsResponse; updatedAt: string }>());
   const version = useRef<number | undefined>(undefined);
   const selectedField = useRef('');
 
@@ -29,7 +30,8 @@ export function PublicResults() {
     setVisibleCount(50);
     selectedField.current = next;
     const cached = cachedDomains.current.get(next);
-    setData(previous => cached || { domains: previous.domains, results: [] });
+    setData(previous => cached?.data || { domains: previous.domains, results: [] });
+    setUpdatedAt(cached?.updatedAt ?? null);
     setHasSnapshot(!!cached);
     setError('');
     setLoading(true);
@@ -41,14 +43,16 @@ export function PublicResults() {
     setLoading(true);
     setError('');
     const cached = cachedDomains.current.get(field);
-    if (cached) { setData(cached); setHasSnapshot(true); }
+    if (cached) { setData(cached.data); setUpdatedAt(cached.updatedAt); setHasSnapshot(true); }
     request<PublicResultsResponse>(`/api/public/results${field ? `?field=${encodeURIComponent(field)}` : ''}`, undefined, { signal: controller.signal })
       .then(result => {
-        if (selectedField.current !== field) return;
+        if (controller.signal.aborted || selectedField.current !== field) return;
         if (version.current !== undefined && result.version !== version.current) cachedDomains.current.clear();
         version.current = result.version;
-        cachedDomains.current.set(field, result);
+        const receivedAt = new Date().toISOString();
+        cachedDomains.current.set(field, { data: result, updatedAt: receivedAt });
         setData(result);
+        setUpdatedAt(receivedAt);
         setHasSnapshot(true);
         if (field && !result.domains.includes(field)) selectField('');
       })
@@ -106,6 +110,7 @@ export function PublicResults() {
             <div className="min-w-0 space-y-2">
               <h2 className="break-words text-xl font-black text-slate-900 sm:text-2xl">{field}</h2>
               <p aria-live="polite" className="text-xs font-medium text-slate-500">{`已公布 ${data.results.length} 件專題`}</p>
+              {updatedAt && <p className="text-xs leading-relaxed text-slate-500">最後更新時間：<time dateTime={updatedAt}>{new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date(updatedAt))}</time></p>}
             </div>
             <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-200 pt-3 sm:border-0 sm:pt-0">
               <span className="text-xs font-semibold text-slate-500">顯示方式</span>
