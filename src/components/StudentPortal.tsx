@@ -249,7 +249,7 @@ export const StudentPortal: React.FC = () => {
                     <h2 className="break-words text-xl font-black leading-snug text-slate-900 sm:text-3xl">
                       {myProject.project_title}
                     </h2>
-                    <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-sm leading-relaxed"><span className="text-slate-500">領域：</span><strong className="min-w-0 break-words font-semibold text-slate-700">{myProject.field}</strong></p>
+                    <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-base leading-relaxed"><span className="text-slate-500">領域：</span><strong className="min-w-0 break-words font-semibold text-slate-700">{myProject.field}</strong></p>
                   </div>
 
                   {!sharedPasswordMode &&
@@ -290,7 +290,7 @@ export const StudentPortal: React.FC = () => {
                   <div className="min-w-0 space-y-3">
                     <p className="flex items-center gap-2 text-sm font-bold text-slate-500"><FileText className="h-4 w-4" aria-hidden="true" />專題名稱</p>
                     <h2 className="break-words text-xl font-black leading-snug text-slate-900 sm:text-3xl">{myProject.project_title}</h2>
-                    {!sharedPasswordMode && <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-sm leading-relaxed"><span className="text-slate-500">領域：</span><strong className="min-w-0 break-words font-semibold text-slate-700">{myProject.field}</strong></p>}
+                    {!sharedPasswordMode && <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-base leading-relaxed"><span className="text-slate-500">領域：</span><strong className="min-w-0 break-words font-semibold text-slate-700">{myProject.field}</strong></p>}
                   </div>
                 </div>
 
