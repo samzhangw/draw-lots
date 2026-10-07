@@ -165,23 +165,25 @@ export function PublicResults() {
                   </table>
                 </div>
               </div> : <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
-                {results.map((result, index) => <article key={`${result.draw_code}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                  <dl className="grid grid-cols-2 items-start gap-x-4 gap-y-4 lg:gap-x-6">
-                    <div className="col-span-2 min-w-0">
-                      <dt className="text-xs font-medium text-slate-500">專題名稱</dt>
-                      <dd className="mt-1.5 break-words text-xl font-black leading-relaxed text-slate-900 sm:text-2xl">{result.project_title}</dd>
+                {results.map((result, index) => <article key={`${result.draw_code}-${index}`} className="flex min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-blue-300 sm:p-5">
+                  <dl className="flex min-w-0 flex-1 flex-col">
+                    <div className="min-w-0">
+                      <dt className="text-xs font-semibold tracking-wide text-slate-500">專題名稱</dt>
+                      <dd className="mt-2 text-lg font-bold leading-relaxed text-slate-900 [overflow-wrap:anywhere] sm:text-xl">{result.project_title}</dd>
                     </div>
-                    <div className="col-span-2 -mt-2 flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <dt className="shrink-0 text-sm font-medium text-slate-500">組長姓名</dt>
-                      <dd className="min-w-0 break-words text-base font-bold text-slate-700">{result.leader_name || '尚未提供'}</dd>
+                    <div className="mt-3 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                      <dt className="shrink-0 text-xs font-medium text-slate-500">組長姓名</dt>
+                      <dd className="min-w-0 text-sm font-semibold text-slate-700 [overflow-wrap:anywhere]">{result.leader_name || '尚未提供'}</dd>
                     </div>
-                    <div className="h-full min-w-0 rounded-xl bg-blue-50 px-3 py-3 lg:text-center">
-                      <dt className="text-xs font-bold text-blue-700">抽籤編號</dt>
-                      <dd className="mt-1 break-words font-mono text-3xl font-black tracking-tight text-blue-900 sm:text-4xl">{result.draw_code}</dd>
-                    </div>
-                    <div className="h-full min-w-0 rounded-xl bg-blue-50 px-3 py-3 lg:text-center">
-                      <dt className="text-xs font-bold text-blue-700">報告場次</dt>
-                      <dd className="mt-1 break-words text-2xl font-black leading-relaxed text-blue-900 sm:text-3xl">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</dd>
+                    <div className="mt-auto grid grid-cols-2 gap-3 pt-5">
+                      <div className="min-w-0 rounded-xl border border-blue-100 bg-blue-50 px-2 py-3 text-center sm:px-3">
+                        <dt className="text-xs font-semibold text-blue-700">抽籤編號</dt>
+                        <dd className="mt-1.5 font-mono text-3xl font-black leading-9 tracking-tight text-blue-900 [overflow-wrap:anywhere]">{result.draw_code}</dd>
+                      </div>
+                      <div className="min-w-0 rounded-xl border border-blue-100 bg-blue-50 px-2 py-3 text-center sm:px-3">
+                        <dt className="text-xs font-semibold text-blue-700">報告場次</dt>
+                        <dd className="mt-1.5 text-lg font-bold leading-9 text-blue-900 [overflow-wrap:anywhere] sm:text-xl">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</dd>
+                      </div>
                     </div>
                   </dl>
                 </article>)}
