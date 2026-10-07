@@ -274,7 +274,7 @@ export const StudentPortal: React.FC = () => {
                     <div className="flex min-h-24 min-w-0 flex-col justify-center rounded-2xl bg-blue-50 px-2 py-4 text-center sm:min-h-26 sm:px-5">
                       <dt className="text-sm font-bold text-blue-700">抽籤編號</dt>
                       <dd className="mt-2 flex items-center justify-center text-blue-950">
-                        <strong className={`break-words font-semibold tracking-tight ${myProject.draw_code ? 'font-mono text-[clamp(1.125rem,8.5cqw,1.75rem)] leading-9 sm:text-[30px]' : 'text-lg leading-snug sm:text-xl'}`}>{myProject.draw_code || '編號尚未提供'}</strong>
+                        <strong className={`break-words font-semibold tracking-normal ${myProject.draw_code ? 'font-mono text-[clamp(1.125rem,8.5cqw,1.75rem)] leading-9 sm:text-[30px]' : 'text-lg leading-snug sm:text-xl'}`}>{myProject.draw_code || '編號尚未提供'}</strong>
                       </dd>
                     </div>
                   </div>
