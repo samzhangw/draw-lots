@@ -95,7 +95,7 @@ export function PublicResults() {
                 <span className="text-xs font-medium text-slate-500">{results.length} 件專題</span>
                 <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
               </div>
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
                 {results.map((result, index) => <article key={`${result.draw_code}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                   <dl className="grid grid-cols-2 items-start gap-x-4 gap-y-4 lg:gap-x-6">
                     <div className="col-span-2 min-w-0">
