@@ -264,16 +264,16 @@ export const StudentPortal: React.FC = () => {
 
                 <dl aria-label="專題抽籤結果" className="space-y-4">
                   <div className="grid grid-cols-2 gap-3 sm:gap-5">
-                    <div className="min-w-0 rounded-2xl bg-blue-50 p-4 sm:p-6">
-                      <dt className="text-sm font-extrabold text-blue-700 sm:text-base">報告場次</dt>
-                      <dd className="mt-2 text-2xl leading-relaxed text-blue-950 [overflow-wrap:anywhere] sm:text-4xl">
-                        <strong className="font-black">{myProject.assigned_group ? formatSessionLabel(myProject.assigned_group) : '場次尚未提供'}</strong>
+                    <div className="flex min-h-36 min-w-0 flex-col justify-center rounded-2xl bg-blue-50 px-3 py-5 text-center sm:min-h-40 sm:px-6 sm:py-6">
+                      <dt className="text-xs font-bold tracking-wide text-blue-700 sm:text-sm">報告場次</dt>
+                      <dd className="mt-3 flex min-h-16 items-center justify-center text-blue-950">
+                        <strong className="break-words text-[clamp(1.25rem,4vw,2rem)] font-black leading-snug">{myProject.assigned_group ? formatSessionLabel(myProject.assigned_group) : '場次尚未提供'}</strong>
                       </dd>
                     </div>
-                    <div className="min-w-0 rounded-2xl bg-blue-50 p-4 sm:p-6">
-                      <dt className="text-sm font-extrabold text-blue-700 sm:text-base">抽籤編號</dt>
-                      <dd className="mt-2 text-2xl leading-relaxed text-blue-950 [overflow-wrap:anywhere] sm:text-4xl">
-                        <strong className="font-black">{myProject.draw_code || '編號尚未提供'}</strong>
+                    <div className="flex min-h-36 min-w-0 flex-col justify-center rounded-2xl bg-blue-50 px-3 py-5 text-center sm:min-h-40 sm:px-6 sm:py-6">
+                      <dt className="text-xs font-bold tracking-wide text-blue-700 sm:text-sm">抽籤編號</dt>
+                      <dd className="mt-3 flex min-h-16 items-center justify-center text-blue-950">
+                        <strong className={`break-words font-black tracking-tight ${myProject.draw_code ? 'font-mono text-[clamp(2rem,7vw,3rem)] leading-none' : 'text-lg leading-snug sm:text-xl'}`}>{myProject.draw_code || '編號尚未提供'}</strong>
                       </dd>
                     </div>
                   </div>
