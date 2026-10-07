@@ -60,6 +60,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
   let studentDeleteFailure = false;
   let malformedState = false;
   let rosterReads = 0;
+  let publicRowReads = 0;
   let databaseRequests = 0;
   let authRequests = 0;
   let indexedReads = 0;
@@ -194,6 +195,9 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       res.end(JSON.stringify(p ? { project: p, credential_version: session!.credential_version } : null)); return;
     }
     if (url.pathname === '/rest/v1/ntcust_lottery_state') {
+      if (url.searchParams.get('select') === 'version,domain_configs') {
+        res.end(JSON.stringify({ version: state.version, domain_configs: state.domain_configs })); return;
+      }
       if (req.method === 'HEAD') {
         metadataReads++; res.setHeader('Content-Range', '0-0/1'); res.end(); return;
       }
@@ -224,6 +228,18 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       res.end(JSON.stringify(state)); return;
     }
     if (url.pathname === '/rest/v1/ntcust_projects') {
+      if (url.searchParams.has('document->>field')) {
+        publicRowReads++;
+        assert.equal(url.searchParams.get('select'), 'draw_code:document->>draw_code,assigned_group:document->assigned_group,project_title:document->>project_title,leader_name:document->>leader_name');
+        assert.equal(url.searchParams.get('document->draw_order'), 'gt.0');
+        assert.equal(url.searchParams.get('order'), 'document->assigned_group.asc.nullslast,document->draw_order.asc,id.asc');
+        const field = url.searchParams.get('document->>field')!.slice(3);
+        const offset = Number(url.searchParams.get('offset') || 0);
+        const limit = Number(url.searchParams.get('limit') || 500);
+        res.end(JSON.stringify(state.projects.filter(p => p.field === field && p.draw_order && p.draw_code)
+          .sort((a,b) => (a.assigned_group ?? Infinity) - (b.assigned_group ?? Infinity) || a.draw_order! - b.draw_order!)
+          .slice(offset, offset + limit).map(p => ({draw_code:p.draw_code,assigned_group:p.assigned_group,project_title:p.project_title,leader_name:p.leader_name || ''})))); return;
+      }
       indexedReads++;
       const id = url.searchParams.get('id')?.slice(3);
       const leader = url.searchParams.get('leader_key')?.slice(3);
@@ -571,6 +587,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(staleRoster.status, 409);
     assert.equal(state.version, draw.data.version);
     assert.ok(state.projects.every(p => p.draw_order));
+    const rosterBeforePublic = rosterReads;
     const publicDraw = await request(`/api/public/results?field=${encodeURIComponent(project.field)}`);
     assert.equal(publicDraw.status, 200, 'published results require no login');
     assert.ok(publicDraw.data.results.length > 0);
@@ -580,6 +597,11 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(domainMenu.status, 200);
     assert.ok(domainMenu.data.domains.includes(project.field));
     assert.deepEqual(domainMenu.data.results, []);
+    assert.equal(rosterReads, rosterBeforePublic, 'public queries never load the full roster');
+    const publicReadsBefore = publicRowReads;
+    const repeatedPublic = await Promise.all(Array.from({length:20}, () => request(`/api/public/results?field=${encodeURIComponent(project.field)}`)));
+    assert.ok(repeatedPublic.every(response => response.status === 200));
+    assert.equal(publicRowReads, publicReadsBefore, 'warm results are shared across concurrent requests');
     assert.equal(draw.status, 200); assert.ok(draw.data.projects[0].assigned_group); assert.ok(draw.data.projects[0].draw_order);
     assert.ok(state.projects[0].evaluators?.length); assert.equal(draw.data.projects[0].evaluators, undefined);
     assert.equal(state.projects[0].password, undefined);
@@ -603,6 +625,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const reset = await request('/api/lottery/reset', { field: 'ALL', version: reviewers.data.version }, stage);
     assertStageWhitelist(reset.data);
     assert.equal(reset.status, 200); assert.equal(reset.data.projects[0].assigned_group, null); assert.deepEqual(state.projects[0].evaluators, []);
+    assert.deepEqual((await request(`/api/public/results?field=${encodeURIComponent(project.field)}`)).data.results, [], 'reset removes cached public results immediately');
     const renamed = await request('/api/domain-configs', { domainConfigs: [{ ...domains[0], field: '更名領域' }], renamedField: { oldName: '測試領域', newName: '更名領域' }, version: reset.data.version }, admin);
     assert.equal(renamed.status, 200); assert.equal(renamed.data.projects[0].field, '更名領域');
     if (cloudflareTest) for (let n = 0; n < 3; n++) {

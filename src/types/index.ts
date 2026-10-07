@@ -46,6 +46,7 @@ export interface PublicDrawResult {
 }
 
 export interface PublicResultsResponse {
+  version?: number;
   domains: string[];
   results: PublicDrawResult[];
 }

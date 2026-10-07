@@ -1,5 +1,4 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
-import { publicResults } from './publicResults';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { createStore, ApiError, validateProjects, validateDomains, type DatabaseState } from './store';
@@ -139,8 +138,7 @@ app.get('/api/health', anonymousLimiter('health', 120, 3600), route(async (_req,
 app.get('/api/public/results', anonymousLimiter('results', 1200, 12000), route(async (req, res) => {
   const field = req.query.field;
   if (field !== undefined && (typeof field !== 'string' || field.length > 512)) throw new ApiError(400, '請選擇有效的領域。');
-  const state = await createStore().load();
-  res.json({ success: true, ...publicResults(state.projects, state.domainConfigs, field as string | undefined) });
+  res.json({ success: true, ...await createStore().publicResults(field as string | undefined) });
 }));
 app.post('/api/auth/verify', loginLimiter('staff'), loginRoute('staff', async (req, res) => {
   const { username, password, targetView } = req.body;

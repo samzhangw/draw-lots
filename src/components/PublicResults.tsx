@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import type { PublicDrawResult, PublicResultsResponse } from '../types';
 import { useApiRequest } from '../lib/useApiRequest';
@@ -12,21 +12,41 @@ export function PublicResults() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
+  const [hasSnapshot, setHasSnapshot] = useState(false);
+  const cachedDomains = useRef(new Map<string, PublicResultsResponse>());
+  const version = useRef<number | undefined>(undefined);
+  const selectedField = useRef('');
+
+  const selectField = (next: string) => {
+    selectedField.current = next;
+    const cached = cachedDomains.current.get(next);
+    setData(previous => cached || { domains: previous.domains, results: [] });
+    setHasSnapshot(!!cached);
+    setError('');
+    setLoading(true);
+    setField(next);
+  };
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError('');
-    setData(previous => ({ ...previous, results: [] }));
+    const cached = cachedDomains.current.get(field);
+    if (cached) { setData(cached); setHasSnapshot(true); }
     request<PublicResultsResponse>(`/api/public/results${field ? `?field=${encodeURIComponent(field)}` : ''}`, undefined, { signal: controller.signal })
       .then(result => {
+        if (selectedField.current !== field) return;
+        if (version.current !== undefined && result.version !== version.current) cachedDomains.current.clear();
+        version.current = result.version;
+        cachedDomains.current.set(field, result);
         setData(result);
-        if (field && !result.domains.includes(field)) setField('');
+        setHasSnapshot(true);
+        if (field && !result.domains.includes(field)) selectField('');
       })
       .catch(reason => {
-        if (!isApiRequestCancelled(reason)) setError(reason instanceof Error ? reason.message : '抽籤結果暫時無法載入，請稍後再試。');
+        if (selectedField.current === field && !isApiRequestCancelled(reason)) setError(reason instanceof Error ? reason.message : '抽籤結果暫時無法載入，請稍後再試。');
       })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+      .finally(() => { if (!controller.signal.aborted && selectedField.current === field) setLoading(false); });
     return () => controller.abort();
   }, [field, refresh, request]);
 
@@ -49,17 +69,18 @@ export function PublicResults() {
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="min-w-0 flex-1 basis-60">
           <label htmlFor="public-result-field" className="mb-2 block text-sm font-bold text-slate-700">選擇領域</label>
-          <select id="public-result-field" value={field} onChange={event => { setLoading(true); setField(event.target.value); }} className="min-h-12 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-base font-semibold text-slate-900 focus-visible:outline-2 focus-visible:outline-blue-600">
+          <select id="public-result-field" value={field} onChange={event => selectField(event.target.value)} className="min-h-12 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-base font-semibold text-slate-900 focus-visible:outline-2 focus-visible:outline-blue-600">
             <option value="">請選擇領域</option>
             {data.domains.map(domain => <option key={domain} value={domain}>{domain}</option>)}
           </select>
         </div>
-        <button type="button" disabled={loading} onClick={() => setRefresh(value => value + 1)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50">
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />更新結果
+        <button type="button" disabled={loading} onClick={() => { setLoading(true); setRefresh(value => value + 1); }} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50">
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />{loading ? '更新中…' : '更新結果'}
         </button>
       </div>
-      {error ? <p role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-relaxed text-amber-900">{error} 請按「更新結果」重試。</p>
-        : loading ? <div role="status" className="flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-14 text-sm text-slate-500"><RefreshCw className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />載入抽籤結果中…</div>
+      {error && <p role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-relaxed text-amber-900">{error} {hasSnapshot ? '目前顯示上次取得的結果。' : ''}請按「更新結果」重試。</p>}
+      {loading && hasSnapshot && <p role="status" className="text-xs text-slate-500">正在更新，暫時顯示上次取得的結果。</p>}
+      {loading && !hasSnapshot ? <div role="status" className="flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white py-14 text-sm text-slate-500"><RefreshCw className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />載入抽籤結果中…</div>
         : !field ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center"><p className="font-bold text-slate-700">{data.domains.length ? '選擇領域，查看抽籤結果' : '目前尚未設定領域'}</p><p className="mt-2 text-sm text-slate-500">{data.domains.length ? '請使用上方選單選擇要查詢的領域。' : '領域設定完成後，將在此提供查詢。'}</p></div>
         : <section aria-label={`${field}抽籤結果`} className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
