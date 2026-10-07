@@ -48,6 +48,9 @@ export class ShortCache<T> {
     return entry.promise;
   }
   invalidate(key: string): void { this.entries.delete(key); }
+  invalidatePrefix(prefix: string): void {
+    for (const key of this.entries.keys()) if (key.startsWith(prefix)) this.entries.delete(key);
+  }
 }
 
 // Supabase calls must not occupy admission/cache slots indefinitely.

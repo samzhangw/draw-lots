@@ -1,3 +1,4 @@
+import { formatSessionLabel } from '../lib/sessionLabel';
 import { useApiRequest } from '../lib/useApiRequest';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ProjectItem, DomainConfig } from '../types';
@@ -704,7 +705,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                                 </span>
                                 <div>
                                   <div className="text-lg sm:text-xl font-black text-slate-900">
-                                    第 {g} 組報告場次
+                                    {formatSessionLabel(g)}
                                   </div>
                                   <div className="text-sm text-slate-600 font-mono">
                                     編號 {groupItems.length ? `${groupItems[0].draw_code || '編號未設定'} ~ ${groupItems[groupItems.length - 1].draw_code || '編號未設定'}` : '尚無資料'}
@@ -809,7 +810,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                                   </td>
                                   <td className="py-2.5 px-3 whitespace-nowrap font-mono text-xs">
                                     <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-                                      第 {item.assigned_group} 組
+                                      {formatSessionLabel(item.assigned_group!)}
                                     </span>
                                   </td>
                                   <td className="py-2.5 px-3 max-w-xs sm:max-w-md truncate font-medium">

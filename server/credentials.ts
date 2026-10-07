@@ -68,6 +68,7 @@ export function projectDto(p: ProjectItem): ProjectItem {
     id: p.id, seq_no: p.seq_no, education_system: p.education_system, department: p.department,
     class_name: p.class_name, advisor: p.advisor, field: p.field, original_code: p.original_code,
     project_title: p.project_title, leader_id: p.leader_id,
+    leader_name: p.leader_name?.trim() || '',
     assigned_group: p.assigned_group ?? null, draw_order: p.draw_order ?? null,
     draw_code: p.draw_code ?? null, draw_time: p.draw_time ?? null, evaluators: p.evaluators || [],
   };
@@ -93,6 +94,7 @@ export function studentProjectDto(p: ProjectItem): StudentQueryProject {
   return {
     leader_id_masked: maskStudentLeaderId(p.leader_id), project_title: p.project_title, field: p.field,
     isDrawn: !!p.draw_order, draw_code: p.draw_code ?? null,
+    assigned_group: p.draw_order ? p.assigned_group ?? null : null,
     draw_time: p.draw_time ?? null, evaluators: p.evaluators || [],
   };
 }
@@ -103,6 +105,7 @@ export function publicStudentProjectDto(p: ProjectItem): StudentQueryProject {
     leader_id_masked: maskStudentLeaderId(p.leader_id), project_title: p.project_title,
     field: drawn ? p.field : '', isDrawn: drawn,
     draw_code: drawn ? p.draw_code ?? null : null,
+    assigned_group: drawn ? p.assigned_group ?? null : null,
   };
 }
 

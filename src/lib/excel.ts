@@ -12,6 +12,7 @@ export const REQUIRED_INPUT_HEADERS = [
   '編號',
   '專題名稱',
   '組長學號',
+  '組長姓名',
   '組長密碼'
 ];
 
@@ -25,6 +26,7 @@ export const REQUIRED_OUTPUT_HEADERS = [
   '編號',
   '專題名稱',
   '組長學號',
+  '組長姓名',
   '+編號(抽籤後)'
 ];
 
@@ -82,6 +84,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
     const codeKey = findKey('編號');
     const titleKey = findKey('專題名稱');
     const leaderKey = findKey('組長學號');
+    const leaderNameKey = findKey('組長姓名') || findKey('組長名');
     const passwordKey = findKey('組長密碼') || findKey('密碼') || findKey('登入密碼');
     // Check if there is already a draw code column in this excel
     const drawCodeKey = findKey('+編號(抽籤後)') || findKey('編號(抽籤後)') || findKey('抽籤後編號') || findKey('抽籤序號');
@@ -127,6 +130,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
         original_code: originalCode,
         project_title: title,
         leader_id: leaderId,
+        leader_name: leaderNameKey ? String(row[leaderNameKey] || '').trim() : '',
         password: password,
         draw_order: drawCodeVal ? parseInt(drawCodeVal.replace(/\D/g, ''), 10) || null : null,
         draw_code: drawCodeVal || null,
@@ -154,7 +158,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
 
 /**
  * Export projects to Excel with exact columns:
- * 序號 學制 系所 班級 指導老師 領域 編號 專題名稱 組長學號 +編號(抽籤後)
+ * 序號 學制 系所 班級 指導老師 領域 編號 專題名稱 組長學號 組長姓名 +編號(抽籤後)
  */
 export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
   // Export by drawn identifier (A01, A02, ... A100, B01); undrawn rows go last.
@@ -179,11 +183,12 @@ export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
       '編號': p.original_code,
       '專題名稱': p.project_title,
       '組長學號': p.leader_id,
+      '組長姓名': p.leader_name || '',
       '+編號(抽籤後)': p.draw_code || (p.draw_order ? `第 ${p.draw_order} 組` : '未抽籤'),
     };
   });
 
-  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const worksheet = XLSX.utils.json_to_sheet(rows, { header: REQUIRED_OUTPUT_HEADERS });
 
   // Set column widths for better readability
   worksheet['!cols'] = [
@@ -196,6 +201,7 @@ export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
     { wch: 12 }, // 編號
     { wch: 45 }, // 專題名稱
     { wch: 14 }, // 組長學號
+    { wch: 14 }, // 組長姓名
     { wch: 18 }, // +編號(抽籤後)
   ];
 
@@ -215,7 +221,7 @@ export function exportToExcel(projects: ProjectItem[], filenamePrefix = '台中�
 /**
  * Generate and download an empty or template input Excel file
  */
-export function downloadInputTemplate(): void {
+export function createInputTemplateWorkbook(): XLSX.WorkBook {
   const templateRows = [
     {
       '序號': '1',
@@ -227,6 +233,7 @@ export function downloadInputTemplate(): void {
       '編號': 'E01',
       '專題名稱': '基於生成式AI之智慧排程平台',
       '組長學號': '110214101',
+      '組長姓名': '王小明',
       '組長密碼': '',
     },
     {
@@ -239,16 +246,21 @@ export function downloadInputTemplate(): void {
       '編號': 'A01',
       '專題名稱': '智慧倉儲即時物聯網監控與調度系統',
       '組長學號': '110211102',
+      '組長姓名': '陳小華',
       '組長密碼': '',
     }
   ];
 
-  const ws = XLSX.utils.json_to_sheet(templateRows);
+  const ws = XLSX.utils.json_to_sheet(templateRows, { header: REQUIRED_INPUT_HEADERS });
   ws['!cols'] = [
     { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 12 }, { wch: 15 },
-    { wch: 20 }, { wch: 12 }, { wch: 40 }, { wch: 14 }, { wch: 12 }
+    { wch: 20 }, { wch: 12 }, { wch: 40 }, { wch: 14 }, { wch: 14 }, { wch: 12 }
   ];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '專題匯入範本');
-  XLSX.writeFile(wb, '台中科技大學專題名冊匯入範本.xlsx');
+  return wb;
+}
+
+export function downloadInputTemplate(): void {
+  XLSX.writeFile(createInputTemplateWorkbook(), '台中科技大學專題名冊匯入範本.xlsx');
 }

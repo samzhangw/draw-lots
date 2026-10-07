@@ -1,3 +1,4 @@
+import { formatSessionLabel } from '../lib/sessionLabel';
 import React, { useState, useRef } from 'react';
 import { ProjectItem, DomainStats, DomainConfig } from '../types';
 import { preserveImportedProjectIds } from '../lib/importProjects';
@@ -212,6 +213,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
     const matchesSearch =
       p.project_title.toLowerCase().includes(q) ||
       p.leader_id.toLowerCase().includes(q) ||
+      (p.leader_name || '').toLowerCase().includes(q) ||
       p.original_code.toLowerCase().includes(q) ||
       p.advisor.toLowerCase().includes(q) ||
       p.class_name.toLowerCase().includes(q) ||
@@ -582,6 +584,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             ...p,
             ...formData,
             leader_id: cleanLeaderId,
+            leader_name: formData.leader_name?.trim() || '',
             password: finalPassword,
             draw_order: formData.draw_code === p.draw_code ? p.draw_order : formData.draw_code ? parseInt(String(formData.draw_code).replace(/\D/g, ''), 10) || p.draw_order : p.draw_order,
           } as ProjectItem;
@@ -601,6 +604,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
         original_code: formData.original_code || `P-${nextSeq}`,
         project_title: formData.project_title,
         leader_id: cleanLeaderId,
+        leader_name: formData.leader_name?.trim() || '',
         password: finalPassword,
         draw_order: formData.draw_code ? parseInt(String(formData.draw_code).replace(/\D/g, ''), 10) || null : null,
         draw_code: formData.draw_code || null,
@@ -1148,10 +1152,10 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             <div className="relative">
               <input
                 type="text"
-                aria-label="搜尋專題名稱、學號或老師"
+                aria-label="搜尋專題名稱、組長姓名、學號或老師"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="搜尋專題名稱、學號、老師..."
+                placeholder="搜尋專題名稱、組長姓名、學號、老師..."
                 className="w-full sm:w-72 bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
@@ -1276,6 +1280,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     {sortableHeader('original_code', '編號')}
                     {sortableHeader('project_title', '專題名稱')}
                     {sortableHeader('leader_id', '組長學號')}
+                    {sortableHeader('leader_name', '組長姓名')}
                     {sortableHeader('password_set', '登入密碼')}
                     {sortableHeader('advisor', '指導老師')}
                     <th scope="col" className="py-2.5 px-3 text-right">操作</th>
@@ -1284,7 +1289,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {filteredProjects.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="py-12 text-center text-slate-400">
+                      <td colSpan={13} className="py-12 text-center text-slate-400">
                         <div className="space-y-1">
                           <p className="font-medium text-slate-600 text-sm">
                             {projects.length === 0
@@ -1337,7 +1342,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                           <td className="py-2.5 px-3 whitespace-nowrap font-medium text-slate-800">
                             {p.assigned_group ? (
                               <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-xs border border-blue-200">
-                                第 {p.assigned_group} 組
+                                {formatSessionLabel(p.assigned_group)}
                               </span>
                             ) : (
                               <span className="text-slate-400 italic text-xs">待分配</span>
@@ -1370,6 +1375,9 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                           </td>
                           <td className="py-2.5 px-3 font-mono whitespace-nowrap">
                             <span className="font-semibold text-blue-600">{p.leader_id}</span>
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <span className={p.leader_name ? 'font-semibold text-slate-800' : 'text-slate-400'}>{p.leader_name || '尚未提供'}</span>
                           </td>
                           <td className="py-2.5 px-3 whitespace-nowrap">
                             <span className={`inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-bold ${p.password_set ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
@@ -1865,6 +1873,10 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="project-leader-name" className="block text-slate-700 mb-1 font-semibold">組長姓名</label>
+                  <input id="project-leader-name" type="text" maxLength={128} value={formData.leader_name || ''} onChange={(e) => setFormData({ ...formData, leader_name: e.target.value })} className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="公開抽籤結果顯示的姓名" />
+                </div>
                 <div>
                   <label htmlFor="project-leader-id" className="block text-slate-700 mb-1 font-semibold">組長學號 *</label>
                   <input

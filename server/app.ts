@@ -81,7 +81,7 @@ app.use((req, _res, next) => {
     return next(new ApiError(400, staff ? '請輸入登入 Email。' : '請輸入組長學號。'));
   }
   if (typeof req.body?.password !== 'string' || !req.body.password.trim()) {
-    return next(new ApiError(400, staff ? '請輸入通行密碼。' : '請輸入大會提供的組長登入密碼。'));
+    return next(new ApiError(400, staff ? '請輸入通行密碼。' : '請輸入大會提供的密碼登入。'));
   }
   next();
 });
@@ -134,6 +134,11 @@ function checkVersion(req: Request, state: DatabaseState) {
 app.get('/api/health', anonymousLimiter('health', 120, 3600), route(async (_req, res) => {
   await createStore().health();
   res.json({ status: 'ok' });
+}));
+app.get('/api/public/results', anonymousLimiter('results', 1200, 12000), route(async (req, res) => {
+  const field = req.query.field;
+  if (field !== undefined && (typeof field !== 'string' || field.length > 512)) throw new ApiError(400, '請選擇有效的領域。');
+  res.json({ success: true, ...await createStore().publicResults(field as string | undefined) });
 }));
 app.post('/api/auth/verify', loginLimiter('staff'), loginRoute('staff', async (req, res) => {
   const { username, password, targetView } = req.body;

@@ -22,6 +22,7 @@ import {
 
 import { getViewFromLocation, canonicalPageUrl, viewPath, viewTitles } from './lib/routes';
 
+const PublicResults = lazy(() => import('./components/PublicResults').then(module => ({ default: module.PublicResults })));
 const StageLottery = lazy(() => import('./components/StageLottery').then(module => ({ default: module.StageLottery })));
 const AdminManagement = lazy(() => import('./components/AdminManagement').then(module => ({ default: module.AdminManagement })));
 
@@ -43,6 +44,7 @@ export default function App() {
 
   const [authReady, setAuthReady] = useState(false);
   useEffect(() => {
+    if (getViewFromLocation(window.location) === 'results') { setAuthReady(true); return; }
     let active = true;
     const controller = new AbortController();
     request<{ session: AuthSession }>('/api/auth/me', undefined, { signal: controller.signal }).then(data => {
@@ -116,7 +118,7 @@ export default function App() {
     const controller = new AbortController();
     loadControllerRef.current = controller;
     const requestId = ++loadRequestIdRef.current;
-    if (!getAuthSession()) {
+    if (currentView === 'results' || !getAuthSession()) {
       setProjects([]);
       setDomainConfigs([]);
       setSharedPasswordEnabled(false);
@@ -180,7 +182,7 @@ export default function App() {
     return domainConfigs.map((d) => d.field);
   }, [domainConfigs]);
 
-  if (!authReady && currentView !== 'student') return <div className="p-8 text-center text-slate-500">正在載入後端登入狀態…</div>;
+  if (!authReady && currentView !== 'student' && currentView !== 'results') return <div className="p-8 text-center text-slate-500">正在載入後端登入狀態…</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-rose-100 selection:text-rose-900">
@@ -193,7 +195,7 @@ export default function App() {
 
       {/* Main Content Viewport */}
       <main id="main-content" tabIndex={-1} className="flex-1 pb-16">
-        <span className="sr-only" aria-live="polite">{currentView === 'student' ? '專題報告場次查詢' : currentView === 'stage' ? '專題報告抽籤現場' : currentView === 'audit' ? '工作人員操作紀錄' : '管理後台'}</span>
+        <span className="sr-only" aria-live="polite">{currentView === 'results' ? '各領域抽籤結果' : currentView === 'student' ? '專題報告場次查詢' : currentView === 'stage' ? '專題報告抽籤現場' : currentView === 'audit' ? '工作人員操作紀錄' : '管理後台'}</span>
         {dataError && (
           <FloatingNotice
             type="error"
@@ -203,13 +205,14 @@ export default function App() {
             onAction={() => void loadData()}
           />
         )}
-        {isLoading && currentView !== 'student' && currentView !== 'audit' ? (
+        {isLoading && currentView !== 'student' && currentView !== 'results' && currentView !== 'audit' ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
             <div className="w-9 h-9 border-3 border-rose-100 border-t-rose-600 rounded-full animate-spin" />
             <p className="text-slate-500 text-xs">載入專題名冊與抽籤資料中...</p>
           </div>
         ) : (
           <Suspense fallback={<div className="p-8 text-center text-slate-500" role="status">正在載入頁面…</div>}>
+            {currentView === 'results' && <PublicResults />}
             {currentView === 'student' && (
               <StudentPortal />
             )}

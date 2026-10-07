@@ -1,7 +1,9 @@
 import { runtimeEnv } from './runtime';
 import { ShortCache, timedFetch } from './resourceLimits';
 import { createClient } from '@supabase/supabase-js';
-import type { DomainConfig, ProjectItem } from '../src/types';
+import type { DomainConfig, ProjectItem, PublicDrawResult } from '../src/types';
+import { publicResultsCache, type PublicMetadata } from './publicResultsCache';
+import { publicResults } from './publicResults';
 import { removeLegacyCredentials, sharedPasswordHash, type StoredProject } from './credentials';
 import { normalizeOriginalCodes } from '../src/lib/originalCodes';
 import { domainCodeCollisionError, sortDomainConfigs } from '../src/lib/domainCodes';
@@ -42,6 +44,41 @@ export function createStore() {
   return {
     client,
     load,
+    async publicResults(field = '') {
+      try {
+        return await publicResultsCache.get(url, field, async () => {
+          const { data, error } = await client.from('ntcust_lottery_state').select('version,domain_configs').eq('id', 1).single();
+          if (error) throw error;
+          if (!data || !Number.isInteger(data.version) || !Array.isArray(data.domain_configs)) throw new ApiError(503, '抽籤結果暫時無法讀取。');
+          return data as PublicMetadata;
+        }, async () => {
+          const results: PublicDrawResult[] = [];
+          // Explicit ranges avoid truncation at Supabase's default row limit.
+          for (let offset = 0; offset < 2000; offset += 500) {
+            const { data, error } = await client.from('ntcust_projects')
+              .select('draw_code:document->>draw_code,assigned_group:document->assigned_group,project_title:document->>project_title,leader_name:document->>leader_name')
+              .eq('document->>field', field).gt('document->draw_order', 0)
+              .not('document->>draw_code', 'is', null).neq('document->>draw_code', '')
+              .order('document->assigned_group', { ascending: true, nullsFirst: false })
+              .order('document->draw_order', { ascending: true }).order('id', { ascending: true })
+              .range(offset, offset + 499);
+            if (error) throw error;
+            if (!Array.isArray(data)) throw new ApiError(503, '抽籤結果暫時無法讀取。');
+            results.push(...data.map(row => ({ draw_code: row.draw_code, assigned_group: typeof row.assigned_group === 'number' ? row.assigned_group : null, project_title: row.project_title, leader_name: row.leader_name?.trim() || '' })));
+            if (data.length < 500) break;
+          }
+          return results;
+        });
+      } catch (error) {
+        // Compatibility for databases that have not applied the project-row migration.
+        if (['PGRST205', '42P01'].includes((error as { code?: string })?.code || '')) {
+          const state = await load();
+          return { ...publicResults(state.projects, state.domainConfigs, field), version: state.version };
+        }
+        if (error instanceof ApiError) throw error;
+        throw new ApiError(503, '抽籤結果暫時無法讀取，請稍後再試。');
+      }
+    },
     async health(): Promise<void> {
       return healthCache.get(url, async () => {
         const signal = AbortSignal.timeout(5000);
@@ -85,6 +122,7 @@ export function createStore() {
       if (error?.code === '40001') throw new ApiError(409, '資料已由其他人更新，請重新整理後再操作。');
       if (error || !data) throw new ApiError(503, '資料庫暫時無法儲存，請稍後再試。');
       healthCache.invalidate(url);
+      publicResultsCache.invalidate(url);
       return { projects: data.projects, domainConfigs: sortDomainConfigs(data.domain_configs), version: data.version, lastUpdated: data.updated_at };
     },
   };
@@ -105,6 +143,7 @@ export function validateProjects(value: unknown): asserts value is ProjectItem[]
       if (p[key] != null && (!Number.isInteger(p[key]) || p[key] < 1)) throw new ApiError(400, '抽籤順位與組別必須為正整數。');
     }
     if (p.password != null && typeof p.password !== 'string') throw new ApiError(400, '密碼格式不正確。');
+    if (p.leader_name != null && (typeof p.leader_name !== 'string' || p.leader_name.length > 128)) throw new ApiError(400, '組長姓名須為 128 字元以內的文字。');
     if (p.draw_time != null && (typeof p.draw_time !== 'string' || Number.isNaN(Date.parse(p.draw_time)))) throw new ApiError(400, '抽籤時間格式不正確。');
     if (p.draw_code != null && (typeof p.draw_code !== 'string' || p.draw_code.length > 512)) throw new ApiError(400, '抽籤編號格式不正確。');
     if (p.evaluators != null && (!Array.isArray(p.evaluators) || p.evaluators.length > 100 || p.evaluators.some((x: unknown) => typeof x !== 'string' || x.length > 128))) throw new ApiError(400, '評審格式不正確。');
