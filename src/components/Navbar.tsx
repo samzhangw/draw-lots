@@ -105,14 +105,14 @@ export const Navbar: React.FC<NavbarProps> = ({ authSession, onLogout }) => {
                     </a>}
                   </div>
                   <div className={`grid gap-2 ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                    {isAdmin && <a href="/audit" className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                      <ClipboardList className="h-5 w-5 shrink-0 text-blue-700" aria-hidden="true" />
-                      <span className="whitespace-nowrap">操作紀錄</span>
-                    </a>}
                     <a href="/results" className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                       <LayoutGrid className="h-5 w-5 shrink-0 text-blue-700" aria-hidden="true" />
                       <span className="whitespace-nowrap">各領域結果</span>
                     </a>
+                    {isAdmin && <a href="/audit" className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                      <ClipboardList className="h-5 w-5 shrink-0 text-blue-700" aria-hidden="true" />
+                      <span className="whitespace-nowrap">操作紀錄</span>
+                    </a>}
                   </div>
                 </nav>}
                 <div className={canOpenStage ? 'mt-3 border-t border-slate-200 pt-3' : ''}>
