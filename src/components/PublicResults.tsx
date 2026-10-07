@@ -156,7 +156,7 @@ export function PublicResults() {
                     </thead>
                     <tbody className="divide-y-2 divide-slate-300">
                       {results.map((result, index) => <tr key={`${result.draw_code}-${index}`} className="bg-white hover:bg-blue-50/50">
-                        <td className="px-4 py-4 font-mono text-lg font-black text-blue-900 [overflow-wrap:anywhere]">{result.draw_code}</td>
+                        <td className="px-4 py-4 font-mono text-lg font-normal text-blue-900 [overflow-wrap:anywhere]">{result.draw_code}</td>
                         <td className="px-4 py-4 font-bold text-slate-700">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</td>
                         <td className="px-4 py-4 font-semibold text-slate-700 [overflow-wrap:anywhere]">{result.leader_name || '尚未提供'}</td>
                         <td className="px-4 py-4 font-semibold leading-relaxed text-slate-900 [overflow-wrap:anywhere]">{result.project_title}</td>
