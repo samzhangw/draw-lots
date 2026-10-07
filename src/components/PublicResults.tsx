@@ -76,7 +76,7 @@ export function PublicResults() {
               </div>
               <div className="space-y-3">
                 {results.map((result, index) => <article key={`${result.draw_code}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                  <dl className="grid grid-cols-2 items-start gap-x-4 gap-y-4 lg:grid-cols-[7.5rem_minmax(0,1fr)] lg:gap-x-6">
+                  <dl className="grid grid-cols-2 items-start gap-x-4 gap-y-4 lg:gap-x-6">
                     <div className="col-span-2 min-w-0">
                       <dt className="text-xs font-medium text-slate-500">專題名稱</dt>
                       <dd className="mt-1.5 break-words text-xl font-black leading-relaxed text-slate-900 sm:text-2xl">{result.project_title}</dd>
@@ -85,13 +85,13 @@ export function PublicResults() {
                       <dt className="shrink-0 text-sm font-medium text-slate-500">組長姓名</dt>
                       <dd className="min-w-0 break-words text-base font-bold text-slate-700">{result.leader_name || '尚未提供'}</dd>
                     </div>
-                    <div className="min-w-0 rounded-xl bg-blue-50 px-3 py-3 lg:text-center">
+                    <div className="h-full min-w-0 rounded-xl bg-blue-50 px-3 py-3 lg:text-center">
                       <dt className="text-xs font-bold text-blue-700">抽籤編號</dt>
                       <dd className="mt-1 break-words font-mono text-3xl font-black tracking-tight text-blue-900 sm:text-4xl">{result.draw_code}</dd>
                     </div>
-                    <div className="min-w-0 pt-2">
-                      <dt className="text-xs font-medium text-slate-500">報告場次</dt>
-                      <dd className="mt-2 inline-flex rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-extrabold text-slate-800">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</dd>
+                    <div className="h-full min-w-0 rounded-xl bg-blue-50 px-3 py-3 lg:text-center">
+                      <dt className="text-xs font-bold text-blue-700">報告場次</dt>
+                      <dd className="mt-1 break-words text-2xl font-black leading-relaxed text-blue-900 sm:text-3xl">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</dd>
                     </div>
                   </dl>
                 </article>)}
