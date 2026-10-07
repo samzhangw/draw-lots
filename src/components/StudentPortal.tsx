@@ -265,21 +265,21 @@ export const StudentPortal: React.FC = () => {
                 <dl aria-label="專題抽籤結果" className="space-y-4">
                   <div className="grid grid-cols-2 gap-3 sm:gap-5">
                     <div className="min-w-0 rounded-2xl bg-blue-50 p-4 sm:p-6">
-                      <dt className="text-sm font-bold text-blue-700 sm:text-base">報告場次</dt>
-                      <dd className="mt-2 text-xl font-black leading-relaxed text-blue-950 [overflow-wrap:anywhere] sm:text-3xl">
-                        {myProject.assigned_group ? formatSessionLabel(myProject.assigned_group) : '場次尚未提供'}
+                      <dt className="text-sm font-extrabold text-blue-700 sm:text-base">報告場次</dt>
+                      <dd className="mt-2 text-2xl leading-relaxed text-blue-950 [overflow-wrap:anywhere] sm:text-4xl">
+                        <strong className="font-black">{myProject.assigned_group ? formatSessionLabel(myProject.assigned_group) : '場次尚未提供'}</strong>
                       </dd>
                     </div>
                     <div className="min-w-0 rounded-2xl bg-blue-50 p-4 sm:p-6">
-                      <dt className="text-sm font-bold text-blue-700 sm:text-base">抽籤編號</dt>
-                      <dd className="mt-2 text-xl font-black leading-relaxed text-blue-950 [overflow-wrap:anywhere] sm:text-3xl">
-                        {myProject.draw_code || '編號尚未提供'}
+                      <dt className="text-sm font-extrabold text-blue-700 sm:text-base">抽籤編號</dt>
+                      <dd className="mt-2 text-2xl leading-relaxed text-blue-950 [overflow-wrap:anywhere] sm:text-4xl">
+                        <strong className="font-black">{myProject.draw_code || '編號尚未提供'}</strong>
                       </dd>
                     </div>
                   </div>
-                  <div className="px-1 pt-1">
-                    <dt className="text-sm font-bold text-slate-500">領域名稱</dt>
-                    <dd className="mt-2 break-words text-lg font-bold leading-relaxed text-slate-900 sm:text-2xl">
+                  <div className="min-w-0 rounded-2xl bg-blue-50 p-4 sm:p-6">
+                    <dt className="text-sm font-bold text-blue-700 sm:text-base">領域名稱</dt>
+                    <dd className="mt-2 break-words text-lg font-bold leading-relaxed text-blue-950 sm:text-2xl">
                       {myProject.field}
                     </dd>
                   </div>
