@@ -146,7 +146,7 @@ export function PublicResults() {
                 <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm" tabIndex={0} role="region" aria-label={`${session ? formatSessionLabel(session) : '場次尚未提供'}結果表格，可左右捲動`}>
                   <table className="w-full min-w-[640px] text-left text-sm">
                     <caption className="sr-only">{field} · {session ? formatSessionLabel(session) : '場次尚未提供'}抽籤結果</caption>
-                    <thead className="bg-blue-50 text-blue-900">
+                    <thead className="border-b-2 border-slate-300 bg-blue-50 text-blue-900">
                       <tr>
                         <th scope="col" className="w-28 whitespace-nowrap px-4 py-3 font-bold">抽籤編號</th>
                         <th scope="col" className="w-36 whitespace-nowrap px-4 py-3 font-bold">報告場次</th>
@@ -154,8 +154,8 @@ export function PublicResults() {
                         <th scope="col" className="px-4 py-3 font-bold">專題名稱</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {results.map((result, index) => <tr key={`${result.draw_code}-${index}`} className="even:bg-slate-50/60 hover:bg-blue-50/50">
+                    <tbody className="divide-y-2 divide-slate-300">
+                      {results.map((result, index) => <tr key={`${result.draw_code}-${index}`} className="bg-white hover:bg-blue-50/50">
                         <td className="px-4 py-4 font-mono text-lg font-black text-blue-900 [overflow-wrap:anywhere]">{result.draw_code}</td>
                         <td className="px-4 py-4 font-bold text-slate-700">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</td>
                         <td className="px-4 py-4 font-semibold text-slate-700 [overflow-wrap:anywhere]">{result.leader_name || '尚未提供'}</td>
