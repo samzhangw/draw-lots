@@ -150,16 +150,16 @@ export function PublicResults() {
                       <tr>
                         <th scope="col" className="w-28 whitespace-nowrap px-4 py-3 font-bold">抽籤編號</th>
                         <th scope="col" className="w-36 whitespace-nowrap px-4 py-3 font-bold">報告場次</th>
-                        <th scope="col" className="px-4 py-3 font-bold">專題名稱</th>
                         <th scope="col" className="w-32 whitespace-nowrap px-4 py-3 font-bold">組長姓名</th>
+                        <th scope="col" className="px-4 py-3 font-bold">專題名稱</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {results.map((result, index) => <tr key={`${result.draw_code}-${index}`} className="even:bg-slate-50/60 hover:bg-blue-50/50">
                         <td className="px-4 py-4 font-mono text-lg font-black text-blue-900 [overflow-wrap:anywhere]">{result.draw_code}</td>
                         <td className="px-4 py-4 font-bold text-slate-700">{result.assigned_group ? formatSessionLabel(result.assigned_group) : '場次尚未提供'}</td>
-                        <td className="px-4 py-4 font-semibold leading-relaxed text-slate-900 [overflow-wrap:anywhere]">{result.project_title}</td>
                         <td className="px-4 py-4 font-semibold text-slate-700 [overflow-wrap:anywhere]">{result.leader_name || '尚未提供'}</td>
+                        <td className="px-4 py-4 font-semibold leading-relaxed text-slate-900 [overflow-wrap:anywhere]">{result.project_title}</td>
                       </tr>)}
                     </tbody>
                   </table>
