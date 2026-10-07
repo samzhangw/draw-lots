@@ -263,17 +263,17 @@ export const StudentPortal: React.FC = () => {
                 </div>
 
                 <dl aria-label="專題抽籤結果" className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3 sm:gap-5">
-                    <div className="flex min-w-0 flex-col rounded-2xl bg-blue-50 px-3 py-3 text-center sm:px-5">
+                  <div className="grid grid-cols-2 gap-3 [container-type:inline-size] sm:gap-5">
+                    <div className="flex min-w-0 flex-col rounded-2xl bg-blue-50 px-2 py-3 text-center sm:px-5">
                       <dt className="text-sm font-bold text-blue-700">報告場次</dt>
                       <dd className="mt-1 flex items-center justify-center text-blue-950">
-                        <strong className="break-words text-2xl font-black leading-9 [-webkit-text-stroke:0.3px] sm:text-[28px]">{myProject.assigned_group ? formatSessionLabel(myProject.assigned_group) : '場次尚未提供'}</strong>
+                        <strong className="break-words text-[clamp(1.25rem,10cqw,2rem)] font-black leading-9 [-webkit-text-stroke:0.3px] sm:text-[36px]">{myProject.assigned_group ? formatSessionLabel(myProject.assigned_group) : '場次尚未提供'}</strong>
                       </dd>
                     </div>
-                    <div className="flex min-w-0 flex-col rounded-2xl bg-blue-50 px-3 py-3 text-center sm:px-5">
+                    <div className="flex min-w-0 flex-col rounded-2xl bg-blue-50 px-2 py-3 text-center sm:px-5">
                       <dt className="text-sm font-bold text-blue-700">抽籤編號</dt>
                       <dd className="mt-1 flex items-center justify-center text-blue-950">
-                        <strong className={`break-words font-black tracking-tight ${myProject.draw_code ? 'font-mono text-[32px] leading-9 sm:text-[36px]' : 'text-lg leading-snug sm:text-xl'}`}>{myProject.draw_code || '編號尚未提供'}</strong>
+                        <strong className={`break-words font-black tracking-tight ${myProject.draw_code ? 'font-mono text-[clamp(1.25rem,10cqw,2rem)] leading-9 sm:text-[36px]' : 'text-lg leading-snug sm:text-xl'}`}>{myProject.draw_code || '編號尚未提供'}</strong>
                       </dd>
                     </div>
                   </div>
