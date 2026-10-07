@@ -277,9 +277,9 @@ export const StudentPortal: React.FC = () => {
                       </dd>
                     </div>
                   </div>
-                  <div className="min-w-0 rounded-2xl bg-blue-50 p-4 sm:p-6">
-                    <dt className="text-sm font-bold text-blue-700 sm:text-base">領域名稱</dt>
-                    <dd className="mt-2 break-words text-lg font-bold leading-relaxed text-blue-950 sm:text-2xl">
+                  <div className="min-w-0 rounded-2xl bg-slate-100 p-4 sm:p-6">
+                    <dt className="text-sm font-bold text-slate-600 sm:text-base">領域名稱</dt>
+                    <dd className="mt-2 break-words text-lg font-bold leading-relaxed text-slate-800 sm:text-2xl">
                       {myProject.field}
                     </dd>
                   </div>
