@@ -1688,25 +1688,22 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               <button type="button" onClick={() => setDomainToDelete(null)} disabled={pendingAction === 'delete-domain'} aria-label="關閉刪除領域確認" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"><X className="h-5 w-5" /></button>
             </div>
 
-            <div className="min-h-0 space-y-4 overflow-y-auto px-5 py-5 sm:px-6">
-              <dl className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <dt className="text-xs font-medium text-slate-500">即將刪除的領域</dt>
-                <dd className="mt-1.5 break-words text-lg font-black text-slate-900">{domainToDelete.field}</dd>
-                <dt className="mt-3 text-xs text-slate-500">目前專題筆數</dt>
-                <dd className="mt-1 font-bold tabular-nums text-slate-800">{statsMap[domainToDelete.field] || 0} 筆</dd>
-              </dl>
-
-              {domainDeleteBlockedMessage ? (
-                <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-900">
-                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
-                  <div className="min-w-0"><p className="text-sm font-bold">目前無法刪除</p><p className="mt-1 break-words text-sm leading-relaxed text-rose-800">{domainDeleteBlockedMessage}</p></div>
+            <div className="min-h-0 overflow-y-auto px-5 py-5 sm:px-6">
+              <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-medium text-slate-500">即將刪除的領域</p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <p className="min-w-0 break-words text-lg font-black text-slate-900">{domainToDelete.field}</p>
+                  <span className="shrink-0 whitespace-nowrap rounded-full bg-slate-200/70 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-700">{statsMap[domainToDelete.field] || 0} 筆專題</span>
                 </div>
-              ) : statsMap[domainToDelete.field] > 0 ? (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                  <div className="flex items-start gap-2.5"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" aria-hidden="true" /><p className="min-w-0 text-sm leading-relaxed text-amber-900">刪除後，<strong className="font-black">{statsMap[domainToDelete.field]} 筆專題</strong>將一併移至以下領域。</p></div>
-                  <dl className="mt-3 rounded-xl border border-amber-200 bg-white/80 px-4 py-3"><dt className="text-xs font-medium text-amber-700">專題移轉目標</dt><dd className="mt-1 break-words text-base font-bold text-slate-900">{domainConfigs.find(config => config.id !== domainToDelete.id)?.field || '未分類領域'}</dd></dl>
-                </div>
-              ) : <p className="text-sm leading-relaxed text-slate-500">此領域目前沒有專題，刪除後將移除領域設定。</p>}
+                {domainDeleteBlockedMessage ? (
+                  <div role="alert" className="flex items-start gap-2 text-sm leading-relaxed text-rose-800">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                    <p className="min-w-0 break-words">{domainDeleteBlockedMessage}</p>
+                  </div>
+                ) : statsMap[domainToDelete.field] > 0 ? (
+                  <p className="break-words text-sm leading-7 text-slate-600">刪除後，這 {statsMap[domainToDelete.field]} 筆專題將移至「<strong className="font-bold text-amber-800">{domainConfigs.find(config => config.id !== domainToDelete.id)?.field || '未分類領域'}</strong>」。</p>
+                ) : <p className="text-sm leading-relaxed text-slate-500">此領域目前沒有專題，刪除後將移除領域設定。</p>}
+              </div>
             </div>
 
             <div className="flex shrink-0 flex-col gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
