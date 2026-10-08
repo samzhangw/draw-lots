@@ -277,7 +277,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       <div hidden={carouselScope !== null} className={isFullscreen ? 'stage-fullscreen-layout' : 'space-y-5 sm:space-y-7'}>
       {incompleteFields.length > 0 && <div role="alert" className={`rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 ${isFullscreen ? 'max-h-[30vh] shrink-0 overflow-y-auto' : ''}`}>
         <p className="font-bold">抽籤資料不完整：{incompleteFields.join('、')}</p>
-        <p className="mt-1">部分專題只有場次或其他片段結果，尚未完成抽籤。請至管理後台補齊場次、組內順序與抽籤編號，或點選「重設」清除相關領域結果後重新抽籤。</p>
+        <p className="mt-1">部分專題只有場次或其他片段結果，尚未完成抽籤。請補齊場次與抽籤編號後重新匯入，或點選「重設」清除相關領域結果後重新抽籤。</p>
         <button type="button" onClick={() => { setResetFields(incompleteFields); setIsResetModalOpen(true); }} disabled={isAnimating || isResetting} className="mt-3 rounded-lg border border-amber-400 bg-white px-3 py-2 font-bold disabled:opacity-40">重設不完整結果</button>
       </div>}
       {isFullscreen && <header className="stage-presentation-header">

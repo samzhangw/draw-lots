@@ -31,7 +31,7 @@ export function ProjectRosterCard({ project: p, sharedPasswordEnabled, onEdit, o
           <h3 className="break-words text-base font-bold leading-relaxed text-slate-900">{p.project_title}</h3>
         </div>
 
-        <dl className="grid grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <dl className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
           <div className="min-w-0">
             <dt className="text-xs text-slate-500">抽籤後編號</dt>
             <dd className="mt-1 break-words font-mono text-sm font-bold text-emerald-800">{p.draw_code || '待抽籤'}</dd>
@@ -39,10 +39,6 @@ export function ProjectRosterCard({ project: p, sharedPasswordEnabled, onEdit, o
           <div className="min-w-0">
             <dt className="text-xs text-slate-500">分組場次</dt>
             <dd className="mt-1 text-sm font-bold text-slate-800">{p.assigned_group ? formatSessionLabel(p.assigned_group) : '待分配'}</dd>
-          </div>
-          <div className="min-w-0">
-            <dt className="text-xs text-slate-500">組內順序</dt>
-            <dd className="mt-1 text-sm font-bold text-slate-800">{p.draw_order ? `第 ${p.draw_order} 位` : '待抽籤'}</dd>
           </div>
         </dl>
 

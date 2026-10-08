@@ -29,8 +29,7 @@ export const REQUIRED_OUTPUT_HEADERS = [
   '組長學號',
   '組長姓名',
   '+編號(抽籤後)',
-  '場次',
-  '組內順序'
+  '場次'
 ];
 
 export { preserveImportedProjectIds } from './importProjects';
@@ -146,7 +145,6 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
       const originalCode = codeKey && row[codeKey] ? String(row[codeKey]).trim() : `PRJ-${String(index + 1).padStart(2, '0')}`;
       const rawDrawCode = drawCodeKey ? String(row[drawCodeKey] ?? '').trim() : '';
       const drawCodeVal = !rawDrawCode || ['未抽籤', '待抽籤', '待分配', '編號未設定', '—', '-'].includes(rawDrawCode) ? null : rawDrawCode;
-      if (drawCodeVal && !orderKey) throw new Error(`第 ${index + 2} 列已有抽籤編號但缺少「組內順序」欄位，請補齊各場次的實際順位或使用新版匯出檔。`);
       const drawOrder = orderKey ? parseImportedOrder(row[orderKey], index + 2) : null;
       const sessions = sessionKeys.map(key => parseImportedSession(row[key], index + 2)).filter((session): session is number => session !== null);
       if (new Set(sessions).size > 1) throw new Error(`第 ${index + 2} 列的場次欄位不一致，請確認分組場次、場次、報告場次或組別的值。`);
@@ -178,6 +176,29 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
       return { success: false, error: '未成功讀取到有效專題資料列' };
     }
 
+    // Without an optional legacy position column, reconstruct local positions
+    // from this file's codes within each domain/session, never from code digits.
+    if (!orderKey) {
+      const groups = new Map<string, ProjectItem[]>();
+      for (const project of projects) {
+        if (!project.assigned_group || !project.draw_code) continue;
+        const key = JSON.stringify([project.field, project.assigned_group]);
+        const group = groups.get(key) || [];
+        group.push(project);
+        groups.set(key, group);
+      }
+      const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+      for (const group of groups.values()) {
+        group.sort((a, b) => collator.compare(a.draw_code!, b.draw_code!));
+        group.forEach((project, index) => {
+          if (index > 0 && collator.compare(group[index - 1].draw_code!, project.draw_code!) === 0) {
+            throw new Error(`「${project.field}」${formatSessionLabel(project.assigned_group!)}的抽籤編號「${project.draw_code}」重複，請確認名冊。`);
+          }
+          project.draw_order = index + 1;
+        });
+      }
+    }
+
     return {
       success: true,
       projects: normalizeOriginalCodes(projects, configs),
@@ -194,7 +215,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
 
 /**
  * Export projects to Excel with exact columns:
- * 序號 學制 系所 班級 指導老師 領域 編號 專題名稱 組長學號 組長姓名 +編號(抽籤後) 場次 組內順序
+ * 序號 學制 系所 班級 指導老師 領域 編號 專題名稱 組長學號 組長姓名 +編號(抽籤後) 場次
  */
 export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
   // Export by drawn identifier (A01, A02, ... A100, B01); undrawn rows go last.
@@ -220,9 +241,8 @@ export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
       '專題名稱': p.project_title,
       '組長學號': p.leader_id,
       '組長姓名': p.leader_name || '',
-      '+編號(抽籤後)': p.draw_code || (p.draw_order ? `第 ${p.draw_order} 組` : '未抽籤'),
+      '+編號(抽籤後)': p.draw_code || (p.draw_order || p.assigned_group ? '編號未設定' : '未抽籤'),
       '場次': p.assigned_group ? formatSessionLabel(p.assigned_group) : (p.draw_code || p.draw_order ? '場次尚未提供' : '未抽籤'),
-      '組內順序': p.draw_order ?? (p.draw_code || p.assigned_group ? '順位尚未提供' : '未抽籤'),
     };
   });
 
@@ -242,7 +262,6 @@ export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
     { wch: 14 }, // 組長姓名
     { wch: 18 }, // +編號(抽籤後)
     { wch: 18 }, // 場次
-    { wch: 14 }, // 組內順序
   ];
 
   const workbook = XLSX.utils.book_new();

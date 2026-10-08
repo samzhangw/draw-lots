@@ -1274,7 +1274,6 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     {sortableHeader('seq_no', '序號')}
                     {sortableHeader('draw_code', '+編號(抽籤後)')}
                     {sortableHeader('assigned_group', '分組場次')}
-                    {sortableHeader('draw_order', '組內順序')}
                     {sortableHeader('evaluators', '評審委員')}
                     {sortableHeader('field', '領域')}
                     {sortableHeader('original_code', '編號')}
@@ -1289,7 +1288,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {filteredProjects.length === 0 ? (
                     <tr>
-                      <td colSpan={13} className="py-12 text-center text-slate-400">
+                      <td colSpan={12} className="py-12 text-center text-slate-400">
                         <div className="space-y-1">
                           <p className="font-medium text-slate-600 text-sm">
                             {projects.length === 0
@@ -1346,13 +1345,6 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                               </span>
                             ) : (
                               <span className="text-slate-400 italic text-xs">待分配</span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3 whitespace-nowrap font-medium">
-                            {p.draw_order ? (
-                              <span className="text-slate-800 tabular-nums">第 {p.draw_order} 位</span>
-                            ) : (
-                              <span className="text-slate-400 italic text-xs">待抽籤</span>
                             )}
                           </td>
                           <td className="py-2.5 px-3 whitespace-nowrap text-xs">

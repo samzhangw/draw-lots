@@ -95,10 +95,20 @@ test('explicit report order accepts numeric and labelled positions and rejects i
   }
 });
 
-test('legacy drawn files without explicit order are rejected instead of guessing report positions', async () => {
+test('files without an order column reconstruct each session independently by numeric drawn codes', async () => {
   const legacy = await parseExcelFile(makeFile([{ ...row, 場次: '第二場次', '+編號(抽籤後)': 'A03' }]));
-  assert.equal(legacy.success, false);
-  assert.match(legacy.error!, /第 2 列已有抽籤編號但缺少「組內順序」/);
+  assert.equal(legacy.success, true, legacy.error);
+  assert.equal(legacy.projects![0].draw_order, 1);
+  const codes = ['A100', 'A03', 'A99', 'A01', 'A02'];
+  const parsed = await parseExcelFile(makeFile(codes.map((code, i) => ({ ...row, 組長學號: `s-${i}`, 場次: i < 3 ? 2 : 1, '+編號(抽籤後)': code }))));
+  assert.equal(parsed.success, true, parsed.error);
+  assert.deepEqual(parsed.projects!.map(p => p.draw_order), [3, 1, 2, 1, 2]);
+  const duplicate = await parseExcelFile(makeFile([{ ...row, 場次: 1, '+編號(抽籤後)': 'A01' }, { ...row, 組長學號: 's-2', 場次: 1, '+編號(抽籤後)': 'A01' }]));
+  assert.equal(duplicate.success, false);
+  assert.match(duplicate.error!, /抽籤編號.*重複/);
+  const noSession = await parseExcelFile(makeFile([{ ...row, '+編號(抽籤後)': 'A03' }]));
+  assert.equal(noSession.success, true, noSession.error);
+  assert.equal(noSession.projects![0].draw_order, null);
   const undrawn = await parseExcelFile(makeFile([{ ...row, '+編號(抽籤後)': '未抽籤' }]));
   assert.equal(undrawn.success, true, undrawn.error);
   assert.equal(undrawn.projects![0].draw_order, null);
@@ -120,6 +130,7 @@ test('patched SheetJS imports Chinese rosters and exports without credential fie
   assert.equal(rows[0].組長姓名, '林同學');
   assert.equal(rows[0].編號, 'A01');
   assert.equal(rows[0].password_hash, undefined);
+  assert.equal(rows[0].組內順序, undefined);
 });
 test('imports never invent predictable passwords and reject weak passwords or excessive files', async () => {
   const blank = await parseExcelFile(makeFile([{ ...row, 組長密碼: '' }]));
