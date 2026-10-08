@@ -1693,7 +1693,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <p className="text-xs font-medium text-slate-500">即將刪除的領域</p>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <p className="min-w-0 break-words text-lg font-black text-slate-900">{domainToDelete.field}</p>
-                  <span className="shrink-0 whitespace-nowrap rounded-full bg-slate-200/70 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-700">{statsMap[domainToDelete.field] || 0} 筆專題</span>
+                  <span className="shrink-0 whitespace-nowrap text-sm font-medium tabular-nums text-slate-500">{statsMap[domainToDelete.field] || 0} 筆專題</span>
                 </div>
                 {domainDeleteBlockedMessage ? (
                   <div role="alert" className="flex items-start gap-2 text-sm leading-relaxed text-rose-800">
