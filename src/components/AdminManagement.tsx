@@ -1880,7 +1880,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
-                <div>
+                <div className="min-w-0 sm:col-span-2">
                   <label htmlFor="project-password" className="mb-1 block font-semibold text-slate-700">設定／重設組長密碼</label>
                   <input
                     id="project-password"
@@ -1893,7 +1893,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     autoComplete="new-password"
                     minLength={12}
                     maxLength={128}
-                    className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="min-h-11 min-w-0 w-full max-w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                   />
                   <p id="project-password-help" className="mt-1.5 text-xs leading-relaxed text-slate-500">
                     {sharedPasswordEnabled ? '目前使用全體共用密碼，無法單獨設定。' : editingProject ? '留空會保留目前密碼；輸入新密碼則會重設。' : '可先留空，之後再設定個別密碼。'}
