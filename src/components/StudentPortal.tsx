@@ -169,7 +169,7 @@ export const StudentPortal: React.FC = () => {
           <section className="order-2 rounded-[1.75rem] border border-blue-100 bg-blue-50/80 p-6 sm:p-8 lg:order-1">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-blue-700 shadow-sm"><UserCheck className="h-6 w-6" /></div>
             <h2 className="mt-6 text-xl sm:text-2xl font-black text-slate-900">查詢您的報告資訊</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-600">使用組長學號與大會提供的密碼登入，即可確認專題的報告場次與上台順位。</p>
+            <p className="mt-3 text-sm leading-7 text-slate-600">使用組長學號與大會提供的密碼登入，即可確認專題的報告場次與抽籤編號。</p>
             <div className="mt-7 space-y-4 border-t border-blue-200/70 pt-6">
               <div className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-700 text-xs font-bold text-white">1</span><p className="text-sm leading-7 text-slate-700">輸入<span className="font-bold">組長學號</span>與登入密碼</p></div>
               <div className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-700 text-xs font-bold text-white">2</span><p className="text-sm leading-7 text-slate-700">查看抽籤後編號</p></div>

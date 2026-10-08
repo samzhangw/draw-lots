@@ -6,12 +6,12 @@ import { sortProjects, type ProjectSortKey } from '../src/lib/projectSort';
 const base: ProjectItem = {
   id: 'a', seq_no: '10', education_system: '', department: '', class_name: '', advisor: '王老師',
   field: '智慧運算', original_code: 'P-10', project_title: '專題10', leader_id: '10',
-  assigned_group: null, draw_order: null, draw_code: null, evaluators: [], password_set: true,
+  assigned_group: null, draw_code: null, evaluators: [], password_set: true,
 };
 const projects: ProjectItem[] = [
   base,
-  { ...base, id: 'b', seq_no: '2', advisor: '李老師', field: '企業智慧', original_code: 'P-2', project_title: '專題2', leader_id: '2', assigned_group: 2, draw_order: 2, draw_code: '第2組-序號2', evaluators: ['李老師'], password_set: false },
-  { ...base, id: 'c', seq_no: '1', advisor: '陳老師', field: '進修部', original_code: 'P-11', project_title: '專題11', leader_id: '11', assigned_group: 1, draw_order: 11, draw_code: '第1組-序號11', evaluators: ['陳老師'], password_set: true },
+  { ...base, id: 'b', seq_no: '2', advisor: '李老師', field: '企業智慧', original_code: 'P-2', project_title: '專題2', leader_id: '2', assigned_group: 2, draw_code: '第2組-序號2', evaluators: ['李老師'], password_set: false },
+  { ...base, id: 'c', seq_no: '1', advisor: '陳老師', field: '進修部', original_code: 'P-11', project_title: '專題11', leader_id: '11', assigned_group: 1, draw_code: '第1組-序號11', evaluators: ['陳老師'], password_set: true },
 ];
 const ids = (items: ProjectItem[]) => items.map(item => item.id);
 
@@ -22,8 +22,6 @@ test('roster sorting handles numeric text, undrawn values, status and both direc
   assert.deepEqual(ids(sortProjects(projects, 'draw_code', 'descending')), ['b', 'c', 'a']);
   assert.deepEqual(ids(sortProjects(projects, 'assigned_group', 'ascending')), ['c', 'b', 'a']);
   assert.deepEqual(ids(sortProjects(projects, 'assigned_group', 'descending')), ['b', 'c', 'a']);
-  assert.deepEqual(ids(sortProjects(projects, 'draw_order', 'ascending')), ['b', 'c', 'a']);
-  assert.deepEqual(ids(sortProjects(projects, 'draw_order', 'descending')), ['c', 'b', 'a']);
   assert.equal(sortProjects(projects, 'evaluators', 'ascending').at(-1)?.id, 'a');
   assert.equal(sortProjects(projects, 'evaluators', 'descending').at(-1)?.id, 'a');
   assert.deepEqual(ids(sortProjects(projects, 'password_set', 'ascending')), ['b', 'a', 'c']);

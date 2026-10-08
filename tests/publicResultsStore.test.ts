@@ -11,7 +11,7 @@ test('snapshot RPC uses one DB request, includes more than 1000 results and neve
   let denied = false;
   const rows = Array.from({ length: 1201 }, (_, i) => ({ draw_code: `A${i + 1}`, assigned_group: 1, project_title: '專題', leader_name: ' 林同學 ' }));
   const mock = http.createServer(async (req, res) => {
-    assert.equal(req.url, '/rest/v1/rpc/ntcust_public_results_snapshot');
+    assert.equal(req.url, '/rest/v1/rpc/ntcust_public_results_snapshot_v2');
     let input = ''; for await (const chunk of req) input += chunk;
     const body = JSON.parse(input);
     assert.equal(body.p_field, '智慧');
@@ -47,14 +47,14 @@ test('public queries project only requested fields, paginate beyond 1000 rows an
   const mock = http.createServer((req, res) => {
     const url = new URL(req.url!, 'http://localhost');
     res.setHeader('Content-Type', 'application/json');
-    if (url.pathname === '/rest/v1/rpc/ntcust_public_results_snapshot') { res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST202' })); return; }
+    if (url.pathname === '/rest/v1/rpc/ntcust_public_results_snapshot_v2') { res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST202' })); return; }
     if (url.pathname === '/rest/v1/ntcust_lottery_state') {
       assert.equal(url.searchParams.get('select'), 'version,domain_configs');
       res.end(JSON.stringify({ version, domain_configs: [{ id: 'a', field: '智慧', groupCount: 1 }] })); return;
     }
     assert.equal(url.pathname, '/rest/v1/ntcust_projects');
     assert.equal(url.searchParams.get('document->>field'), 'eq.智慧');
-    assert.equal(url.searchParams.get('document->draw_order'), 'gt.0');
+    assert.equal(url.searchParams.get('document->assigned_group'), 'gt.0');
     assert.equal(url.searchParams.get('select'), 'draw_code:document->>draw_code,assigned_group:document->assigned_group,project_title:document->>project_title,leader_name:document->>leader_name');
     reads++;
     const offset = Number(url.searchParams.get('offset') || 0);

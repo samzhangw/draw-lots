@@ -5,7 +5,7 @@ import type { DomainConfig, ProjectItem } from '../src/types';
 
 const projects: ProjectItem[] = Array.from({ length: 3 }, (_, i) => ({
   id: `p${i}`, seq_no: String(i), leader_id: `s${i}`, field: '企業智慧化', original_code: `A0${i + 1}`, project_title: `專題${i}`, advisor: '王教授',
-  education_system: '', department: '', class_name: '', assigned_group: 8, draw_order: 9, draw_code: 'original-draw', draw_time: '2026-10-01T00:00:00Z',
+  education_system: '', department: '', class_name: '', assigned_group: 8, draw_code: 'original-draw', draw_time: '2026-10-01T00:00:00Z',
 }));
 const config: DomainConfig = { id: 'a', field: '企業智慧化', groupCount: 2, groupCapacities: { 1: 1, 2: 2 }, evaluatorsPerGroup: { 1: ['李教授'], 2: ['陳教授'] } };
 
@@ -17,7 +17,7 @@ test('test draw runs the current allocator on already-drawn projects without cha
   assert.deepEqual(result.domains[0].groups.map(g => g.count), [1, 2]);
   assert.deepEqual(result.domains[0].preview.map(p => p.drawCode), ['A01', 'A02', 'A03']);
   assert.deepEqual({ projects, config }, before);
-  assert.deepEqual(Object.keys(result.domains[0].preview[0]).sort(), ['drawCode', 'group', 'order', 'originalCode', 'title']);
+  assert.deepEqual(Object.keys(result.domains[0].preview[0]).sort(), ['drawCode', 'group', 'originalCode', 'title']);
 });
 
 test('test draw reports wrong totals and infeasible capacity constraints, and still tests other domains', () => {

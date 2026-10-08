@@ -29,7 +29,7 @@ const projects: StoredProject[] = Array.from({ length: count }, (_, n) => ({
   id: `load-project-${n}`, leader_id: `load-student-${n}`, project_title: `測試專題 ${n + 1}`,
   seq_no: String(n + 1), education_system: '四技', department: '測試', class_name: '測試', advisor: '測試老師',
   field: '企業智慧化', original_code: `A${String(n + 1).padStart(2, '0')}`, password_hash: passwordHash,
-  shared_password_mode: sharedPassword, assigned_group: 1, draw_order: n + 1, draw_code: `A${String(n + 1).padStart(2, '0')}`,
+  shared_password_mode: sharedPassword, assigned_group: 1, draw_code: `A${String(n + 1).padStart(2, '0')}`,
   draw_time: null, evaluators: [],
 }));
 const byId = new Map(projects.map(p => [p.id, p]));

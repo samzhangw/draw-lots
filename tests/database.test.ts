@@ -8,7 +8,7 @@ const directory = new URL('../supabase/migrations/', import.meta.url);
 const project = (id: string, leader = id) => ({
   id, leader_id: leader, seq_no: id, education_system: '四技', department: '資管',
   class_name: '甲', advisor: '王教授', field: '企業智慧化', original_code: `A${id}`,
-  project_title: `專題 ${id}`, assigned_group: 2, draw_order: 1, draw_code: 'A01',
+  project_title: `專題 ${id}`, assigned_group: 2, draw_code: 'A01',
   draw_time: '2026-10-02T00:00:00.000Z', evaluators: ['李教授'],
   password_hash: `scrypt-v1$${'a'.repeat(32)}$${'b'.repeat(64)}`,
 });

@@ -1,3 +1,4 @@
+import { hasDrawData } from '../src/lib/drawScope';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID, randomBytes } from 'node:crypto';
@@ -263,7 +264,7 @@ app.post('/api/domain-configs', route(async (req, res) => {
   for (const next of req.body.domainConfigs) {
     const previous = state.domainConfigs.find(c => c.id === next.id);
     if (previous && getDrawCodeNamespace(previous.field, state.domainConfigs) !== getDrawCodeNamespace(next.field, req.body.domainConfigs)
-      && state.projects.some(p => p.field === previous.field && (p.draw_code || p.draw_order || p.assigned_group || p.draw_time))) {
+      && state.projects.some(p => p.field === previous.field && (hasDrawData(p)))) {
       throw new ApiError(409, `「${previous.field}」已有抽籤結果，請先重設此領域再修改對應字母。`);
     }
   }
@@ -311,7 +312,7 @@ app.post('/api/lottery/draw', route(async (req, res) => {
   const fields = resolveLotteryFields(req.body, [...new Set([...state.domainConfigs.map(c => c.field), ...state.projects.map(p => p.field)])]);
   const pool = state.projects.filter(p => fields.has(p.field));
   if (!pool.length) throw new ApiError(400, '目前範圍內沒有專題。');
-  if (pool.some(p => p.draw_order)) throw new ApiError(409, '此範圍已有抽籤結果，請先重設再抽籤。');
+  if (pool.some(hasDrawData)) throw new ApiError(409, '此範圍已有抽籤結果，請先重設再抽籤。');
   const collision = domainCodeCollisionError([...state.domainConfigs.map(c => c.field), ...state.projects.map(p => p.field)], state.domainConfigs);
   if (collision) throw new ApiError(400, collision);
   try {
@@ -337,7 +338,7 @@ app.post('/api/lottery/reset', route(async (req, res) => {
   const state = await store.load();
   checkVersion(req, state);
   const fields = resolveLotteryFields(req.body, [...new Set([...state.domainConfigs.map(c => c.field), ...state.projects.map(p => p.field)])]);
-  state.projects = state.projects.map(p => fields.has(p.field) ? { ...p, assigned_group: null, draw_order: null, draw_code: null, draw_time: null, evaluators: [] } : p);
+  state.projects = state.projects.map(p => fields.has(p.field) ? { ...p, assigned_group: null, draw_code: null, draw_time: null, evaluators: [] } : p);
   res.json(staffState(await store.save(state, state.version, await stateAudit(req, 'reset', [...fields], state.projects.filter(p => fields.has(p.field)).length, state.version)), role));
 }));
 app.use('/api', (_req, res) => { res.status(404).json({ success: false, error: '找不到此 API。' }); });

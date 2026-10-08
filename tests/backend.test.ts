@@ -18,12 +18,12 @@ if (cloudflareTest) process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 const project: ProjectItem = {
   id: 'p1', seq_no: '1', education_system: '四技', department: '資管', class_name: '四甲',
   advisor: '王教授', field: '測試領域', original_code: 'P1', project_title: '完整欄位測試', leader_id: '12345678', password: 'Secure-password-123',
-  assigned_group: null, draw_order: null, draw_code: null, draw_time: null, evaluators: [],
+  assigned_group: null, draw_code: null, draw_time: null, evaluators: [],
 };
 const domains: DomainConfig[] = [{ id: 'd1', field: '測試領域', groupCount: 2, evaluatorsPerGroup: { 1: ['李教授'], 2: ['陳教授'] } }];
 
 function assertStageWhitelist(data: any) {
-  assert.deepEqual(Object.keys(data.projects[0]).sort(), ['assigned_group', 'draw_code', 'draw_order', 'field', 'id', 'project_title']);
+  assert.deepEqual(Object.keys(data.projects[0]).sort(), ['assigned_group', 'draw_code', 'field', 'id', 'project_title']);
   assert.deepEqual(Object.keys(data.domainConfigs[0]).sort(), ['field', 'groupCount', 'id']);
   assert.equal(data.projects[0].leader_id, undefined);
   assert.equal(data.projects[0].advisor, undefined);
@@ -36,7 +36,7 @@ test('input validation rejects malformed rosters and domain settings', () => {
   assert.throws(() => validateProjects([{ ...project, leader_name: 123 }]));
   assert.throws(() => validateProjects([{ ...project, leader_name: '林'.repeat(129) }]));
   assert.throws(() => validateProjects([project, project]));
-  assert.throws(() => validateProjects([{ ...project, draw_order: -1 }]));
+  assert.throws(() => validateProjects([{ ...project, assigned_group: -1 }]));
   assert.throws(() => validateProjects([{ ...project, password: {} }]));
   assert.throws(() => validateProjects([{ ...project, shared_password_mode: true }]));
   assert.throws(() => validateDomains([{ ...domains[0], groupCount: 0 }]));
@@ -140,7 +140,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     if (legacySchema && url.pathname === '/rest/v1/ntcust_projects') {
       res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST205', message: 'table not found' })); return;
     }
-    if (url.pathname === '/rest/v1/rpc/ntcust_public_results_snapshot') { res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST202' })); return; }
+    if (url.pathname === '/rest/v1/rpc/ntcust_public_results_snapshot_v2') { res.writeHead(404); res.end(JSON.stringify({ code: 'PGRST202' })); return; }
     if (url.pathname === '/rest/v1/rpc/ntcust_cleanup_staff_audit') {
       auditCleanupRuns++;
       if (missingAudit) { res.writeHead(404); res.end(JSON.stringify({code:'PGRST202'})); return; }
@@ -232,13 +232,13 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       if (url.searchParams.has('document->>field')) {
         publicRowReads++;
         assert.equal(url.searchParams.get('select'), 'draw_code:document->>draw_code,assigned_group:document->assigned_group,project_title:document->>project_title,leader_name:document->>leader_name');
-        assert.equal(url.searchParams.get('document->draw_order'), 'gt.0');
-        assert.equal(url.searchParams.get('order'), 'document->assigned_group.asc.nullslast,document->draw_order.asc,id.asc');
+        assert.equal(url.searchParams.get('document->assigned_group'), 'gt.0');
+        assert.equal(url.searchParams.get('order'), 'document->assigned_group.asc.nullslast,document->>draw_code.asc,id.asc');
         const field = url.searchParams.get('document->>field')!.slice(3);
         const offset = Number(url.searchParams.get('offset') || 0);
         const limit = Number(url.searchParams.get('limit') || 500);
-        res.end(JSON.stringify(state.projects.filter(p => p.field === field && p.draw_order && p.draw_code)
-          .sort((a,b) => (a.assigned_group ?? Infinity) - (b.assigned_group ?? Infinity) || a.draw_order! - b.draw_order!)
+        res.end(JSON.stringify(state.projects.filter(p => p.field === field && p.assigned_group && p.draw_code)
+          .sort((a,b) => (a.assigned_group ?? Infinity) - (b.assigned_group ?? Infinity) || a.draw_code!.localeCompare(b.draw_code!))
           .slice(offset, offset + limit).map(p => ({draw_code:p.draw_code,assigned_group:p.assigned_group,project_title:p.project_title,leader_name:p.leader_name || ''})))); return;
       }
       indexedReads++;
@@ -587,7 +587,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const staleRoster = await request('/api/projects', { projects: saved.data.projects, version: saved.data.version }, admin);
     assert.equal(staleRoster.status, 409);
     assert.equal(state.version, draw.data.version);
-    assert.ok(state.projects.every(p => p.draw_order));
+    assert.ok(state.projects.every(p => p.assigned_group && p.draw_code));
     const rosterBeforePublic = rosterReads;
     const publicDraw = await request(`/api/public/results?field=${encodeURIComponent(project.field)}`);
     assert.equal(publicDraw.status, 200, 'published results require no login');
@@ -603,7 +603,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const repeatedPublic = await Promise.all(Array.from({length:20}, () => request(`/api/public/results?field=${encodeURIComponent(project.field)}`)));
     assert.ok(repeatedPublic.every(response => response.status === 200));
     assert.equal(publicRowReads, publicReadsBefore, 'warm results are shared across concurrent requests');
-    assert.equal(draw.status, 200); assert.ok(draw.data.projects[0].assigned_group); assert.ok(draw.data.projects[0].draw_order);
+    assert.equal(draw.status, 200); assert.ok(draw.data.projects[0].assigned_group); assert.ok(draw.data.projects[0].draw_code);
     assert.ok(state.projects[0].evaluators?.length); assert.equal(draw.data.projects[0].evaluators, undefined);
     assert.equal(state.projects[0].password, undefined);
     const ownedDraw = await request('/api/student/me', undefined, undefined, studentCookie);
@@ -680,7 +680,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     // Real SDK store path preserves all optional fields; DB errors propagate.
     process.env.SUPABASE_URL = env.SUPABASE_URL; process.env.SUPABASE_SECRET_KEY = env.SUPABASE_SECRET_KEY;
     const store = createStore(); const initial = await store.load();
-    const full = { ...projectDto(project), password_hash: await hashPassword('Secure-password-123'), assigned_group: 2, draw_order: 1, draw_code: '第2組-序號01', draw_time: new Date().toISOString(), evaluators: ['陳教授'] };
+    const full = { ...projectDto(project), password_hash: await hashPassword('Secure-password-123'), assigned_group: 2, draw_code: '第2組-序號01', draw_time: new Date().toISOString(), evaluators: ['陳教授'] };
     const fullSaved = await store.save({ ...initial, projects: [full] }, initial.version);
     assert.deepEqual(fullSaved.projects[0], full);
     await assert.rejects(store.save(initial, initial.version), /其他人更新/);
@@ -707,7 +707,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const specialDraw = await request('/api/lottery/draw', { field: 'ALL', version: configured.data.version }, stage);
     assert.equal(specialDraw.status, 200);
     assert.deepEqual(new Set(specialDraw.data.projects.map((p: ProjectItem) => p.field)), new Set(fields));
-    assert.ok(specialDraw.data.projects.every((p: ProjectItem) => p.draw_order && p.assigned_group));
+    assert.ok(specialDraw.data.projects.every((p: ProjectItem) => p.draw_code && p.assigned_group));
     // Legacy credentials remain unusable even if SQL migration has not yet scrubbed them.
     state.projects = [{ ...project }];
     assert.equal((await loginRequest('/api/student/verify', { leaderId: project.leader_id, password: project.password })).status, 401);
@@ -872,7 +872,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     // and single-domain draws that would collide with another domain.
     const beforeCollision = structuredClone(state);
     const aliasConfigs = [{ id: 'a', field: '企業智慧化', groupCount: 1 }, { id: 'alias', field: 'A.企業智慧化', groupCount: 1 }];
-    const aliasProjects = aliasConfigs.map((cfg, i) => ({ ...projectDto(project), id: `alias-${i}`, leader_id: `alias-${i}`, field: cfg.field, assigned_group: null, draw_order: null, draw_code: null, draw_time: null }));
+    const aliasProjects = aliasConfigs.map((cfg, i) => ({ ...projectDto(project), id: `alias-${i}`, leader_id: `alias-${i}`, field: cfg.field, assigned_group: null, draw_code: null, draw_time: null }));
     const configCollision = await request('/api/domain-configs', { domainConfigs: aliasConfigs, version: state.version }, adminAgain);
     assert.equal(configCollision.status, 400);
     assert.match(configCollision.data.error, /相同抽籤編號前綴/);
@@ -889,7 +889,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
       assert.deepEqual(state, legacyCollision);
     }
     // Final merged-result guard also rejects a conflicting legacy/manual code.
-    state.projects = [aliasProjects[0], { ...aliasProjects[1], field: '進修部', assigned_group: 1, draw_order: 1, draw_code: 'A01' }];
+    state.projects = [aliasProjects[0], { ...aliasProjects[1], field: '進修部', assigned_group: 1, draw_code: 'A01' }];
     state.domain_configs = [aliasConfigs[0], { id: 'g', field: '進修部', groupCount: 1 }];
     const beforeMergedCollision = structuredClone(state);
     const mergedCollision = await request('/api/lottery/draw', { field: '企業智慧化', version: state.version }, stage);
@@ -945,7 +945,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const destinationResult = structuredClone(state.projects[1]);
     assert.equal((await request('/api/domain-configs', { domainConfigs: [deletionConfigs[1]], version: state.version }, adminAgain)).status, 200);
     assert.equal(state.projects[0].field, deletionFields[1]);
-    assert.equal(state.projects[0].draw_order, null);
+    assert.equal(state.projects[0].draw_code, null);
     assert.equal(state.projects[0].assigned_group, null);
     assert.deepEqual(state.projects[1], destinationResult);
 
@@ -990,7 +990,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal((await request('/api/domain-configs', { domainConfigs: configsWithCount(1), version: state.version }, adminAgain)).status, 200);
     assert.equal((await request('/api/lottery/draw', { field: shrinkField, version: state.version }, stage)).status, 200);
     assert.ok(state.projects.every(p => p.assigned_group === 1));
-    assert.deepEqual(state.projects.map(p => p.draw_order).sort(), [1, 2, 3]);
+    assert.deepEqual(state.projects.map(p => p.draw_code).sort(), ['縮組測試-第1組-序號01', '縮組測試-第1組-序號02', '縮組測試-第1組-序號03']);
 
     // Manual per-group counts persist; invalid draws and edits are atomic.
     assert.equal((await request('/api/lottery/reset', { field: shrinkField, version: state.version }, stage)).status, 200);
@@ -1034,7 +1034,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.deepEqual(state, beforeTestDraw);
     assert.equal(testDraw.data.version, beforeTestDraw.version);
     assert.equal(testDraw.data.projects, undefined);
-    assert.deepEqual(Object.keys(testDraw.data.domains[0].preview[0]).sort(), ['drawCode', 'group', 'order', 'originalCode', 'title']);
+    assert.deepEqual(Object.keys(testDraw.data.domains[0].preview[0]).sort(), ['drawCode', 'group', 'originalCode', 'title']);
     assert.equal((await request('/api/lottery/reset', { field: shrinkField, version: state.version }, stage)).status, 200);
     assert.equal((await request('/api/domain-configs', { domainConfigs: manualConfigs({ 1: 1, 2: 3 }), version: state.version }, adminAgain)).status, 200);
     const beforeFailedTest = structuredClone(state);
@@ -1045,7 +1045,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     // Multi-domain draw/reset is one atomic save and leaves unselected results intact.
     assert.equal((await request('/api/lottery/reset', { field: 'ALL', version: state.version }, stage)).status, 200);
     const multiFields = ['企業智慧化', '數位內容與多媒體應用', '網路應用與資通安全'];
-    const multiProjects = multiFields.map((field, i) => ({ ...project, id: `multi-${i}`, leader_id: `multi-student-${i}`, original_code: `M${i}`, seq_no: String(i + 1), field, assigned_group: null, draw_order: null, draw_code: null, evaluators: [] }));
+    const multiProjects = multiFields.map((field, i) => ({ ...project, id: `multi-${i}`, leader_id: `multi-student-${i}`, original_code: `M${i}`, seq_no: String(i + 1), field, assigned_group: null, draw_code: null, evaluators: [] }));
     assert.equal((await request('/api/projects', { projects: multiProjects, version: state.version }, adminAgain)).status, 200);
     const multiConfigs = multiFields.map(field => ({ id: state.domain_configs.find(cfg => cfg.field === field)!.id, field, groupCount: 1 }));
     assert.equal((await request('/api/domain-configs', { domainConfigs: multiConfigs, version: state.version }, adminAgain)).status, 200);
@@ -1055,7 +1055,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const beforeMultiVersion = state.version;
     assert.equal((await request('/api/lottery/draw', { fields: multiFields.slice(0, 2), version: state.version }, stage)).status, 200);
     assert.equal(state.version, beforeMultiVersion + 1);
-    assert.ok(state.projects.every(p => p.draw_order === 1));
+    assert.ok(state.projects.every(p => p.assigned_group === 1 && !!p.draw_code));
     assert.deepEqual(state.projects.find(p => p.field === multiFields[2]), thirdBefore);
     const beforeBadScope = structuredClone(state);
     for (const fields of [[], [multiFields[0], multiFields[0]], ['missing']]) {
@@ -1063,7 +1063,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     }
     assert.deepEqual(state, beforeBadScope);
     assert.equal((await request('/api/lottery/reset', { fields: multiFields.slice(0, 2), version: state.version }, stage)).status, 200);
-    assert.ok(state.projects.filter(p => p.field !== multiFields[2]).every(p => p.draw_order === null));
+    assert.ok(state.projects.filter(p => p.field !== multiFields[2]).every(p => p.draw_code === null));
     assert.deepEqual(state.projects.find(p => p.field === multiFields[2]), thirdBefore);
     assert.equal((await request('/api/domain-configs', { domainConfigs: multiConfigs.map((cfg, i) => i === 1 ? { ...cfg, groupCapacities: { 1: 2 } } : cfg), version: state.version }, adminAgain)).status, 200);
     const beforeAuditReads = auditReads;

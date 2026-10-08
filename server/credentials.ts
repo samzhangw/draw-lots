@@ -1,3 +1,4 @@
+import { isCompleteDrawResult } from '../src/lib/drawScope';
 import { randomBytes, scrypt, timingSafeEqual, createHash } from 'node:crypto';
 import type { ProjectItem, StudentQueryProject } from '../src/types';
 import { ApiError } from './errors';
@@ -69,16 +70,16 @@ export function projectDto(p: ProjectItem): ProjectItem {
     class_name: p.class_name, advisor: p.advisor, field: p.field, original_code: p.original_code,
     project_title: p.project_title, leader_id: p.leader_id,
     leader_name: p.leader_name?.trim() || '',
-    assigned_group: p.assigned_group ?? null, draw_order: p.draw_order ?? null,
+    assigned_group: p.assigned_group ?? null,
     draw_code: p.draw_code ?? null, draw_time: p.draw_time ?? null, evaluators: p.evaluators || [],
   };
 }
 
-// The stage needs only the presentation order and title, never the student roster.
+// The stage needs only the session, draw code and title, never the student roster.
 export function stageProjectDto(p: ProjectItem) {
   return {
     id: p.id, field: p.field, project_title: p.project_title,
-    assigned_group: p.assigned_group ?? null, draw_order: p.draw_order ?? null,
+    assigned_group: p.assigned_group ?? null,
     draw_code: p.draw_code ?? null,
   };
 }
@@ -93,14 +94,14 @@ function maskStudentLeaderId(value: string): string {
 export function studentProjectDto(p: ProjectItem): StudentQueryProject {
   return {
     leader_id_masked: maskStudentLeaderId(p.leader_id), project_title: p.project_title, field: p.field,
-    isDrawn: !!p.draw_order, draw_code: p.draw_code ?? null,
-    assigned_group: p.draw_order ? p.assigned_group ?? null : null,
+    isDrawn: isCompleteDrawResult(p), draw_code: p.draw_code ?? null,
+    assigned_group: isCompleteDrawResult(p) ? p.assigned_group ?? null : null,
     draw_time: p.draw_time ?? null, evaluators: p.evaluators || [],
   };
 }
 
 export function publicStudentProjectDto(p: ProjectItem): StudentQueryProject {
-  const drawn = !!p.draw_order;
+  const drawn = isCompleteDrawResult(p);
   return {
     leader_id_masked: maskStudentLeaderId(p.leader_id), project_title: p.project_title,
     field: drawn ? p.field : '', isDrawn: drawn,

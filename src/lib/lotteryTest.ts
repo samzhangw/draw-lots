@@ -8,7 +8,7 @@ export interface LotteryTestDomain {
   projectCount: number;
   groups: { group: number; count: number; target: number | null }[];
   issues: { level: 'error' | 'warning'; message: string }[];
-  preview: { originalCode: string; drawCode: string; title: string; group: number; order: number }[];
+  preview: { originalCode: string; drawCode: string; title: string; group: number }[];
 }
 
 export interface LotteryTestResult {
@@ -61,7 +61,7 @@ export function testLottery(projects: ProjectItem[], configs: DomainConfig[], fi
           result.issues.push({ level: 'error', message });
           if (previous !== result) previous.issues.push({ level: 'error', message });
         } else seenCodes.set(p.draw_code!, result);
-        result.preview.push({ originalCode: p.original_code, drawCode: p.draw_code!, title: p.project_title, group: p.assigned_group!, order: p.draw_order! });
+        result.preview.push({ originalCode: p.original_code, drawCode: p.draw_code!, title: p.project_title, group: p.assigned_group! });
       }
       if (cfg?.groupCapacities) {
         if (result.groups.some(g => g.count !== g.target)) result.issues.push({ level: 'error', message: '試跑分配件數與各組指定件數不符。' });

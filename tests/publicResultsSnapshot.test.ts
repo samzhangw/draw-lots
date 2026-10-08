@@ -7,16 +7,16 @@ test('snapshot SQL returns only public fields in numeric order and restricts exe
   const db = new PGlite();
   try {
     await db.exec(`create role anon; create role authenticated; create role service_role;
-      create table public.ntcust_lottery_state(id integer primary key, version integer, domain_configs jsonb);
-      insert into public.ntcust_lottery_state values(1, 7, '[{"id":"a","field":"智慧","groupCount":10}]');
+      create table public.ntcust_lottery_state(id integer primary key, version integer, domain_configs jsonb, updated_at timestamptz);
+      insert into public.ntcust_lottery_state values(1, 5, '[{"id":"a","field":"智慧","groupCount":10}]', now());
       create table public.ntcust_projects(document jsonb, id text generated always as (document->>'id') stored primary key);`);
-    const rows = Array.from({ length: 1201 }, (_, i) => ({ id: String(i), field: '智慧', assigned_group: i < 600 ? 2 : 10, draw_order: i + 1, draw_code: `A${i + 1}`, project_title: '專題', leader_name: '林同學', leader_id: 'secret-id', password_hash: 'secret' }));
-    rows.push({ ...rows[0], id: 'pending', draw_order: 0 });
+    const rows = Array.from({ length: 1201 }, (_, i) => ({ id: String(i), field: '智慧', assigned_group: i < 600 ? 2 : 10, draw_code: `A${i + 1}`, project_title: '專題', leader_name: '林同學', leader_id: 'secret-id', password_hash: 'secret' }));
+    rows.push({ ...rows[0], id: 'pending', draw_code: '' });
     rows.push({ ...rows[0], id: 'other', field: '系統' });
     await db.query('insert into public.ntcust_projects(document) select value from jsonb_array_elements($1::jsonb)', [JSON.stringify(rows)]);
-    const sql = await readFile(new URL('../supabase/migrations/202610070002_public_results_snapshot.sql', import.meta.url), 'utf8');
+    const sql = await readFile(new URL('../supabase/migrations/202610080001_remove_draw_order.sql', import.meta.url), 'utf8');
     await db.exec(sql); await db.exec(sql);
-    const read = async (field: string, known: number | null = null) => (await db.query<{ result: any }>('select public.ntcust_public_results_snapshot($1,$2) as result', [field, known])).rows[0].result;
+    const read = async (field: string, known: number | null = null) => (await db.query<{ result: any }>('select public.ntcust_public_results_snapshot_v2($1,$2) as result', [field, known])).rows[0].result;
     await db.exec('set role service_role;');
     const result = await read('智慧');
     assert.equal(result.version, 7); assert.equal(result.results.length, 1201);

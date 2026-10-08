@@ -1,3 +1,4 @@
+import { hasDrawData, isCompleteDrawResult } from '../lib/drawScope';
 import { formatSessionLabel } from '../lib/sessionLabel';
 import React, { useState, useRef } from 'react';
 import { ProjectItem, DomainStats, DomainConfig } from '../types';
@@ -487,7 +488,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
     let finalProjects: ProjectItem[] = [];
     if (mode === 'overwrite') {
-      if (projects.some(p => p.draw_order) && !overwriteAcknowledged) {
+      if (projects.some(hasDrawData) && !overwriteAcknowledged) {
         setUploadFeedback({ type: 'error', message: '名冊已有抽籤結果，請先勾選確認覆蓋風險。' });
         return;
       }
@@ -586,7 +587,6 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             leader_id: cleanLeaderId,
             leader_name: formData.leader_name?.trim() || '',
             password: finalPassword,
-            draw_order: formData.draw_code === p.draw_code ? p.draw_order : formData.draw_code ? parseInt(String(formData.draw_code).replace(/\D/g, ''), 10) || p.draw_order : p.draw_order,
           } as ProjectItem;
         }
         return p;
@@ -606,7 +606,6 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
         leader_id: cleanLeaderId,
         leader_name: formData.leader_name?.trim() || '',
         password: finalPassword,
-        draw_order: formData.draw_code ? parseInt(String(formData.draw_code).replace(/\D/g, ''), 10) || null : null,
         draw_code: formData.draw_code || null,
         draw_time: formData.draw_code ? new Date().toISOString() : null,
       };
@@ -884,7 +883,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
         {domainDisplayMode === 'cards' ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {domainStats.map((stat) => {
-            const drawnCount = projects.filter((p) => p.field === stat.field && p.draw_order).length;
+            const drawnCount = projects.filter((p) => p.field === stat.field && isCompleteDrawResult(p)).length;
             const isSelected = selectedFieldFilter === stat.field;
             const cfgObj = domainConfigs.find((c) => c.id === stat.id) || {
               id: stat.id,
@@ -1007,7 +1006,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {domainStats.map((stat) => {
-                const drawnCount = projects.filter((p) => p.field === stat.field && p.draw_order).length;
+                const drawnCount = projects.filter((p) => p.field === stat.field && isCompleteDrawResult(p)).length;
                 const isSelected = selectedFieldFilter === stat.field;
                 const cfgObj = domainConfigs.find((c) => c.id === stat.id) || {
                   id: stat.id,
@@ -1112,7 +1111,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   全校共 {totalGroupCount} 個分組場次
                 </td>
                 <td className="py-2.5 px-4 text-center font-mono text-emerald-700 text-xs border border-slate-200">
-                  {projects.filter((p) => p.draw_order).length} / {totalProjectsCount}
+                  {projects.filter(isCompleteDrawResult).length} / {totalProjectsCount}
                 </td>
                 <td className="py-2.5 px-4 text-right text-xs text-slate-500 border border-slate-200">
                   {selectedFieldFilter !== 'ALL' && (
@@ -1582,7 +1581,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <label htmlFor="domain-code" className="block text-slate-700 mb-1 font-semibold">對應字母</label>
                 <select id="domain-code" value={domainFormCode}
                   onChange={e => { setDomainFormCode(e.target.value); setDomainFormError(null); }}
-                  disabled={!!editingDomain && projects.some(p => p.field === editingDomain.field && (p.draw_code || p.draw_order || p.assigned_group || p.draw_time))}
+                  disabled={!!editingDomain && projects.some(p => p.field === editingDomain.field && (hasDrawData(p)))}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 disabled:opacity-60">
                   <option value="">{editingDomain && !getDomainCode(editingDomain.field, domainConfigs) ? `沿用既有代碼（${getDrawCodeNamespace(editingDomain.field, domainConfigs)}）` : '請選擇字母'}</option>
                   {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(letter => <option key={letter} value={letter}>{letter}（{letter}01、{letter}02…）</option>)}
@@ -1728,7 +1727,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                   請選擇匯入模式：您可以選擇完全覆蓋現有名單，或是將新名單追加至現有名單之後。
                 </p>
                 {sharedPasswordEnabled && <p className="text-xs text-indigo-700 mt-2">共用密碼啟用中，匯入檔案內的個別密碼欄位會略過；新專題沿用目前共用密碼。</p>}
-                {projects.some(p => p.draw_order) && <label className="mt-3 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                {projects.some(hasDrawData) && <label className="mt-3 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
                   <input type="checkbox" checked={overwriteAcknowledged} onChange={e => setOverwriteAcknowledged(e.target.checked)} className="mt-0.5 shrink-0" />
                   <span>我了解「完全覆蓋」會以 Excel 內容取代現有名冊，可能清除或改變已完成的抽籤結果。需要保留現有結果時，請使用「追加」。</span>
                 </label>}
@@ -1738,7 +1737,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
             <div className="pt-2 flex flex-col gap-2">
               <button
                 onClick={() => handleApplyImport('overwrite')}
-                disabled={pendingAction?.startsWith('import-') || (projects.some(p => p.draw_order) && !overwriteAcknowledged)}
+                disabled={pendingAction?.startsWith('import-') || (projects.some(hasDrawData) && !overwriteAcknowledged)}
                 className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {pendingAction === 'import-overwrite' && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}

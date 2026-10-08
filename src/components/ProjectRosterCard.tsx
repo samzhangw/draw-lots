@@ -1,3 +1,4 @@
+import { isCompleteDrawResult } from '../lib/drawScope';
 import { formatSessionLabel } from '../lib/sessionLabel';
 import { Edit, Trash2, AlertTriangle } from 'lucide-react';
 import type { ProjectItem } from '../types';
@@ -11,7 +12,7 @@ interface Props {
 }
 
 export function ProjectRosterCard({ project: p, sharedPasswordEnabled, onEdit, onDelete }: Props) {
-  const drawn = !!p.draw_order || !!p.draw_code;
+  const drawn = isCompleteDrawResult(p);
   const conflict = !!p.assigned_group && isAdvisorConflict(p.advisor, p.evaluators || []);
   return (
     <article aria-label={`${p.original_code} ${p.project_title}`} className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">

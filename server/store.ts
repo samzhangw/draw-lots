@@ -13,6 +13,17 @@ import { ApiError } from './errors';
 import { auditMigrationPending, type AuditEvent } from './audit';
 export { ApiError } from './errors';
 
+// Drop the retired key when reading databases that have not migrated yet.
+function stripLegacyDrawOrder<T extends ProjectItem>(project: T): T {
+  const { draw_order: retired, ...current } = project as T & { draw_order?: unknown };
+  return current as T;
+}
+
+const resultCodeCollator = new Intl.Collator('zh-TW', { numeric: true });
+function comparePublicResults(a: PublicDrawResult, b: PublicDrawResult): number {
+  return (a.assigned_group ?? Infinity) - (b.assigned_group ?? Infinity)
+    || resultCodeCollator.compare(a.draw_code, b.draw_code);
+}
 const healthCache = new ShortCache<void>(2000);
 
 export interface DatabaseState {
@@ -39,7 +50,7 @@ export function createStore() {
     }
     const { data, error } = result;
     if (error || !data) throw new ApiError(503, '資料庫暫時無法讀取，請稍後再試。');
-    return { projects: normalizeOriginalCodes<StoredProject>(data.projects, data.domain_configs), domainConfigs: sortDomainConfigs(data.domain_configs), version: data.version, lastUpdated: data.updated_at };
+    return { projects: normalizeOriginalCodes<StoredProject>(data.projects.map(stripLegacyDrawOrder), data.domain_configs), domainConfigs: sortDomainConfigs(data.domain_configs), version: data.version, lastUpdated: data.updated_at };
   };
   return {
     client,
@@ -48,9 +59,10 @@ export function createStore() {
       try {
         try {
           return await publicResultsCache.getSnapshot(url, field, async knownVersion => {
-            const { data, error } = await client.rpc('ntcust_public_results_snapshot', { p_field: field, p_known_version: knownVersion });
+            const { data, error } = await client.rpc('ntcust_public_results_snapshot_v2', { p_field: field, p_known_version: knownVersion });
             if (error) throw error;
             if (!data || !Number.isInteger(data.version) || !Array.isArray(data.domain_configs) || (data.results !== null && !Array.isArray(data.results))) throw new ApiError(503, '抽籤結果暫時無法讀取。');
+            if (Array.isArray(data.results)) data.results.sort(comparePublicResults);
             return data as PublicSnapshot;
           });
         } catch (error) {
@@ -68,17 +80,17 @@ export function createStore() {
           for (let offset = 0; offset < 2000; offset += 500) {
             const { data, error } = await client.from('ntcust_projects')
               .select('draw_code:document->>draw_code,assigned_group:document->assigned_group,project_title:document->>project_title,leader_name:document->>leader_name')
-              .eq('document->>field', field).gt('document->draw_order', 0)
+              .eq('document->>field', field).gt('document->assigned_group', 0)
               .not('document->>draw_code', 'is', null).neq('document->>draw_code', '')
               .order('document->assigned_group', { ascending: true, nullsFirst: false })
-              .order('document->draw_order', { ascending: true }).order('id', { ascending: true })
+              .order('document->>draw_code', { ascending: true }).order('id', { ascending: true })
               .range(offset, offset + 499);
             if (error) throw error;
             if (!Array.isArray(data)) throw new ApiError(503, '抽籤結果暫時無法讀取。');
             results.push(...data.map(row => ({ draw_code: row.draw_code, assigned_group: typeof row.assigned_group === 'number' ? row.assigned_group : null, project_title: row.project_title, leader_name: row.leader_name?.trim() || '' })));
             if (data.length < 500) break;
           }
-          return results;
+          return results.filter(row => Number.isSafeInteger(row.assigned_group) && row.assigned_group! > 0 && !!row.draw_code?.trim()).sort(comparePublicResults);
         });
       } catch (error) {
         // Compatibility for databases that have not applied the project-row migration.
@@ -109,7 +121,7 @@ export function createStore() {
         return state.projects.find(p => key === 'id' ? p.id === value : p.leader_id.trim().toLowerCase() === value);
       }
       if (error) throw new ApiError(503, '資料庫暫時無法讀取，請稍後再試。');
-      return data?.document;
+      return data?.document ? stripLegacyDrawOrder(data.document) : undefined;
     },
     async save(state: DatabaseState, expectedVersion: number, audit?: AuditEvent): Promise<DatabaseState> {
       const domainConfigs = sortDomainConfigs(state.domainConfigs);
@@ -134,7 +146,7 @@ export function createStore() {
       if (error || !data) throw new ApiError(503, '資料庫暫時無法儲存，請稍後再試。');
       healthCache.invalidate(url);
       publicResultsCache.invalidate(url);
-      return { projects: data.projects, domainConfigs: sortDomainConfigs(data.domain_configs), version: data.version, lastUpdated: data.updated_at };
+      return { projects: data.projects.map(stripLegacyDrawOrder), domainConfigs: sortDomainConfigs(data.domain_configs), version: data.version, lastUpdated: data.updated_at };
     },
   };
 }
@@ -150,9 +162,7 @@ export function validateProjects(value: unknown): asserts value is ProjectItem[]
       throw new ApiError(400, '專題欄位不完整或 ID 重複。');
     }
     if (textFields.some(key => p[key].length > (key === 'project_title' ? 2000 : key === 'leader_id' ? 128 : 512))) throw new ApiError(400, '專題文字欄位過長。');
-    for (const key of ['draw_order', 'assigned_group']) {
-      if (p[key] != null && (!Number.isInteger(p[key]) || p[key] < 1)) throw new ApiError(400, '抽籤順位與組別必須為正整數。');
-    }
+    if (p.assigned_group != null && (!Number.isSafeInteger(p.assigned_group) || p.assigned_group < 1)) throw new ApiError(400, '場次必須為正整數。');
     if (p.password != null && typeof p.password !== 'string') throw new ApiError(400, '密碼格式不正確。');
     if (p.leader_name != null && (typeof p.leader_name !== 'string' || p.leader_name.length > 128)) throw new ApiError(400, '組長姓名須為 128 字元以內的文字。');
     if (p.draw_time != null && (typeof p.draw_time !== 'string' || Number.isNaN(Date.parse(p.draw_time)))) throw new ApiError(400, '抽籤時間格式不正確。');

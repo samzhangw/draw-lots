@@ -84,7 +84,8 @@ test('all seven domains have unique compact codes across groups and keep local p
     const domain = updatedProjects.filter(p => p.field === field);
     assert.deepEqual(domain.map(p => p.draw_code).sort(), Array.from({ length: 12 }, (_, n) => `${prefix}${String(n + 1).padStart(2, '0')}`));
     for (let group = 1; group <= 3; group++) {
-      assert.deepEqual(domain.filter(p => p.assigned_group === group).map(p => p.draw_order).sort((a, b) => a! - b!), [1, 2, 3, 4]);
+      assert.equal(new Set(domain.filter(p => p.assigned_group === group).map(p => p.draw_code)).size, 4);
+      assert.ok(domain.every(p => !('draw_order' in p)));
     }
   });
   const workbook = createExportWorkbook(updatedProjects);

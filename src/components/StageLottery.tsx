@@ -5,7 +5,7 @@ import { ProjectItem, DomainConfig } from '../types';
 import { StoreState, isApiRequestCancelled } from '../lib/api';
 import { useModalFocus } from '../lib/useModalFocus';
 import { DomainScopePicker } from './DomainScopePicker';
-import { getSelectedDrawFields, getResettableFields, getIncompleteDrawFields, isCompleteDrawResult } from '../lib/drawScope';
+import { compareDrawCodes, getSelectedDrawFields, getResettableFields, getIncompleteDrawFields, isCompleteDrawResult } from '../lib/drawScope';
 import { ResultCarousel } from './ResultCarousel';
 import { FloatingNotice } from './FloatingNotice';
 import { PupLotteryAnimation, pupLotteryDuration } from './PupLotteryAnimation';
@@ -89,7 +89,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   const resettableFields = getResettableFields([...new Set([...domainConfigs.map(cfg => cfg.field), ...projects.map(p => p.field)])], projects);
   const selectedResetFields = resetFields.filter(field => resettableFields.includes(field));
   const resetProjectCount = projects.filter(p => selectedResetFields.includes(p.field)).length;
-  const undrawnPool = currentPool.filter(p => drawFields.includes(p.field) && !p.draw_order);
+  const undrawnPool = currentPool.filter(p => drawFields.includes(p.field) && !isCompleteDrawResult(p));
   const incompleteFields = getIncompleteDrawFields([...new Set(currentPool.map(p => p.field))], currentPool);
   const pendingPool = currentPool.filter(p => !isCompleteDrawResult(p));
   const visibleDomainConfigs = domainConfigs.filter(cfg =>
@@ -99,11 +99,11 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   const drawnPool = currentPool
     .filter(isCompleteDrawResult)
     .sort((a, b) => {
-      // Sort by assigned_group then draw_order
+      // Sort by session, then numeric draw code
       if (a.assigned_group && b.assigned_group && a.assigned_group !== b.assigned_group) {
         return a.assigned_group - b.assigned_group;
       }
-      return (a.draw_order || 0) - (b.draw_order || 0);
+      return compareDrawCodes(a, b);
     });
 
   const enterFullscreen = async () => {
@@ -703,7 +703,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                       {Array.from({ length: cfg.groupCount }, (_, i) => i + 1).map((g) => {
                         const groupItems = domainDrawnProjects
                           .filter((p) => p.assigned_group === g)
-                          .sort((a, b) => (a.draw_order || 0) - (b.draw_order || 0));
+                          .sort((a, b) => compareDrawCodes(a, b));
 
                         return (
                           <div
@@ -803,7 +803,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                               if (a.assigned_group !== b.assigned_group) {
                                 return (a.assigned_group || 0) - (b.assigned_group || 0);
                               }
-                              return (a.draw_order || 0) - (b.draw_order || 0);
+                              return compareDrawCodes(a, b);
                             })
                             .map((item) => {
                               const matched = isMatch(item);
@@ -924,7 +924,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               <div>
                 <h3 className="text-base font-bold text-slate-900">確定重設抽籤結果？</h3>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  請勾選要重設的領域。所選領域的分組、報告順位及抽籤編號將清除，其他領域保留。
+                  請勾選要重設的領域。所選領域的場次及抽籤編號將清除，其他領域保留。
                 </p>
               </div>
             </div>

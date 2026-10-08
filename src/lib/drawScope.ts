@@ -2,14 +2,20 @@ import type { ProjectItem } from '../types';
 
 export function isCompleteDrawResult(project: ProjectItem): boolean {
   return Number.isSafeInteger(project.assigned_group) && project.assigned_group! > 0
-    && Number.isSafeInteger(project.draw_order) && project.draw_order! > 0
     && typeof project.draw_code === 'string' && project.draw_code.trim().length > 0;
 }
 
+export function hasDrawData(project: ProjectItem): boolean {
+  return [project.assigned_group, project.draw_code, project.draw_time].some(value => value != null && value !== '');
+}
+
+export function compareDrawCodes(a: Pick<ProjectItem, 'draw_code' | 'id'>, b: Pick<ProjectItem, 'draw_code' | 'id'>): number {
+  return drawCodeCollator.compare(a.draw_code || '', b.draw_code || '') || a.id.localeCompare(b.id);
+}
+const drawCodeCollator = new Intl.Collator('zh-TW', { numeric: true });
+
 function fieldsWithDrawData(projects: ProjectItem[]): Set<string> {
-  return new Set(projects.filter(p =>
-    [p.assigned_group, p.draw_order, p.draw_code, p.draw_time].some(value => value != null && value !== '')
-  ).map(p => p.field));
+  return new Set(projects.filter(hasDrawData).map(p => p.field));
 }
 
 /** A domain with any draw data is incomplete unless every project has a full result. */

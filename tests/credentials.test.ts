@@ -39,7 +39,7 @@ test('special domain names stay isolated and use their own subgroup/reviewer set
     const cfg = configs.find(c => c.field === item.field)!;
     assert.ok(item.assigned_group! >= 1 && item.assigned_group! <= cfg.groupCount);
     assert.deepEqual(item.evaluators, cfg.evaluatorsPerGroup[item.assigned_group!]);
-    const position = `${item.field}/${item.assigned_group}/${item.draw_order}`;
+    const position = `${item.field}/${item.assigned_group}/${item.draw_code}`;
     assert.equal(positions.has(position), false); positions.add(position);
   }
   for (const summary of result.domainSummaries) {
@@ -49,7 +49,7 @@ test('special domain names stay isolated and use their own subgroup/reviewer set
 
 test('student DTOs omit roster identifiers and secrets in both credential modes', () => {
   const stored = { ...p, password: 'private', password_hash: 'private-hash',
-    assigned_group: 2, draw_order: 3, draw_code: 'A03', draw_time: '2026-10-04T00:00:00Z',
+    assigned_group: 2, draw_code: 'A03', draw_time: '2026-10-04T00:00:00Z',
     evaluators: ['評審'], unexpected_private_field: 'private-extra' };
   const individual = studentProjectDto(stored);
   const shared = publicStudentProjectDto(stored);
@@ -61,11 +61,11 @@ test('student DTOs omit roster identifiers and secrets in both credential modes'
     assert.equal(result.assigned_group, 2);
     assert.equal(JSON.stringify(result).includes('private'), false);
   }
-  assert.deepEqual(publicStudentProjectDto({ ...stored, draw_order: null }), {
+  assert.deepEqual(publicStudentProjectDto({ ...stored, draw_code: null }), {
     leader_id_masked: '****5678', project_title: p.project_title, field: '', isDrawn: false, draw_code: null, assigned_group: null,
   });
-  assert.equal(studentProjectDto({ ...stored, draw_order: null }).isDrawn, false);
-  assert.equal(studentProjectDto({ ...stored, draw_order: null }).assigned_group, null);
+  assert.equal(studentProjectDto({ ...stored, draw_code: null }).isDrawn, false);
+  assert.equal(studentProjectDto({ ...stored, draw_code: null }).assigned_group, null);
 });
 
 test('student ID masking exposes only the final four characters and conceals short IDs', () => {
