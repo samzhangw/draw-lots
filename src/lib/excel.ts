@@ -39,6 +39,20 @@ function normalizeKey(str: string): string {
   return String(str || '').trim().replace(/\s+/g, '');
 }
 
+function parseImportedSession(raw: unknown, rowNumber: number): number | null {
+  const value = String(raw ?? '').normalize('NFKC').replace(/\s+/g, '');
+  if (!value || ['未抽籤', '待抽籤', '待分配', '場次尚未提供', '—', '-'].includes(value)) return null;
+  const ordinal = value.replace(/^第/, '').replace(/(?:場次|場|組)$/, '');
+  for (let session = 1; session <= 50; session++) {
+    if (ordinal === formatSessionLabel(session).slice(1, -2)) return session;
+  }
+  const session = /^\d+$/.test(ordinal) ? Number(ordinal) : NaN;
+  if (!Number.isSafeInteger(session) || session < 1 || session > 50) {
+    throw new Error(`第 ${rowNumber} 列場次格式不正確，請填入 1 至 50 或「第一場次」等場次名稱。`);
+  }
+  return session;
+}
+
 /**
  * Parse an uploaded Excel file (.xlsx, .xls, .csv) into ProjectItem[]
  */
@@ -90,6 +104,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
     const passwordKey = findKey('組長密碼') || findKey('密碼') || findKey('登入密碼');
     // Check if there is already a draw code column in this excel
     const drawCodeKey = findKey('+編號(抽籤後)') || findKey('編號(抽籤後)') || findKey('抽籤後編號') || findKey('抽籤序號');
+    const sessionKeys = ['分組場次', '場次', '報告場次', '組別'].map(findKey).filter((key): key is string => !!key);
 
     // Validation warning
     if (!titleKey || !leaderKey) {
@@ -117,6 +132,8 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
       const field = fieldKey && row[fieldKey] ? String(row[fieldKey]).trim() : '綜合領域';
       const originalCode = codeKey && row[codeKey] ? String(row[codeKey]).trim() : `PRJ-${String(index + 1).padStart(2, '0')}`;
       const drawCodeVal = drawCodeKey && row[drawCodeKey] ? String(row[drawCodeKey]).trim() : null;
+      const sessions = sessionKeys.map(key => parseImportedSession(row[key], index + 2)).filter((session): session is number => session !== null);
+      if (new Set(sessions).size > 1) throw new Error(`第 ${index + 2} 列的場次欄位不一致，請確認分組場次、場次、報告場次或組別的值。`);
       const parsedPassword = passwordKey && row[passwordKey] ? String(row[passwordKey]).trim() : '';
       const password = parsedPassword;
       if (password && (password.length < 12 || password.length > 128 || password === leaderId)) throw new Error(`第 ${index + 2} 列密碼須為 12 至 128 字元且不可使用學號。`);
@@ -134,6 +151,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
         leader_id: leaderId,
         leader_name: leaderNameKey ? String(row[leaderNameKey] || '').trim() : '',
         password: password,
+        assigned_group: sessions[0] ?? null,
         draw_order: drawCodeVal ? parseInt(drawCodeVal.replace(/\D/g, ''), 10) || null : null,
         draw_code: drawCodeVal || null,
         draw_time: drawCodeVal ? new Date().toISOString() : null,

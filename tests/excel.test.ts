@@ -15,6 +15,43 @@ test('Excel import preserves configured letters and valid existing numbers', asy
   assert.equal(parsed.success, true);
   assert.deepEqual(parsed.projects!.map(p => p.original_code), ['H03', 'H01']);
 });
+test('Excel imports session aliases, Chinese ordinals and full-width numeric labels', async () => {
+  for (const header of ['分組場次', '場次', '報告場次', '組別']) {
+    const values = ['1', '第２場次', '第一場次', '第十二場次', '第五十場次', ' 第 3 組 ', '第四場'];
+    const parsed = await parseExcelFile(makeFile(values.map((value, index) => ({ ...row, 組長學號: `leader-${index}`, [header]: value }))));
+    assert.equal(parsed.success, true, parsed.error);
+    assert.deepEqual(parsed.projects!.map(p => p.assigned_group), [1, 2, 1, 12, 50, 3, 4]);
+  }
+});
+test('Excel session import accepts missing values and rejects invalid or conflicting columns', async () => {
+  for (const value of ['', '未抽籤', '待分配', '場次尚未提供']) {
+    const parsed = await parseExcelFile(makeFile([{ ...row, 分組場次: value }]));
+    assert.equal(parsed.success, true, parsed.error);
+    assert.equal(parsed.projects![0].assigned_group, null);
+  }
+  for (const value of ['0', '-1', '1.5', '51', '第零場次', 'abc']) {
+    const parsed = await parseExcelFile(makeFile([{ ...row, 分組場次: value }]));
+    assert.equal(parsed.success, false);
+    assert.match(parsed.error!, /第 2 列場次格式不正確/);
+  }
+  const compatible = await parseExcelFile(makeFile([{ ...row, 分組場次: '第一場次', 場次: '1', 報告場次: '' }]));
+  assert.equal(compatible.success, true, compatible.error);
+  assert.equal(compatible.projects![0].assigned_group, 1);
+  const conflicting = await parseExcelFile(makeFile([{ ...row, 分組場次: '1', 場次: '2' }]));
+  assert.equal(conflicting.success, false);
+  assert.match(conflicting.error!, /第 2 列的場次欄位不一致/);
+});
+test('exported session labels survive Excel reimport and stable-ID reconciliation', async () => {
+  const base = (await parseExcelFile(makeFile([row]))).projects![0];
+  const original = { ...base, assigned_group: 12, draw_code: 'A03', draw_order: 3 };
+  const bytes = XLSX.write(createExportWorkbook([original]), { type: 'array', bookType: 'xlsx' });
+  const parsed = await parseExcelFile(new File([bytes], 'results.xlsx'));
+  assert.equal(parsed.success, true, parsed.error);
+  const reconciled = preserveImportedProjectIds(parsed.projects!, [original]);
+  assert.equal(reconciled[0].assigned_group, 12);
+  assert.equal(reconciled[0].id, original.id);
+  assert.equal(reconciled[0].draw_code, 'A03');
+});
 test('patched SheetJS imports Chinese rosters and exports without credential fields', async () => {
   assert.equal(XLSX.version, '0.20.3');
   const parsed = await parseExcelFile(makeFile([row]));
