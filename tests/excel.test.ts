@@ -56,7 +56,7 @@ test('exported file follows drawn codes numerically across domains and puts undr
   const codes = ['G01', 'B03', 'A100', 'B01', 'A03', 'A99', 'A01', 'A02', 'B02', 'C01', 'D01', 'E01', 'F01'];
   const projects = codes.map((code, i) => ({
     ...base, id: `export-${i}`, seq_no: String(codes.length - i), original_code: `X${String(i + 1).padStart(2, '0')}`,
-    draw_order: 1, draw_code: code,
+    draw_order: 1, draw_code: code, assigned_group: i === 0 ? 12 : 2,
   }));
   const roster = [...projects, { ...base, id: 'undrawn-z', original_code: 'Z01', draw_order: null, draw_code: null }, { ...base, id: 'undrawn-a', original_code: 'A01', draw_order: null, draw_code: null }];
   const before = structuredClone(roster);
@@ -65,7 +65,17 @@ test('exported file follows drawn codes numerically across domains and puts undr
   const exported = XLSX.utils.sheet_to_json<Record<string, string>>(workbook.Sheets[workbook.SheetNames[0]]);
   assert.deepEqual(exported.map(p => p['+編號(抽籤後)']), ['A01', 'A02', 'A03', 'A99', 'A100', 'B01', 'B02', 'B03', 'C01', 'D01', 'E01', 'F01', 'G01', '未抽籤', '未抽籤']);
   assert.deepEqual(exported.slice(-2).map(p => p.編號), ['A01', 'Z01']);
+  assert.deepEqual(exported.map(p => p.場次), [...Array(12).fill('第二場次'), '第十二場次', '未抽籤', '未抽籤']);
   assert.deepEqual(roster, before);
+});
+
+test('drawn projects without an assigned session export an explicit missing-session label', async () => {
+  const base = (await parseExcelFile(makeFile([row]))).projects![0];
+  const workbook = createExportWorkbook([{ ...base, draw_code: 'A01', draw_order: 1, assigned_group: null }]);
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const exported = XLSX.utils.sheet_to_json<Record<string, string>>(sheet);
+  assert.equal(exported[0].場次, '場次尚未提供');
+  assert.equal(sheet['!cols']?.length, REQUIRED_OUTPUT_HEADERS.length);
 });
 
 

@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { ProjectItem, DomainConfig } from '../types';
 import { normalizeOriginalCodes } from './originalCodes';
+import { formatSessionLabel } from './sessionLabel';
 
 export const REQUIRED_INPUT_HEADERS = [
   '序號',
@@ -27,7 +28,8 @@ export const REQUIRED_OUTPUT_HEADERS = [
   '專題名稱',
   '組長學號',
   '組長姓名',
-  '+編號(抽籤後)'
+  '+編號(抽籤後)',
+  '場次'
 ];
 
 export { preserveImportedProjectIds } from './importProjects';
@@ -158,7 +160,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
 
 /**
  * Export projects to Excel with exact columns:
- * 序號 學制 系所 班級 指導老師 領域 編號 專題名稱 組長學號 組長姓名 +編號(抽籤後)
+ * 序號 學制 系所 班級 指導老師 領域 編號 專題名稱 組長學號 組長姓名 +編號(抽籤後) 場次
  */
 export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
   // Export by drawn identifier (A01, A02, ... A100, B01); undrawn rows go last.
@@ -185,6 +187,7 @@ export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
       '組長學號': p.leader_id,
       '組長姓名': p.leader_name || '',
       '+編號(抽籤後)': p.draw_code || (p.draw_order ? `第 ${p.draw_order} 組` : '未抽籤'),
+      '場次': p.assigned_group ? formatSessionLabel(p.assigned_group) : (p.draw_code || p.draw_order ? '場次尚未提供' : '未抽籤'),
     };
   });
 
@@ -203,6 +206,7 @@ export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
     { wch: 14 }, // 組長學號
     { wch: 14 }, // 組長姓名
     { wch: 18 }, // +編號(抽籤後)
+    { wch: 18 }, // 場次
   ];
 
   const workbook = XLSX.utils.book_new();
