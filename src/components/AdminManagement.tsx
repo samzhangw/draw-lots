@@ -995,18 +995,18 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
           })}
         </div>
         ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[850px] text-left text-xs sm:text-sm border-collapse">
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          <table className="w-full min-w-[850px] whitespace-nowrap text-left text-xs sm:text-sm border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 text-xs">
                 <th className="py-2.5 px-4 text-center border border-slate-200 whitespace-nowrap">代碼</th>
                 <th className="py-2.5 px-4 border border-slate-200">列標籤 (領域名稱)</th>
                 <th className="py-2.5 px-4 text-center border border-slate-200">件數</th>
-                <th className="py-2.5 px-4 text-center border border-slate-200">
+                <th className="py-2.5 px-4 text-center border border-slate-200 whitespace-nowrap">
                   分組組數
                 </th>
                 <th className="py-2.5 px-4 border border-slate-200">各組評審委員名單</th>
-                <th className="py-2.5 px-4 text-center border border-slate-200">抽籤進度</th>
+                <th className="py-2.5 px-4 text-center border border-slate-200 whitespace-nowrap">抽籤進度</th>
                 <th className="py-2.5 px-4 text-right border border-slate-200">管理操作</th>
               </tr>
             </thead>
@@ -1037,22 +1037,22 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     <td className="py-2 px-4 text-center font-mono font-bold text-slate-900 border border-slate-200">
                       {stat.count}
                     </td>
-                    <td className="py-2 px-4 text-center border border-slate-200">
+                    <td className="py-2 px-4 text-center border border-slate-200 whitespace-nowrap">
                       <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 font-bold text-slate-800" aria-label={`${stat.field}分組組數 ${stat.groupCount} 組`}>
                         {stat.groupCount} 組
                       </span>
                     </td>
-                    <td className="py-2 px-4 border border-slate-200 max-w-xs">
-                      <div className="space-y-1 text-[11px]">
+                    <td className="py-2 px-4 border border-slate-200">
+                      <div className="flex flex-nowrap items-center gap-3 text-[11px]">
                         {Array.from({ length: stat.groupCount }, (_, i) => i + 1).map((g) => {
                           const evs = stat.evaluatorsPerGroup?.[g] || [];
                           return (
-                            <div key={g} className="flex items-center gap-1.5 truncate">
+                            <div key={g} className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
                               <span className="font-bold text-slate-700 font-mono shrink-0">
                                 第{g}組:
                               </span>
                               {stat.groupCapacities && <span className="shrink-0 font-semibold text-blue-700">{stat.groupCapacities[g]} 件</span>}
-                              <span className="text-slate-600 truncate">
+                              <span className="whitespace-nowrap text-slate-600">
                                 {evs.length > 0 ? evs.join('、') : <span className="text-slate-400 italic">尚未設定（點右側設定）</span>}
                               </span>
                             </div>
@@ -1060,15 +1060,15 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                         })}
                       </div>
                     </td>
-                    <td className="py-2 px-4 text-center border border-slate-200">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-mono font-medium ${
+                    <td className="py-2 px-4 text-center border border-slate-200 whitespace-nowrap">
+                      <span className={`inline-flex shrink-0 items-center whitespace-nowrap text-xs px-2 py-0.5 rounded-full font-mono font-medium ${
                         drawnCount === stat.count && stat.count > 0
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           : drawnCount > 0
                           ? 'bg-amber-50 text-amber-700 border border-amber-200'
                           : 'text-slate-400'
                       }`}>
-                        {drawnCount} / {stat.count}
+                        {`${drawnCount} / ${stat.count}`}
                       </span>
                     </td>
                     <td className="py-2 px-4 text-right border border-slate-200 whitespace-nowrap">
