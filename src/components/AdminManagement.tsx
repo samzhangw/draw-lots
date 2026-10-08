@@ -1002,7 +1002,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <th className="py-2.5 px-4 text-center border border-slate-200 whitespace-nowrap">代碼</th>
                 <th className="py-2.5 px-4 border border-slate-200">列標籤 (領域名稱)</th>
                 <th className="py-2.5 px-4 text-center border border-slate-200">件數</th>
-                <th className="py-2.5 px-4 text-center border border-slate-200 whitespace-nowrap">
+                <th className="min-w-24 py-2.5 px-4 text-center border border-slate-200 whitespace-nowrap">
                   分組組數
                 </th>
                 <th className="py-2.5 px-4 border border-slate-200">各組評審委員名單</th>
@@ -1038,8 +1038,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                       {stat.count}
                     </td>
                     <td className="py-2 px-4 text-center border border-slate-200 whitespace-nowrap">
-                      <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 font-bold text-slate-800" aria-label={`${stat.field}分組組數 ${stat.groupCount} 組`}>
-                        {stat.groupCount} 組
+                      <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 font-bold text-slate-800" aria-label={`${stat.field}分組組數 ${stat.groupCount} 組`}>
+                        {`${stat.groupCount} 組`}
                       </span>
                     </td>
                     <td className="py-2 px-4 border border-slate-200">
@@ -1110,8 +1110,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <td className="py-2.5 px-4 text-center font-mono text-rose-700 text-sm border border-slate-200">
                   {totalProjectsCount}
                 </td>
-                <td className="py-2.5 px-4 text-center font-mono text-slate-900 text-sm border border-slate-200">
-                  {totalGroupCount} 組
+                <td className="py-2.5 px-4 text-center whitespace-nowrap font-mono text-slate-900 text-sm border border-slate-200">
+                  {`${totalGroupCount} 組`}
                 </td>
                 <td className="py-2.5 px-4 text-xs text-slate-500 border border-slate-200">
                   全校共 {totalGroupCount} 個分組場次
