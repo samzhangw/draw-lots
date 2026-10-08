@@ -1779,35 +1779,29 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
 
       {/* In-App Modal for Delete Project Confirmation */}
       {projectToDelete && (
-        <div role="dialog" aria-modal="true" aria-label="確認刪除專題" className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-xl space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
-                <Trash2 className="w-5 h-5" />
+        <div role="dialog" aria-modal="true" aria-labelledby="delete-project-title" aria-describedby="delete-project-description" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 backdrop-blur-xs sm:p-6">
+          <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-3xl">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 sm:px-6 sm:py-5">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600" aria-hidden="true"><Trash2 className="h-5 w-5" /></span>
+                <h3 id="delete-project-title" className="min-w-0 text-lg font-black leading-snug text-slate-900 sm:text-xl">確定刪除此專題？</h3>
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">確定刪除此專題？</h3>
-                <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                  「{projectToDelete.title}」
-                </p>
+              <button type="button" onClick={() => setProjectToDelete(null)} disabled={pendingAction === 'delete-project'} aria-label="關閉刪除專題確認" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"><X className="h-5 w-5" /></button>
+            </div>
+
+            <div className="min-h-0 overflow-y-auto px-5 py-5 sm:px-6">
+              <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-medium text-slate-500">即將刪除的專題</p>
+                <p className="break-words text-lg font-bold leading-relaxed text-slate-900">{projectToDelete.title}</p>
+                <p id="delete-project-description" className="text-sm leading-relaxed text-slate-500">刪除後，此專題將從名冊移除。</p>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                onClick={() => setProjectToDelete(null)}
-                disabled={pendingAction === 'delete-project'}
-                className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs cursor-pointer"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                disabled={pendingAction === 'delete-project'}
-                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60 cursor-pointer"
-              >
-                {pendingAction === 'delete-project' && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
-                {pendingAction === 'delete-project' ? '刪除中…' : '確認刪除'}
+            <div className="flex shrink-0 flex-col gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+              <button type="button" onClick={() => setProjectToDelete(null)} disabled={pendingAction === 'delete-project'} className="min-h-11 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer">取消</button>
+              <button type="button" onClick={handleConfirmDelete} disabled={pendingAction === 'delete-project'} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-rose-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer">
+                {pendingAction === 'delete-project' && <LoaderCircle className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                {pendingAction === 'delete-project' ? '刪除中…' : '確定刪除專題'}
               </button>
             </div>
           </div>
