@@ -1,12 +1,39 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { ProjectItem } from '../src/types';
-import { getAvailableDrawFields, getSelectedDrawFields, getResettableFields } from '../src/lib/drawScope';
+import { getAvailableDrawFields, getSelectedDrawFields, getResettableFields, getIncompleteDrawFields, isCompleteDrawResult } from '../src/lib/drawScope';
 import { executeAllDomainsIndependentLottery } from '../src/lib/lottery';
 
 const project = (id: string, field: string): ProjectItem => ({
   id, field, leader_id: id, project_title: id, seq_no: id,
   education_system: '', department: '', class_name: '', advisor: '', original_code: id,
+});
+
+test('session-only imports are incomplete, remain resettable and become drawable after reset', () => {
+  const imported = [{ ...project('1', 'A'), assigned_group: 1 }, project('2', 'A')];
+  assert.deepEqual(getIncompleteDrawFields(['A'], imported), ['A']);
+  assert.ok(imported.every(p => !isCompleteDrawResult(p)));
+  assert.deepEqual(getSelectedDrawFields(['A'], imported, null), []);
+  assert.deepEqual(getResettableFields(['A'], imported), ['A']);
+  const reset = imported.map(p => ({ ...p, assigned_group: null, draw_order: null, draw_code: null, draw_time: null }));
+  assert.deepEqual(getIncompleteDrawFields(['A'], reset), []);
+  assert.deepEqual(getSelectedDrawFields(['A'], reset, null), ['A']);
+});
+
+test('only complete assignments count as finished; mixed domains and missing data remain incomplete', () => {
+  const complete = { ...project('1', 'A'), assigned_group: 2, draw_order: 1, draw_code: 'A03' };
+  assert.equal(isCompleteDrawResult(complete), true);
+  assert.deepEqual(getIncompleteDrawFields(['A'], [complete]), []);
+  assert.deepEqual(getIncompleteDrawFields(['A'], [complete, project('2', 'A')]), ['A']);
+  for (const missing of [{ assigned_group: null }, { draw_order: null }, { draw_code: '' }, { draw_code: ' ' }, { draw_order: -1 }, { assigned_group: 1.5 }]) {
+    const partial = { ...complete, ...missing };
+    assert.equal(isCompleteDrawResult(partial), false);
+    assert.deepEqual(getIncompleteDrawFields(['A'], [partial]), ['A']);
+  }
+  const all = [complete, { ...project('2', 'B'), assigned_group: 1 }, project('3', 'C')];
+  assert.deepEqual(getIncompleteDrawFields(['A', 'B', 'C'], all), ['B']);
+  assert.deepEqual(getAvailableDrawFields(['A', 'B', 'C'], all), ['C']);
+  assert.deepEqual(getIncompleteDrawFields(['A'], all), []);
 });
 
 test('all/single/multiple scopes exclude completed domains and partial results', () => {

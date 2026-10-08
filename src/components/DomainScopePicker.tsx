@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import type { DomainConfig, ProjectItem } from '../types';
 import './DomainScopePicker.css';
-import { getAvailableDrawFields, getSelectedDrawFields } from '../lib/drawScope';
+import { getAvailableDrawFields, getSelectedDrawFields, getIncompleteDrawFields } from '../lib/drawScope';
 
 interface Props {
   domains: DomainConfig[];
@@ -16,6 +16,7 @@ export function DomainScopePicker({ domains, projects, selected, disabled, onCha
   const ref = useRef<HTMLDivElement>(null);
   const fields = domains.map(domain => domain.field);
   const available = getAvailableDrawFields(fields, projects);
+  const incomplete = getIncompleteDrawFields(fields, projects);
   const checked = getSelectedDrawFields(fields, projects, selected);
   const total = projects.filter(project => checked.includes(project.field)).length;
   const all = available.length > 0 && checked.length === available.length;
@@ -38,9 +39,10 @@ export function DomainScopePicker({ domains, projects, selected, disabled, onCha
         if (disabled || !available.includes(domain.field)) return;
         const next = event.target.checked ? [...checked, domain.field] : checked.filter(field => field !== domain.field);
         onChange(next.length === available.length ? null : next);
-      }} /><span>{domain.field}</span><small>{!available.includes(domain.field) && '已抽籤 · '}{projects.filter(project => project.field === domain.field).length} 件</small></label>)}</div>
+      }} /><span>{domain.field}</span><small>{incomplete.includes(domain.field) ? '資料不完整 · ' : !available.includes(domain.field) ? '已抽籤 · ' : ''}{projects.filter(project => project.field === domain.field).length} 件</small></label>)}</div>
       {!domains.length && <p>尚無領域設定</p>}
       <p className="domain-scope-help">已有抽籤結果的領域不可勾選；重設結果後即可再次選取。</p>
+      {incomplete.length > 0 && <p className="domain-scope-help">資料不完整的領域請先補齊匯入資料，或重設後重新抽籤。</p>}
     </div>}
   </div>;
 }
