@@ -28,7 +28,7 @@ export const REQUIRED_OUTPUT_HEADERS = [
   '專題名稱',
   '組長學號',
   '組長姓名',
-  '+編號(抽籤後)',
+  '編號(抽籤後)',
   '場次'
 ];
 
@@ -103,7 +103,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
     const leaderNameKey = findKey('組長姓名') || findKey('組長名');
     const passwordKey = findKey('組長密碼') || findKey('密碼') || findKey('登入密碼');
     // Check if there is already a draw code column in this excel
-    const drawCodeKey = findKey('+編號(抽籤後)') || findKey('編號(抽籤後)') || findKey('抽籤後編號') || findKey('抽籤序號');
+    const drawCodeKey = findKey('編號(抽籤後)') || findKey('+編號(抽籤後)') || findKey('抽籤後編號') || findKey('抽籤序號');
     const sessionKeys = ['分組場次', '場次', '報告場次', '組別'].map(findKey).filter((key): key is string => !!key);
 
     // Validation warning
@@ -199,7 +199,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
 
 /**
  * Export projects to Excel with exact columns:
- * 序號 學制 系所 班級 指導老師 領域 編號 專題名稱 組長學號 組長姓名 +編號(抽籤後) 場次
+ * 序號 學制 系所 班級 指導老師 領域 編號 專題名稱 組長學號 組長姓名 編號(抽籤後) 場次
  */
 export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
   // Export by drawn identifier (A01, A02, ... A100, B01); undrawn rows go last.
@@ -225,7 +225,7 @@ export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
       '專題名稱': p.project_title,
       '組長學號': p.leader_id,
       '組長姓名': p.leader_name || '',
-      '+編號(抽籤後)': p.draw_code || (p.assigned_group ? '編號未設定' : '未抽籤'),
+      '編號(抽籤後)': p.draw_code || (p.assigned_group ? '編號未設定' : '未抽籤'),
       '場次': p.assigned_group ? formatSessionLabel(p.assigned_group) : (p.draw_code ? '場次尚未提供' : '未抽籤'),
     };
   });
@@ -244,7 +244,7 @@ export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
     { wch: 45 }, // 專題名稱
     { wch: 14 }, // 組長學號
     { wch: 14 }, // 組長姓名
-    { wch: 18 }, // +編號(抽籤後)
+    { wch: 18 }, // 編號(抽籤後)
     { wch: 18 }, // 場次
   ];
 
