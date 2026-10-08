@@ -29,7 +29,8 @@ export const REQUIRED_OUTPUT_HEADERS = [
   '組長學號',
   '組長姓名',
   '+編號(抽籤後)',
-  '場次'
+  '場次',
+  '組內順序'
 ];
 
 export { preserveImportedProjectIds } from './importProjects';
@@ -51,6 +52,17 @@ function parseImportedSession(raw: unknown, rowNumber: number): number | null {
     throw new Error(`第 ${rowNumber} 列場次格式不正確，請填入 1 至 50 或「第一場次」等場次名稱。`);
   }
   return session;
+}
+
+function parseImportedOrder(raw: unknown, rowNumber: number): number | null {
+  const value = String(raw ?? '').normalize('NFKC').replace(/\s+/g, '');
+  if (!value || ['未抽籤', '待抽籤', '待分配', '順位尚未提供', '—', '-'].includes(value)) return null;
+  const match = /^(?:第)?(\d+)(?:位)?$/.exec(value);
+  const order = match ? Number(match[1]) : NaN;
+  if (!Number.isSafeInteger(order) || order < 1) {
+    throw new Error(`第 ${rowNumber} 列組內順序格式不正確，請填入正整數或「第1位」等順位。`);
+  }
+  return order;
 }
 
 /**
@@ -105,6 +117,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
     // Check if there is already a draw code column in this excel
     const drawCodeKey = findKey('+編號(抽籤後)') || findKey('編號(抽籤後)') || findKey('抽籤後編號') || findKey('抽籤序號');
     const sessionKeys = ['分組場次', '場次', '報告場次', '組別'].map(findKey).filter((key): key is string => !!key);
+    const orderKey = findKey('組內順序');
 
     // Validation warning
     if (!titleKey || !leaderKey) {
@@ -131,7 +144,10 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
       const advisor = advisorKey && row[advisorKey] ? String(row[advisorKey]).trim() : '指導教授群';
       const field = fieldKey && row[fieldKey] ? String(row[fieldKey]).trim() : '綜合領域';
       const originalCode = codeKey && row[codeKey] ? String(row[codeKey]).trim() : `PRJ-${String(index + 1).padStart(2, '0')}`;
-      const drawCodeVal = drawCodeKey && row[drawCodeKey] ? String(row[drawCodeKey]).trim() : null;
+      const rawDrawCode = drawCodeKey ? String(row[drawCodeKey] ?? '').trim() : '';
+      const drawCodeVal = !rawDrawCode || ['未抽籤', '待抽籤', '待分配', '編號未設定', '—', '-'].includes(rawDrawCode) ? null : rawDrawCode;
+      if (drawCodeVal && !orderKey) throw new Error(`第 ${index + 2} 列已有抽籤編號但缺少「組內順序」欄位，請補齊各場次的實際順位或使用新版匯出檔。`);
+      const drawOrder = orderKey ? parseImportedOrder(row[orderKey], index + 2) : null;
       const sessions = sessionKeys.map(key => parseImportedSession(row[key], index + 2)).filter((session): session is number => session !== null);
       if (new Set(sessions).size > 1) throw new Error(`第 ${index + 2} 列的場次欄位不一致，請確認分組場次、場次、報告場次或組別的值。`);
       const parsedPassword = passwordKey && row[passwordKey] ? String(row[passwordKey]).trim() : '';
@@ -152,7 +168,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
         leader_name: leaderNameKey ? String(row[leaderNameKey] || '').trim() : '',
         password: password,
         assigned_group: sessions[0] ?? null,
-        draw_order: drawCodeVal ? parseInt(drawCodeVal.replace(/\D/g, ''), 10) || null : null,
+        draw_order: drawOrder,
         draw_code: drawCodeVal || null,
         draw_time: drawCodeVal ? new Date().toISOString() : null,
       });
@@ -178,7 +194,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
 
 /**
  * Export projects to Excel with exact columns:
- * 序號 學制 系所 班級 指導老師 領域 編號 專題名稱 組長學號 組長姓名 +編號(抽籤後) 場次
+ * 序號 學制 系所 班級 指導老師 領域 編號 專題名稱 組長學號 組長姓名 +編號(抽籤後) 場次 組內順序
  */
 export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
   // Export by drawn identifier (A01, A02, ... A100, B01); undrawn rows go last.
@@ -206,6 +222,7 @@ export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
       '組長姓名': p.leader_name || '',
       '+編號(抽籤後)': p.draw_code || (p.draw_order ? `第 ${p.draw_order} 組` : '未抽籤'),
       '場次': p.assigned_group ? formatSessionLabel(p.assigned_group) : (p.draw_code || p.draw_order ? '場次尚未提供' : '未抽籤'),
+      '組內順序': p.draw_order ?? (p.draw_code || p.assigned_group ? '順位尚未提供' : '未抽籤'),
     };
   });
 
@@ -225,6 +242,7 @@ export function createExportWorkbook(projects: ProjectItem[]): XLSX.WorkBook {
     { wch: 14 }, // 組長姓名
     { wch: 18 }, // +編號(抽籤後)
     { wch: 18 }, // 場次
+    { wch: 14 }, // 組內順序
   ];
 
   const workbook = XLSX.utils.book_new();

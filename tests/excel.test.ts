@@ -5,7 +5,7 @@ import { parseExcelFile, createExportWorkbook, createInputTemplateWorkbook, REQU
 import { preserveImportedProjectIds } from '../src/lib/importProjects';
 
 const row = { 序號: '1', 學制: '四技', 系所: '資管', 班級: '甲', 指導老師: '王教授', 領域: '企業智慧化', 編號: 'P1', 專題名稱: '中文測試', 組長學號: '12345678', 組長姓名: '林同學', 組長密碼: 'Strong-password-123' };
-function makeFile(rows: Record<string, string>[]): File {
+function makeFile(rows: Record<string, string | number>[]): File {
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '名冊');
   return new File([XLSX.write(wb, { type: 'array', bookType: 'xlsx' })], '名冊.xlsx');
 }
@@ -43,7 +43,7 @@ test('Excel session import accepts missing values and rejects invalid or conflic
 });
 test('exported session labels survive Excel reimport and stable-ID reconciliation', async () => {
   const base = (await parseExcelFile(makeFile([row]))).projects![0];
-  const original = { ...base, assigned_group: 12, draw_code: 'A03', draw_order: 3 };
+  const original = { ...base, assigned_group: 12, draw_code: 'A03', draw_order: 1 };
   const bytes = XLSX.write(createExportWorkbook([original]), { type: 'array', bookType: 'xlsx' });
   const parsed = await parseExcelFile(new File([bytes], 'results.xlsx'));
   assert.equal(parsed.success, true, parsed.error);
@@ -51,6 +51,58 @@ test('exported session labels survive Excel reimport and stable-ID reconciliatio
   assert.equal(reconciled[0].assigned_group, 12);
   assert.equal(reconciled[0].id, original.id);
   assert.equal(reconciled[0].draw_code, 'A03');
+  assert.equal(reconciled[0].draw_order, 1);
+});
+
+test('Excel roundtrip preserves within-session order across domains, sessions and undrawn rows', async () => {
+  const base = (await parseExcelFile(makeFile([row]))).projects![0];
+  const assignments = [
+    ['A01', 1, 1], ['A02', 1, 2], ['A03', 2, 1], ['A04', 2, 2],
+    ['G100', 3, 1], ['G101', 3, 2],
+  ] as const;
+  const projects = assignments.map(([draw_code, assigned_group, draw_order], i) => ({
+    ...base, id: String(i), leader_id: `leader-${i}`, field: draw_code.startsWith('G') ? '進修部' : base.field,
+    draw_code, assigned_group, draw_order,
+  }));
+  const roster = [...projects, { ...base, id: 'pending', leader_id: 'pending', draw_code: null, assigned_group: null, draw_order: null }];
+  const bytes = XLSX.write(createExportWorkbook(roster), { type: 'array', bookType: 'xlsx' });
+  const parsed = await parseExcelFile(new File([bytes], 'results.xlsx'));
+  assert.equal(parsed.success, true, parsed.error);
+  for (const expected of roster) {
+    const actual = parsed.projects!.find(p => p.leader_id === expected.leader_id)!;
+    assert.equal(actual.draw_order, expected.draw_order);
+    assert.equal(actual.assigned_group, expected.assigned_group);
+    assert.equal(actual.draw_code, expected.draw_code);
+  }
+  assert.equal(parsed.projects!.find(p => p.leader_id === 'pending')!.draw_time, null);
+});
+
+test('explicit report order accepts numeric and labelled positions and rejects invalid values', async () => {
+  for (const [value, expected] of [[1, 1], ['2', 2], ['第３位', 3], [' 第 4 位 ', 4]] as const) {
+    const parsed = await parseExcelFile(makeFile([{ ...row, 場次: '第二場次', '+編號(抽籤後)': 'A99', 組內順序: value }]));
+    assert.equal(parsed.success, true, parsed.error);
+    assert.equal(parsed.projects![0].draw_order, expected);
+  }
+  for (const value of ['0', '-1', '1.5', 'abc', '9007199254740992']) {
+    const parsed = await parseExcelFile(makeFile([{ ...row, 組內順序: value }]));
+    assert.equal(parsed.success, false);
+    assert.match(parsed.error!, /第 2 列組內順序格式不正確/);
+  }
+  for (const value of ['', '未抽籤', '順位尚未提供']) {
+    const parsed = await parseExcelFile(makeFile([{ ...row, 場次: '1', '+編號(抽籤後)': 'A03', 組內順序: value }]));
+    assert.equal(parsed.success, true, parsed.error);
+    assert.equal(parsed.projects![0].draw_order, null, 'missing order never falls back to drawn code');
+  }
+});
+
+test('legacy drawn files without explicit order are rejected instead of guessing report positions', async () => {
+  const legacy = await parseExcelFile(makeFile([{ ...row, 場次: '第二場次', '+編號(抽籤後)': 'A03' }]));
+  assert.equal(legacy.success, false);
+  assert.match(legacy.error!, /第 2 列已有抽籤編號但缺少「組內順序」/);
+  const undrawn = await parseExcelFile(makeFile([{ ...row, '+編號(抽籤後)': '未抽籤' }]));
+  assert.equal(undrawn.success, true, undrawn.error);
+  assert.equal(undrawn.projects![0].draw_order, null);
+  assert.equal(undrawn.projects![0].draw_code, null);
 });
 test('patched SheetJS imports Chinese rosters and exports without credential fields', async () => {
   assert.equal(XLSX.version, '0.20.3');
