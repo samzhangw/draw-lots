@@ -1277,7 +1277,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <thead className="sticky top-0 bg-slate-100/90 text-slate-700 z-10 border-b border-slate-200">
                   <tr className="text-xs font-semibold">
                     {sortableHeader('seq_no', '序號')}
-                    {sortableHeader('draw_code', '+編號(抽籤後)')}
+                    {sortableHeader('draw_code', '編號(抽籤後)')}
                     {sortableHeader('assigned_group', '分組場次')}
                     {sortableHeader('evaluators', '評審委員')}
                     {sortableHeader('field', '領域')}
@@ -2006,7 +2006,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 </div>
 
               <div>
-                <label htmlFor="project-draw-code" className="block text-slate-700 mb-1 font-semibold">+編號(抽籤後)</label>
+                <label htmlFor="project-draw-code" className="block text-slate-700 mb-1 font-semibold">編號(抽籤後)</label>
                 <input
                   id="project-draw-code"
                   type="text"
