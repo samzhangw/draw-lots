@@ -17,7 +17,7 @@ test('student passwords are salted, verified exactly, and never retained in plai
   assert.equal(preserved.password_hash, stored.password_hash);
   const [changedLeader] = await prepareProjects([{ ...p, leader_id: '87654321' }], [stored]);
   assert.equal(changedLeader.password_hash, undefined);
-  await assert.rejects(prepareProjects([{ ...p, password: '5678' }], []), /12 至 128/);
+  await assert.rejects(prepareProjects([{ ...p, password: '5678' }], []), /8 至 128/);
   const [legacy] = removeLegacyCredentials([{ ...p, password: 'old-password' }]);
   assert.equal(legacy.password, undefined); assert.equal(legacy.password_hash, undefined);
 });
@@ -75,5 +75,13 @@ test('student ID masking exposes only the final four characters and conceals sho
       assert.equal(result.leader_id_masked, expected);
       assert.equal('leader_id' in result, false);
     }
+  }
+});
+
+test('individual student passwords accept eight characters and reject shorter or invalid values', async () => {
+  const [stored] = await prepareProjects([{ ...p, password: 'Pass123!' }], []);
+  assert.ok(await verifyPassword('Pass123!', stored.password_hash));
+  for (const password of ['Pass12!', '       x', 'x'.repeat(129), p.leader_id]) {
+    await assert.rejects(prepareProjects([{ ...p, password }], []), /8 至 128/);
   }
 });

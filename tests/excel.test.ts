@@ -176,3 +176,14 @@ test('empty result export retains all headers including leader name', () => {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   assert.deepEqual(XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 })[0], REQUIRED_OUTPUT_HEADERS);
 });
+
+test('Excel import uses the eight-character minimum for individual passwords', async () => {
+  const accepted = await parseExcelFile(makeFile([{ ...row, 組長密碼: 'Pass123!' }]));
+  assert.equal(accepted.success, true, accepted.error || '');
+  assert.equal(accepted.projects![0].password, 'Pass123!');
+  for (const password of ['Pass12!', 'x'.repeat(129), row.組長學號]) {
+    const rejected = await parseExcelFile(makeFile([{ ...row, 組長密碼: password }]));
+    assert.equal(rejected.success, false);
+    assert.match(rejected.error!, /8 至 128/);
+  }
+});

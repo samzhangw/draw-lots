@@ -137,7 +137,7 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
       if (new Set(sessions).size > 1) throw new Error(`第 ${index + 2} 列的場次欄位不一致，請確認分組場次、場次、報告場次或組別的值。`);
       const parsedPassword = passwordKey && row[passwordKey] ? String(row[passwordKey]).trim() : '';
       const password = parsedPassword;
-      if (password && (password.length < 12 || password.length > 128 || password === leaderId)) throw new Error(`第 ${index + 2} 列密碼須為 12 至 128 字元且不可使用學號。`);
+      if (password && (password.length < 8 || password.length > 128 || password === leaderId)) throw new Error(`第 ${index + 2} 列密碼須為 8 至 128 字元且不可使用學號。`);
 
       projects.push({
         id: `imported-${Date.now()}-${index + 1}`,
