@@ -1042,17 +1042,17 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                         {`${stat.groupCount} 組`}
                       </span>
                     </td>
-                    <td className="py-2 px-4 border border-slate-200">
-                      <div className="flex flex-nowrap items-center gap-3 text-[11px]">
+                    <td className="py-2 px-4 border border-slate-200 max-w-xs">
+                      <div className="space-y-1 text-[11px]">
                         {Array.from({ length: stat.groupCount }, (_, i) => i + 1).map((g) => {
                           const evs = stat.evaluatorsPerGroup?.[g] || [];
                           return (
-                            <div key={g} className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+                            <div key={g} className="flex items-center gap-1.5 truncate">
                               <span className="font-bold text-slate-700 font-mono shrink-0">
                                 第{g}組:
                               </span>
                               {stat.groupCapacities && <span className="shrink-0 font-semibold text-blue-700">{stat.groupCapacities[g]} 件</span>}
-                              <span className="whitespace-nowrap text-slate-600">
+                              <span className="text-slate-600 truncate">
                                 {evs.length > 0 ? evs.join('、') : <span className="text-slate-400 italic">尚未設定（點右側設定）</span>}
                               </span>
                             </div>
