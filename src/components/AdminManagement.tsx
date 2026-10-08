@@ -1726,7 +1726,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600" aria-hidden="true"><CheckCircle2 className="h-6 w-6" /></span>
                 <div className="min-w-0">
                   <h3 id="import-dialog-title" className="text-lg font-black leading-snug text-slate-900 sm:text-xl">名冊解析成功</h3>
-                  <p id="import-dialog-description" className="mt-1 text-sm leading-relaxed text-slate-500">已讀取 {pendingImportProjects.length} 筆專題，請選擇匯入方式。</p>
+                  <p id="import-dialog-description" className="mt-1 text-sm leading-relaxed text-slate-500">已讀取 {pendingImportProjects.length} 筆專題。點選下方其中一個按鈕，即會開始匯入。</p>
                 </div>
               </div>
               <button type="button" onClick={() => setPendingImportProjects(null)} disabled={importBusy} aria-label="關閉名冊匯入" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"><X className="h-5 w-5" /></button>
@@ -1746,16 +1746,28 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
               </label>}
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <button type="button" onClick={() => handleApplyImport('overwrite')} disabled={importBusy || (importHasDrawData && !overwriteAcknowledged)} className="flex min-w-0 flex-col items-start rounded-2xl border border-rose-200 bg-rose-50 p-4 text-left transition-colors hover:border-rose-400 hover:bg-rose-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer">
-                  <span className="flex items-center gap-2 text-sm font-bold text-rose-800">{pendingAction === 'import-overwrite' ? <LoaderCircle className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <FileSpreadsheet className="h-4 w-4 shrink-0" aria-hidden="true" />}{pendingAction === 'import-overwrite' ? '正在覆蓋匯入…' : '完全覆蓋'}</span>
-                  <span className="mt-2 break-words text-xs leading-relaxed text-rose-700">以本次 Excel 取代現有名冊，匯入後共 {pendingImportProjects.length} 筆。</span>
-                  {importHasDrawData && !overwriteAcknowledged && <span className="mt-2 text-xs font-semibold text-rose-800">請先勾選上方覆蓋確認。</span>}
-                </button>
-                <button type="button" onClick={() => handleApplyImport('append')} disabled={importBusy} className="flex min-w-0 flex-col items-start rounded-2xl border border-blue-200 bg-blue-50 p-4 text-left transition-colors hover:border-blue-400 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer">
-                  <span className="flex items-center gap-2 text-sm font-bold text-blue-800">{pendingAction === 'import-append' ? <LoaderCircle className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />}{pendingAction === 'import-append' ? '正在追加匯入…' : '追加名冊'}</span>
-                  <span className="mt-2 break-words text-xs leading-relaxed text-blue-700">保留現有資料，新增 {importAdditionCount} 筆，匯入後共 {projects.length + importAdditionCount} 筆。</span>
-                  {importDuplicateCount > 0 && <span className="mt-2 text-xs leading-relaxed text-blue-800">{importDuplicateCount} 筆學號已存在，會略過。</span>}
-                </button>
+                <div className="flex min-w-0 flex-col rounded-2xl border border-rose-200 bg-rose-50 p-4">
+                  <h4 className="flex items-center gap-2 text-sm font-bold text-rose-800"><FileSpreadsheet className="h-4 w-4 shrink-0" aria-hidden="true" />完全覆蓋</h4>
+                  <p className="mt-2 break-words text-xs leading-relaxed text-rose-700">以本次 Excel 取代現有名冊，匯入後共 {pendingImportProjects.length} 筆。</p>
+                  {importHasDrawData && !overwriteAcknowledged && <p className="mt-2 text-xs font-semibold text-rose-800">請先勾選上方覆蓋確認。</p>}
+                  <div className="mt-auto pt-4">
+                    <button type="button" onClick={() => handleApplyImport('overwrite')} disabled={importBusy || (importHasDrawData && !overwriteAcknowledged)} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-rose-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer">
+                      {pendingAction === 'import-overwrite' && <LoaderCircle className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                      {pendingAction === 'import-overwrite' ? '正在覆蓋匯入…' : '覆蓋並匯入'}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex min-w-0 flex-col rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                  <h4 className="flex items-center gap-2 text-sm font-bold text-blue-800"><Plus className="h-4 w-4 shrink-0" aria-hidden="true" />追加名冊</h4>
+                  <p className="mt-2 break-words text-xs leading-relaxed text-blue-700">保留現有資料，新增 {importAdditionCount} 筆，匯入後共 {projects.length + importAdditionCount} 筆。</p>
+                  {importDuplicateCount > 0 && <p className="mt-2 text-xs leading-relaxed text-blue-800">{importDuplicateCount} 筆學號已存在，會略過。</p>}
+                  <div className="mt-auto pt-4">
+                    <button type="button" onClick={() => handleApplyImport('append')} disabled={importBusy} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer">
+                      {pendingAction === 'import-append' && <LoaderCircle className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                      {pendingAction === 'import-append' ? '正在追加匯入…' : '追加並匯入'}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
