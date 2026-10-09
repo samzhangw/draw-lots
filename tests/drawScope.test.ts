@@ -1,12 +1,35 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { ProjectItem } from '../src/types';
-import { getAvailableDrawFields, getSelectedDrawFields, getResettableFields, getIncompleteDrawFields, isCompleteDrawResult } from '../src/lib/drawScope';
+import { getAvailableDrawFields, getSelectedDrawFields, getResettableFields, getIncompleteDrawFields, isCompleteDrawResult, duplicateDrawCodeError, projectFieldChangeError } from '../src/lib/drawScope';
 import { executeAllDomainsIndependentLottery } from '../src/lib/lottery';
 
 const project = (id: string, field: string): ProjectItem => ({
   id, field, leader_id: id, project_title: id, seq_no: id,
   education_system: '', department: '', class_name: '', advisor: '', original_code: id,
+});
+
+test('draw code uniqueness covers partial results and equivalent spellings without changing the roster', () => {
+  for (const code of ['A01', ' a01 ', 'A1']) {
+    const roster = [{ ...project('1', 'A'), draw_code: 'A01', assigned_group: 1 },
+      { ...project('2', 'B'), draw_code: code, assigned_group: null }];
+    const before = structuredClone(roster);
+    assert.match(duplicateDrawCodeError(roster)!, /抽籤編號.*重複/);
+    assert.deepEqual(roster, before);
+  }
+  assert.equal(duplicateDrawCodeError([{ draw_code: null }, {}, { draw_code: ' ' },
+    { draw_code: 'A01' }, { draw_code: 'A02' }, { draw_code: 'A100' }, { draw_code: 'B01' }]), null);
+});
+
+test('a project can change fields only after all draw data is reset, including partial results', () => {
+  const original = project('1', '企業智慧化');
+  for (const result of [{ assigned_group: 2 }, { draw_code: 'A01' }, { draw_time: '2026-10-09T00:00:00Z' }]) {
+    const drawn = { ...original, ...result };
+    assert.match(projectFieldChangeError(drawn, '進修部')!, /已有抽籤資料.*先重設.*企業智慧化/);
+    assert.equal(projectFieldChangeError(drawn, drawn.field), null);
+  }
+  assert.equal(projectFieldChangeError(original, '進修部'), null);
+  assert.equal(projectFieldChangeError({ ...original, assigned_group: null, draw_code: null, draw_time: null }, '進修部'), null);
 });
 
 test('session-only imports are incomplete, remain resettable and become drawable after reset', () => {

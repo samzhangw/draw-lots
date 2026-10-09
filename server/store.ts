@@ -1,4 +1,5 @@
 import { runtimeEnv } from './runtime';
+import { duplicateDrawCodeError } from '../src/lib/drawScope';
 import { ShortCache, timedFetch } from './resourceLimits';
 import { createClient } from '@supabase/supabase-js';
 import type { DomainConfig, ProjectItem, PublicDrawResult } from '../src/types';
@@ -173,6 +174,8 @@ export function validateProjects(value: unknown): asserts value is ProjectItem[]
     leaders.add(leader);
     ids.add(p.id);
   }
+  const duplicate = duplicateDrawCodeError(value);
+  if (duplicate) throw new ApiError(400, duplicate);
 }
 
 export function validateDomains(value: unknown): asserts value is DomainConfig[] {

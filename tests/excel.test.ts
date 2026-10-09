@@ -95,6 +95,16 @@ test('import rejects duplicate drawn codes in the same session without reconstru
   assert.equal(partial.projects![0].draw_code, null);
   assert.equal('draw_order' in partial.projects![0], false);
 });
+test('Excel rejects duplicate codes across sessions, domains and partial results', async () => {
+  for (const extra of [{ 場次: 2 }, { 領域: '進修部', 場次: 1 }, { 場次: '' }, { 場次: 2, '+編號(抽籤後)': ' a1 ' }]) {
+    const parsed = await parseExcelFile(makeFile([
+      { ...row, 場次: 1, '+編號(抽籤後)': 'A01' },
+      { ...row, 組長學號: 's-2', '+編號(抽籤後)': 'A01', ...extra },
+    ]));
+    assert.equal(parsed.success, false);
+    assert.match(parsed.error!, /抽籤編號.*重複/);
+  }
+});
 test('patched SheetJS imports Chinese rosters and exports without credential fields', async () => {
   assert.equal(XLSX.version, '0.20.3');
   const parsed = await parseExcelFile(makeFile([row]));

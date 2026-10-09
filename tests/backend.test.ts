@@ -588,6 +588,83 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(staleRoster.status, 409);
     assert.equal(state.version, draw.data.version);
     assert.ok(state.projects.every(p => p.assigned_group && p.draw_code));
+    // Overwrite/edit and append both validate the full roster before any save.
+    const beforeDuplicateRoster = structuredClone(state);
+    const drawnRoster = state.projects.map(projectDto);
+    const duplicateCode = drawnRoster[0].draw_code;
+    for (const patch of [{ assigned_group: 1 }, { assigned_group: 2 },
+      { field: '進修部' }, { assigned_group: null },
+      { draw_code: ` ${duplicateCode!.toLowerCase()} ` }]) {
+      const invalid = drawnRoster.map((p, index) => ({ ...p,
+        ...(index === 1 ? { draw_code: duplicateCode, ...patch } : {}) }));
+      const rejected = await request('/api/projects', { projects: invalid, version: state.version }, admin);
+      assert.equal(rejected.status, 400);
+      assert.match(rejected.data.error, /抽籤編號.*重複/);
+      assert.deepEqual(state, beforeDuplicateRoster, 'rejected roster must retain results, credentials, settings and version');
+    }
+    const appendedCollision = await request('/api/projects', {
+      projects: [...drawnRoster, { ...drawnRoster[0], id: 'append-collision', leader_id: 'append-collision', field: '進修部' }],
+      version: state.version,
+    }, admin);
+    assert.equal(appendedCollision.status, 400);
+    assert.match(appendedCollision.data.error, /抽籤編號.*重複/);
+    assert.deepEqual(state, beforeDuplicateRoster);
+    validateProjects(drawnRoster); // Distinct legitimate results still pass.
+    // Field edits/imports cannot carry (or clear and move) a saved assignment.
+    const beforeFieldChecks = structuredClone(state);
+    state.domain_configs.push({ id: 'move-target', field: '進修部', code: 'G', groupCount: 1, evaluatorsPerGroup: { 1: ['目的領域評審'] } });
+    const beforeBlockedMove = structuredClone(state);
+    for (const patch of [{}, { assigned_group: null, draw_code: null, draw_time: null, evaluators: [] },
+      { id: 'replacement-import-id', leader_id: ` ${drawnRoster[0].leader_id.toUpperCase()} ` }]) {
+      const movedRoster = drawnRoster.map((p, index) => index === 0 ? { ...p, field: '進修部', ...patch } : p);
+      const blocked = await request('/api/projects', { projects: movedRoster, version: state.version }, admin);
+      assert.equal(blocked.status, 409);
+      assert.match(blocked.data.error, /已有抽籤資料.*先重設/);
+      assert.deepEqual(state, beforeBlockedMove);
+    }
+    const outOfRange = await request('/api/projects', {
+      projects: [...drawnRoster, { ...projectDto(project), id: 'import-invalid-session', leader_id: 'import-invalid-session', field: '進修部', assigned_group: 2 }],
+      version: state.version,
+    }, admin);
+    assert.equal(outOfRange.status, 400);
+    assert.match(outOfRange.data.error, /進修部.*僅設定 1 組.*第 2 場次無效/);
+    assert.deepEqual(state, beforeBlockedMove);
+    // Partial results also require the reset endpoint before moving.
+    for (const result of [{ assigned_group: 2, draw_code: null, draw_time: null },
+      { assigned_group: null, draw_code: 'partial-code', draw_time: null },
+      { assigned_group: null, draw_code: null, draw_time: '2026-10-09T00:00:00Z' }]) {
+      state.projects[0] = { ...state.projects[0], ...result };
+      const partialSnapshot = structuredClone(state);
+      const blocked = await request('/api/projects', {
+        projects: state.projects.map((p, index) => index === 0 ? { ...projectDto(p), field: '進修部' } : projectDto(p)),
+        version: state.version,
+      }, admin);
+      assert.equal(blocked.status, 409);
+      assert.deepEqual(state, partialSnapshot);
+    }
+    const resetForMove = await request('/api/lottery/reset', { field: project.field, version: state.version }, stage);
+    assert.equal(resetForMove.status, 200);
+    const resetRoster = state.projects.map(projectDto);
+    const movedAfterReset = await request('/api/projects', {
+      projects: resetRoster.map((p, index) => index === 0 ? { ...p, field: '進修部', evaluators: ['舊評審'] } : p),
+      version: state.version,
+    }, admin);
+    assert.equal(movedAfterReset.status, 200);
+    const movedProject = state.projects[0];
+    assert.equal(movedProject.field, '進修部');
+    assert.equal(movedProject.original_code, 'G01');
+    assert.equal(movedProject.assigned_group, null);
+    assert.equal(movedProject.draw_code, null);
+    assert.equal(movedProject.draw_time, null);
+    assert.deepEqual(movedProject.evaluators, []);
+    assert.equal(movedProject.password_hash, beforeFieldChecks.projects[0].password_hash);
+    const importedResult = await request('/api/projects', {
+      projects: state.projects.map((p, index) => index === 0 ? { ...projectDto(p), assigned_group: 1, draw_code: 'G01', evaluators: ['舊評審'] } : projectDto(p)),
+      version: state.version,
+    }, admin);
+    assert.equal(importedResult.status, 200);
+    assert.deepEqual(state.projects[0].evaluators, ['目的領域評審']);
+    state = beforeFieldChecks;
     const rosterBeforePublic = rosterReads;
     const publicDraw = await request(`/api/public/results?field=${encodeURIComponent(project.field)}`);
     assert.equal(publicDraw.status, 200, 'published results require no login');

@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import { ProjectItem, DomainConfig } from '../types';
 import { normalizeOriginalCodes } from './originalCodes';
 import { formatSessionLabel } from './sessionLabel';
+import { duplicateDrawCodeError } from './drawScope';
 
 export const REQUIRED_INPUT_HEADERS = [
   '序號',
@@ -162,26 +163,8 @@ export async function parseExcelFile(file: File, configs: DomainConfig[] = []): 
       return { success: false, error: '未成功讀取到有效專題資料列' };
     }
 
-    // Validate codes without creating an additional ordering field.
-    {
-      const groups = new Map<string, ProjectItem[]>();
-      for (const project of projects) {
-        if (!project.assigned_group || !project.draw_code) continue;
-        const key = JSON.stringify([project.field, project.assigned_group]);
-        const group = groups.get(key) || [];
-        group.push(project);
-        groups.set(key, group);
-      }
-      const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
-      for (const group of groups.values()) {
-        group.sort((a, b) => collator.compare(a.draw_code!, b.draw_code!));
-        group.forEach((project, index) => {
-          if (index > 0 && collator.compare(group[index - 1].draw_code!, project.draw_code!) === 0) {
-            throw new Error(`「${project.field}」${formatSessionLabel(project.assigned_group!)}的抽籤編號「${project.draw_code}」重複，請確認名冊。`);
-          }
-        });
-      }
-    }
+    const duplicate = duplicateDrawCodeError(projects);
+    if (duplicate) throw new Error(duplicate);
 
     return {
       success: true,

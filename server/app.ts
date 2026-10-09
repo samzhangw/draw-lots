@@ -1,4 +1,4 @@
-import { hasDrawData } from '../src/lib/drawScope';
+import { hasDrawData, duplicateDrawCodeError, projectFieldChangeError } from '../src/lib/drawScope';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID, randomBytes } from 'node:crypto';
@@ -20,6 +20,7 @@ import { resolveLotteryFields } from './lotteryScope';
 import { domainDeletionError } from '../src/lib/domainDeletion';
 import { testLottery } from '../src/lib/lotteryTest';
 import { domainCodeCollisionError, getDrawCodeNamespace, sortDomainConfigs } from '../src/lib/domainCodes';
+import type { ProjectItem } from '../src/types';
 
 export const app = express();
 const SHARED_PASSWORD_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -229,7 +230,27 @@ app.post('/api/projects', route(async (req, res) => {
     if (!domainConfigs.some(c => c.field === p.field)) domainConfigs.push({ id: `domain-${crypto.randomUUID()}`, field: p.field, groupCount: 2, evaluatorsPerGroup: {} });
   }
   validateDomains(domainConfigs);
-  state.projects = await prepareProjects(req.body.projects, state.projects);
+  const previousById = new Map(state.projects.map(p => [p.id, p]));
+  const previousByLeader = new Map(state.projects.map(p => [p.leader_id.trim().toLowerCase(), p]));
+  const configsByField = new Map(domainConfigs.map(c => [c.field, c]));
+  for (const project of req.body.projects) {
+    // Imported files may replace IDs; match the existing student as well.
+    for (const previous of [previousById.get(project.id), previousByLeader.get(project.leader_id.trim().toLowerCase())]) {
+      const changeError = previous && projectFieldChangeError(previous, project.field);
+      if (changeError) throw new ApiError(409, changeError);
+    }
+    const cfg = configsByField.get(project.field)!;
+    if (project.assigned_group != null && project.assigned_group > cfg.groupCount) {
+      throw new ApiError(400, `「${project.field}」僅設定 ${cfg.groupCount} 組，專題「${project.project_title}」的第 ${project.assigned_group} 場次無效，請確認名冊或先重設抽籤結果。`);
+    }
+  }
+  const projects = req.body.projects.map((project: ProjectItem) => ({
+    ...project,
+    evaluators: project.assigned_group
+      ? configsByField.get(project.field)!.evaluatorsPerGroup?.[project.assigned_group] || []
+      : [],
+  }));
+  state.projects = await prepareProjects(projects, state.projects);
   state.domainConfigs = domainConfigs;
   res.json(staffState(await store.save(state, state.version), 'admin'));
 }));
@@ -319,12 +340,8 @@ app.post('/api/lottery/draw', route(async (req, res) => {
     const allocated = executeAllDomainsIndependentLottery(pool, state.domainConfigs).updatedProjects;
     const byId = new Map(allocated.map(p => [p.id, p]));
     state.projects = state.projects.map(p => byId.get(p.id) || p);
-    const seenCodes = new Set<string>();
-    for (const p of state.projects) {
-      if (!p.draw_code) continue;
-      if (seenCodes.has(p.draw_code)) throw new LotteryAllocationError(`抽籤編號「${p.draw_code}」重複，結果未儲存。請先檢查領域設定並重設衝突領域的抽籤結果。`);
-      seenCodes.add(p.draw_code);
-    }
+    const duplicate = duplicateDrawCodeError(state.projects);
+    if (duplicate) throw new LotteryAllocationError(`${duplicate}結果未儲存，請先修正或重設衝突領域。`);
   } catch (error) {
     if (error instanceof LotteryAllocationError) throw new ApiError(400, error.message);
     throw error;

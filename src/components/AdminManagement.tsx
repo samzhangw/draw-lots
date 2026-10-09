@@ -1,4 +1,4 @@
-import { hasDrawData, isCompleteDrawResult } from '../lib/drawScope';
+import { hasDrawData, isCompleteDrawResult, projectFieldChangeError } from '../lib/drawScope';
 import { formatSessionLabel } from '../lib/sessionLabel';
 import React, { useState, useRef } from 'react';
 import { ProjectItem, DomainStats, DomainConfig } from '../types';
@@ -568,6 +568,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
       setFormValidationNotice('請填寫專題名稱與組長學號！');
       return;
     }
+    const changeError = editingProject && projectFieldChangeError(editingProject, formData.field || editingProject.field);
+    if (changeError) { setFormValidationNotice(changeError); return; }
 
     const cleanLeaderId = formData.leader_id.trim();
     const finalPassword = sharedPasswordEnabled ? '' : formData.password || '';
@@ -1919,6 +1921,8 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                 <select
                   id="project-field"
                   value={formData.field || domainList[0]}
+                  disabled={!!editingProject && hasDrawData(editingProject)}
+                  aria-describedby="project-field-help"
                   onChange={(e) => setFormData({ ...formData, field: e.target.value })}
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 >
@@ -1926,6 +1930,11 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                     <option key={f} value={f}>{f}</option>
                   ))}
                 </select>
+                <p id="project-field-help" className="mt-1 text-xs text-slate-500">
+                  {editingProject && hasDrawData(editingProject)
+                    ? `已有抽籤資料，請先在抽籤現場重設「${editingProject.field}」領域，再修改專題領域。`
+                    : '尚未抽籤或已重設結果的專題可變更領域。'}
+                </p>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
