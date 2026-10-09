@@ -42,20 +42,25 @@ export default function App() {
   const [dataError, setDataError] = useState<string | null>(null);
   const [authSession, setAuthSession] = useState<AuthSession | null>(() => getAuthSession());
 
-  const [authReady, setAuthReady] = useState(false);
+  const [authCheckedView, setAuthCheckedView] = useState<ViewMode | null>(null);
+  const authReady = authCheckedView === currentView;
   useEffect(() => {
-    if (getViewFromLocation(window.location) === 'results') { setAuthReady(true); return; }
+    setAuthCheckedView(null);
+    if (currentView === 'student' || currentView === 'results') return;
+    setDataError(null);
     let active = true;
     const controller = new AbortController();
     request<{ session: AuthSession }>('/api/auth/me', undefined, { signal: controller.signal }).then(data => {
       if (active) { saveAuthSession(data.session); setAuthSession(data.session); }
     }).catch(error => {
-      if (active && !isApiRequestCancelled(error) && !(error instanceof ApiRequestError && error.status === 401) && getViewFromLocation(window.location) !== 'student') {
-        setDataError(error instanceof Error ? error.message : '確認登入狀態失敗，請稍後再試。');
-      }
-    }).finally(() => { if (active) setAuthReady(true); });
+      if (!active || isApiRequestCancelled(error)) return;
+      if (error instanceof ApiRequestError && [401, 403].includes(error.status)) {
+        clearAuthSession();
+        setAuthSession(null);
+      } else setDataError(error instanceof Error ? error.message : '確認登入狀態失敗，請稍後再試。');
+    }).finally(() => { if (active) setAuthCheckedView(currentView); });
     return () => { active = false; controller.abort(); };
-  }, [request]);
+  }, [request, currentView]);
 
   // Handle staff/admin logout
   const handleLogout = useCallback(async () => {
@@ -118,13 +123,13 @@ export default function App() {
     const controller = new AbortController();
     loadControllerRef.current = controller;
     const requestId = ++loadRequestIdRef.current;
-    if (currentView === 'results' || !getAuthSession()) {
+    if (currentView === 'student' || currentView === 'results' || !authReady || !getAuthSession()) {
       setProjects([]);
       setDomainConfigs([]);
       setSharedPasswordEnabled(false);
       dataVersionRef.current = null;
       setDataVersion(null);
-      setDataError(null);
+      if (currentView === 'student' || currentView === 'results') setDataError(null);
       setIsLoading(false);
       return;
     }
@@ -138,7 +143,7 @@ export default function App() {
     } finally {
       if (requestId === loadRequestIdRef.current) setIsLoading(false);
     }
-  }, [request, currentView]);
+  }, [request, currentView, authReady]);
 
   useEffect(() => { void loadData(); return () => { loadControllerRef.current?.abort(); }; }, [loadData, authSession]);
   useEffect(() => {
