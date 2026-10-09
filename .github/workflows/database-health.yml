@@ -2,8 +2,8 @@ name: Daily Supabase database health check
 
 on:
   schedule:
-    # 02:17 Asia/Taipei (18:17 UTC), daily.
-    - cron: '17 18 * * *'
+    # 06:00 Asia/Taipei (22:00 UTC on the previous day), daily.
+    - cron: '0 22 * * *'
   workflow_dispatch:
 
 permissions: {}
