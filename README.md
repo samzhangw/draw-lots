@@ -247,3 +247,11 @@ Node 定時工作不重疊，失敗後下次排程再試，不中斷網站服務
 套用後，操作與紀錄使用同一 SQL 交易：儲存、版本衝突、登入 Session 寫入或紀錄寫入失敗時全部回復；成功才設定 Cookie／回傳結果。操作人取自後端驗證的 Auth 身分，不能由瀏覽器指定。紀錄只含 Email、角色、時間、操作、領域、件數及版本，不保存密碼、密碼雜湊、Session Token、Auth access token、金鑰或名冊。資料表啟用 RLS；anon／authenticated 無權限，service_role 僅可讀表，禁止直接新增、修改或刪除，僅受限交易函式能追加。沒有紀錄刪除 API；紀錄從功能啟用後開始累積。
 
 操作紀錄保留三個月（臺灣時間的日曆月，不是固定 90 天）。再於 Supabase SQL Editor 執行 `supabase/migrations/202610040002_staff_audit_retention.sql`，需先套用 staff_audit。Node 正式伺服器啟動時及每 10 分鐘、Cloudflare 既有每 10 分鐘排程會清理超過期限的紀錄；恰好等於期限與更新的紀錄保留。每次最多刪除 2500 筆，超量留待下一次排程，因此期限到達後並非立即刪除。資料庫以自身時間決定期限；僅 service_role 可執行固定清理函式，仍不能直接刪除資料表。缺少此 migration 時保留紀錄並警告；清理失敗下一次重試，不阻止另一項 Session 清理。推送不會自動執行 SQL，伺服器或排程停用期間不會清理。
+
+## GitHub 每日資料庫健康檢查
+
+`.github/workflows/database-health.yml` 每天臺灣時間 02:17 呼叫 `https://nutc.cc.cd/api/health`，可在 GitHub Actions 的「Daily Supabase database health check」選擇 Run workflow 手動執行。既有 API 會實際讀取 Supabase 資料表，確認資料庫可連線，不寫入名冊或結果；只有 HTTP 200 且 JSON `status` 為 `ok` 才算成功，失敗最多嘗試三次。
+
+不需設定 Supabase 金鑰或 GitHub Secrets。若使用不同部署網址，可在儲存庫 Settings → Secrets and variables → Actions → Variables 設定 `HEALTHCHECK_URL`，值為該網站的 HTTPS `/api/health` 網址。相同部署只需在一個儲存庫啟用排程；其他副本可從 Actions 停用此 workflow。推送到預設分支並啟用 Actions 後排程才會生效。
+
+這是每日健康檢查，可產生資料庫活動，但不保證避免免費方案暫停，也不能自動恢復已暫停專案。[Supabase 官方說明](https://supabase.com/docs/guides/platform/free-project-pausing)指出，免費專案在七天內活動偏低時可能被暫停；需要保證不因閒置而暫停時應使用付費方案。[GitHub 官方說明](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)指出，公開儲存庫若六十天沒有活動，排程會自動停用，而且排程可能延遲。請留意 Actions 執行結果與 Supabase 通知；已暫停時需先在 Supabase Dashboard 恢復。
