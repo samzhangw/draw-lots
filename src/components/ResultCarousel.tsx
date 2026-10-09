@@ -14,6 +14,7 @@ interface Props {
 }
 
 export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
+  const [selectedFields, setSelectedFields] = useState<string[] | null>(() => scope === 'ALL' ? null : Array.isArray(scope) ? [...scope] : [scope]);
   const [pageSize, setPageSize] = useState<5 | 10>(5);
   const [index, setIndex] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -23,7 +24,11 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
   const [visible, setVisible] = useState(!document.hidden);
   const listRef = useRef<HTMLDivElement>(null);
   const anchorRef = useRef<string | null>(null);
-  const slides = useMemo(() => buildResultSlides(projects, domains, scope, pageSize), [projects, domains, scope, pageSize]);
+  const allSlides = useMemo(() => buildResultSlides(projects, domains, 'ALL', pageSize), [projects, domains, pageSize]);
+  const slides = useMemo(() => selectedFields === null ? allSlides : allSlides.filter(page => selectedFields.includes(page.field)), [allSlides, selectedFields]);
+  const fields = [...new Set([...domains.map(domain => domain.field), ...allSlides.map(page => page.field)])];
+  const availableFields = fields.filter(field => allSlides.some(page => page.field === field));
+  const checkedFields = selectedFields === null ? availableFields : availableFields.filter(field => selectedFields.includes(field));
   const safeIndex = Math.min(index, Math.max(0, slides.length - 1));
   const slide = slides[safeIndex];
   const next = slides[(safeIndex + 1) % slides.length];
@@ -40,7 +45,9 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
     const anchor = anchorRef.current;
     if (anchor) {
       const found = slides.findIndex((page) => page.items.some((item) => item.id === anchor));
-      if (found >= 0) setIndex(found);
+      setIndex(found >= 0 ? found : 0);
+    } else {
+      setIndex(0);
     }
     setRemaining(seconds);
   }, [slides, seconds]);
@@ -59,6 +66,7 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
   }, [running, remaining, seconds, slides.length]);
 
   const move = (direction: number) => {
+    if (slides.length < 2) return;
     setIndex((safeIndex + direction + slides.length) % slides.length);
     setRemaining(seconds);
   };
@@ -76,6 +84,13 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
     document.addEventListener('keydown', keydown);
     return () => document.removeEventListener('keydown', keydown);
   });
+
+  const changeFields = (fields: string[] | null) => {
+    anchorRef.current = null;
+    setSelectedFields(fields);
+    setIndex(0);
+    setRemaining(seconds);
+  };
 
   const groups = slides.map((page, position) => ({ page, position })).filter(({ page }) => page.page === 0);
   return (
@@ -103,7 +118,7 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
           <div className="result-carousel-order"><small>編號</small><strong>{item.draw_code || '編號未設定'}</strong></div>
           <div className="result-carousel-project"><h3>{item.project_title}</h3></div>
         </article>)}
-        {!slide && <p className="result-carousel-empty">請先完成抽籤，再開始展示。</p>}
+        {!slide && <p className="result-carousel-empty">{allSlides.length ? '目前未選擇可展示的領域，請開啟「設定」勾選展示領域。' : '請先完成抽籤，再開始展示。'}</p>}
       </div>
       <footer className="result-carousel-footer">
         <div className="result-carousel-controls">
@@ -115,17 +130,35 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
           </div>
           <button type="button" className="result-control result-carousel-settings-trigger" onClick={() => setSettingsOpen(true)} aria-haspopup="dialog"><Settings size={18} />設定</button>
         </div>
-        <div className="result-carousel-hint"><span>{slides.length < 2 ? '單頁結果' : !visible ? '背景暫停' : settingsOpen ? '設定中 · 暫停換頁' : playing ? `${remaining} 秒後換頁 · 循環播放` : '已暫停'}{next && slides.length > 1 ? ` · 下一頁：${next.field} ${formatSessionLabel(next.group)}` : ''}</span><span>← → 換頁 · 空白鍵播放／暫停 · Esc 返回</span></div>
+        <div className="result-carousel-hint"><span>{slides.length === 0 ? '尚無展示頁面' : slides.length < 2 ? '單頁結果' : !visible ? '背景暫停' : settingsOpen ? '設定中 · 暫停換頁' : playing ? `${remaining} 秒後換頁 · 循環播放` : '已暫停'}{next && slides.length > 1 ? ` · 下一頁：${next.field} ${formatSessionLabel(next.group)}` : ''}</span><span>← → 換頁 · 空白鍵播放／暫停 · Esc 返回</span></div>
       </footer>
       {settingsOpen && <div className="result-carousel-settings-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>
         <div className="result-carousel-settings" role="dialog" aria-modal="true" aria-label="輪播設定">
           <div className="result-carousel-settings-heading"><h3><Settings size={20} />輪播設定</h3><button type="button" className="result-control" aria-label="關閉輪播設定" onClick={() => setSettingsOpen(false)}><X size={18} /></button></div>
           <p>設定期間暫停換頁，關閉後依原播放狀態繼續。</p>
+          <fieldset className="result-carousel-domains">
+            <legend>展示領域（可複選）</legend>
+            <div className="result-carousel-domain-actions">
+              <button type="button" className="result-control" disabled={!availableFields.length} onClick={() => changeFields(null)}>全選</button>
+              <button type="button" className="result-control" disabled={!checkedFields.length} onClick={() => changeFields([])}>清除</button>
+              <span>已選 {checkedFields.length} 個領域</span>
+            </div>
+            <div className="result-carousel-domain-list">
+              {fields.map(field => {
+                const count = allSlides.filter(page => page.field === field).reduce((total, page) => total + page.items.length, 0);
+                return <label key={field}>
+                  <input type="checkbox" checked={checkedFields.includes(field)} disabled={count === 0} onChange={event => changeFields(event.target.checked ? [...checkedFields, field] : checkedFields.filter(value => value !== field))} />
+                  <span>{field}</span><small>{count ? `${count} 件` : '尚無完整結果'}</small>
+                </label>;
+              })}
+            </div>
+            <p>僅展示已完成的抽籤結果；變更領域後從第一頁開始，不會修改抽籤資料。</p>
+          </fieldset>
           <div className="result-carousel-settings-fields">
-          <label>跳至場次<select aria-label="跳至場次" value={slide ? JSON.stringify([slide.field, slide.group]) : ''} onChange={(event) => {
+          <label>跳至場次<select aria-label="跳至場次" disabled={!groups.length} value={slide ? JSON.stringify([slide.field, slide.group]) : ''} onChange={(event) => {
             const found = groups.find(({ page }) => JSON.stringify([page.field, page.group]) === event.target.value);
             if (found) { setIndex(found.position); setRemaining(seconds); }
-          }}>{groups.map(({ page }) => <option key={page.key} value={JSON.stringify([page.field, page.group])}>{page.field} · {formatSessionLabel(page.group)}</option>)}</select></label>
+          }}>{!groups.length && <option value="">尚無可展示場次</option>}{groups.map(({ page }) => <option key={page.key} value={JSON.stringify([page.field, page.group])}>{page.field} · {formatSessionLabel(page.group)}</option>)}</select></label>
           <label>每頁筆數<select aria-label="每頁筆數" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value) as 5 | 10)}><option value={5}>5 筆（單欄）</option><option value={10}>10 筆（左右）</option></select></label>
           <label>換頁間隔<select aria-label="換頁間隔" value={seconds} onChange={(event) => setSeconds(Number(event.target.value))}>{[3, 5, 10, 15, 20, 30].map((value) => <option key={value} value={value}>{value} 秒</option>)}</select></label>
           </div>

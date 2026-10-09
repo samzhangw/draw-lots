@@ -113,3 +113,16 @@
  .result-carousel-counter { font-size:12px; }
  .result-carousel-settings { padding:18px; }
 }
+
+.result-carousel-domains { min-width:0; margin-top:20px; border:1px solid #d9e3ed; border-radius:12px; padding:12px; }
+.result-carousel-domains legend { padding:0 4px; font-size:14px; font-weight:700; color:#28518a; }
+.result-carousel-domain-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.result-carousel-domain-actions span { margin-left:auto; font-size:12px; color:#52657a; }
+.result-carousel-domain-list { max-height:220px; overflow:auto; margin-top:8px; }
+.result-carousel-domain-list label { display:flex; align-items:center; gap:10px; min-height:44px; padding:8px 2px; font-size:13px; font-weight:600; cursor:pointer; }
+.result-carousel-domain-list input { width:18px; height:18px; flex-shrink:0; accent-color:#28518a; }
+.result-carousel-domain-list input:focus-visible { outline:3px solid #93466e; outline-offset:2px; }
+.result-carousel-domain-list label:has(input:disabled) { color:#94a3b8; cursor:default; }
+.result-carousel-domain-list span { min-width:0; overflow-wrap:anywhere; }
+.result-carousel-domain-list small { flex-shrink:0; margin-left:auto; font-size:11px; color:#52657a; }
+.result-carousel-domains>p { margin-top:8px; font-size:12px; line-height:1.6; color:#52657a; }

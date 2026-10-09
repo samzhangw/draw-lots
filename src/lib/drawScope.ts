@@ -54,6 +54,13 @@ export function getSelectedDrawFields(fields: string[], projects: ProjectItem[],
   return selected === null ? available : available.filter(field => selected.includes(field));
 }
 
+/** Keep an explicit scope after drawing; default to results once no domains remain drawable. */
+export function getStageScopeFields(fields: string[], projects: ProjectItem[], selected: string[] | null): string[] {
+  if (selected !== null) return fields.filter(field => selected.includes(field));
+  const available = getAvailableDrawFields(fields, projects);
+  return available.length ? available : fields;
+}
+
 export function getResettableFields(fields: string[], projects: ProjectItem[]): string[] {
   const completed = fieldsWithDrawData(projects);
   return fields.filter(field => completed.has(field));

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { ProjectItem } from '../src/types';
-import { getAvailableDrawFields, getSelectedDrawFields, getResettableFields, getIncompleteDrawFields, isCompleteDrawResult, duplicateDrawCodeError, projectFieldChangeError } from '../src/lib/drawScope';
+import { getAvailableDrawFields, getStageScopeFields, getSelectedDrawFields, getResettableFields, getIncompleteDrawFields, isCompleteDrawResult, duplicateDrawCodeError, projectFieldChangeError } from '../src/lib/drawScope';
 import { executeAllDomainsIndependentLottery } from '../src/lib/lottery';
 
 const project = (id: string, field: string): ProjectItem => ({
@@ -101,4 +101,19 @@ test('reset selection lists completed domains globally even while draw scope tar
   assert.deepEqual(getResettableFields(fields, resetA), ['C']);
   assert.deepEqual(getAvailableDrawFields(fields, resetA), ['A', 'B']);
   assert.deepEqual(resetA[2], projects[2]);
+});
+
+
+test('stage scope follows drawable fields, preserves explicit completed selection and excludes removed fields', () => {
+  const fields = ['A', 'B'];
+  const partial = [{ ...project('1', 'A'), assigned_group: 1, draw_code: 'A01' }, project('2', 'B')];
+  assert.deepEqual(getStageScopeFields(fields, partial, null), ['B']);
+  assert.deepEqual(getStageScopeFields(fields, partial, ['B']), ['B']);
+  assert.deepEqual(getStageScopeFields(fields, partial, []), []);
+  assert.deepEqual(getStageScopeFields(fields, partial, ['missing']), []);
+  const finished = [partial[0], { ...partial[1], assigned_group: 1, draw_code: 'B01' }];
+  assert.deepEqual(getStageScopeFields(fields, finished, ['B']), ['B']);
+  assert.deepEqual(getStageScopeFields(fields, finished, null), fields);
+  assert.deepEqual(getSelectedDrawFields(fields, finished, ['B']), []);
+  assert.deepEqual(finished.map(p => p.draw_code), ['A01', 'B01']);
 });

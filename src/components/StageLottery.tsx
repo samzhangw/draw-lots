@@ -5,7 +5,7 @@ import { ProjectItem, DomainConfig } from '../types';
 import { StoreState, isApiRequestCancelled } from '../lib/api';
 import { useModalFocus } from '../lib/useModalFocus';
 import { DomainScopePicker } from './DomainScopePicker';
-import { compareDrawCodes, getSelectedDrawFields, getResettableFields, getIncompleteDrawFields, isCompleteDrawResult } from '../lib/drawScope';
+import { compareDrawCodes, getStageScopeFields, getSelectedDrawFields, getResettableFields, getIncompleteDrawFields, isCompleteDrawResult } from '../lib/drawScope';
 import { ResultCarousel } from './ResultCarousel';
 import { FloatingNotice } from './FloatingNotice';
 import { PupLotteryAnimation, pupLotteryDuration } from './PupLotteryAnimation';
@@ -55,9 +55,10 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
     return () => { mounted.current = false; handleAnimationReveal(); };
   }, [handleAnimationReveal]);
   const [selectedFields, setSelectedFields] = useState<string[] | null>(null);
-  const selectedField = selectedFields === null ? 'ALL' : selectedFields.join('、');
-  const includesField = (field: string) => selectedFields === null || selectedFields.includes(field);
-  const changeFields = (fields: string[] | null) => { setSelectedFields(fields); setBatchDrawSummary(null); setBoardDomainFilter('ALL'); };
+  const stageFields = getStageScopeFields(domainConfigs.map(cfg => cfg.field), projects, selectedFields);
+  const selectedField = stageFields.length === domainConfigs.length && stageFields.length > 0 ? 'ALL' : stageFields.join('、');
+  const includesField = (field: string) => stageFields.includes(field);
+  const changeFields = (fields: string[] | null) => { setSelectedFields(fields); setBatchDrawSummary(null); };
   const [animationDuration, setAnimationDuration] = useState(900);
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
   // 是否播放抽籤動畫（預設關閉，關閉時抽完直接顯示結果）
@@ -90,7 +91,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
   const selectedResetFields = resetFields.filter(field => resettableFields.includes(field));
   const resetProjectCount = projects.filter(p => selectedResetFields.includes(p.field)).length;
   const undrawnPool = currentPool.filter(p => drawFields.includes(p.field) && !isCompleteDrawResult(p));
-  const incompleteFields = getIncompleteDrawFields([...new Set(currentPool.map(p => p.field))], currentPool);
+  const incompleteFields = getIncompleteDrawFields([...new Set(projects.map(p => p.field))], projects);
   const pendingPool = currentPool.filter(p => !isCompleteDrawResult(p));
   const visibleDomainConfigs = domainConfigs.filter(cfg =>
     (undrawnPool.length ? drawFields.includes(cfg.field) : includesField(cfg.field)) &&
@@ -105,6 +106,9 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
       }
       return compareDrawCodes(a, b);
     });
+
+  const resultPool = projects.filter(isCompleteDrawResult);
+  const visibleResults = resultPool.filter(p => boardDomainFilter === 'ALL' || p.field === boardDomainFilter);
 
   const enterFullscreen = async () => {
     fullscreenRef.current = true;
@@ -124,7 +128,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
     if (document.fullscreenElement === stageContainerRef.current) await document.exitFullscreen().catch(() => {});
   };
   const openCarousel = () => {
-    setCarouselScope(selectedFields === null ? 'ALL' : [...selectedFields]);
+    setCarouselScope(boardDomainFilter);
     if (!fullscreenRef.current) void enterFullscreen();
   };
   useEffect(() => {
@@ -215,6 +219,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
             ? `全校共 ${domainConfigs.length} 個領域已完成獨立分組抽籤。`
             : `「${selectedField}」領域已完成獨立分組抽籤。`)
       );
+      setSelectedFields([...drawFields]);
       onApplyState(backendResult);
       triggerCelebration();
       // 全螢幕展示時，抽籤完成一律自動輪播結果
@@ -357,8 +362,8 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
               <div className="stage-presentation-hero">
                 <div className="stage-presentation-intro">
                   <div className="stage-presentation-title">
-                    <p className="stage-presentation-scope">{selectedField === 'ALL' ? '全校各領域' : selectedFields?.length === 0 ? '尚未選擇領域' : selectedFields?.length === 1 ? selectedField : `本次已選 ${selectedFields?.length} 個領域`}</p>
-                    <h2>{currentPool.length === 0 ? selectedFields?.length === 0 ? '請勾選抽籤領域' : '尚無專題資料' : undrawnPool.length ? '準備開始抽籤' : incompleteFields.length ? '抽籤資料不完整' : '報告場次與編號已排定'}</h2>
+                    <p className="stage-presentation-scope">{selectedField === 'ALL' ? '全校各領域' : stageFields.length === 0 ? '尚未選擇領域' : stageFields.length === 1 ? selectedField : `本次已選 ${stageFields.length} 個領域`}</p>
+                    <h2>{currentPool.length === 0 ? stageFields.length === 0 ? '請勾選抽籤領域' : '尚無專題資料' : undrawnPool.length ? '準備開始抽籤' : incompleteFields.length ? '抽籤資料不完整' : '報告場次與編號已排定'}</h2>
                   </div>
                 </div>
                 <div className="stage-presentation-counts" role="group" aria-label="本次抽籤數量">
@@ -366,7 +371,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                   <div className="stage-presentation-stat stage-presentation-stat--complete"><span>已完成</span><p><strong>{drawnPool.length}</strong><small>件</small></p></div>
                   <div className="stage-presentation-stat stage-presentation-stat--pending"><span>尚待完成</span><p><strong>{pendingPool.length}</strong><small>件</small></p></div>
                 </div>
-                <p className="stage-presentation-description">{incompleteFields.length && !undrawnPool.length ? '請先補齊不完整資料，或重設相關領域後重新抽籤。' : batchDrawSummary || (currentPool.length === 0 ? selectedFields?.length === 0 ? '請從抽籤範圍選擇至少一個領域。' : '請先在管理後台匯入專題資料。' : undrawnPool.length ? '確認本次領域後，點選下方按鈕開始抽籤。' : '點選「輪播結果」，開始展示各組報告順序。')}</p>
+                <p className="stage-presentation-description">{incompleteFields.length && !undrawnPool.length ? '請先補齊不完整資料，或重設相關領域後重新抽籤。' : batchDrawSummary || (currentPool.length === 0 ? stageFields.length === 0 ? '請從抽籤範圍選擇至少一個領域。' : '請先在管理後台匯入專題資料。' : undrawnPool.length ? '確認本次領域後，點選下方按鈕開始抽籤。' : '點選「輪播結果」，開始展示各組報告順序。')}</p>
               </div>
               <div className="stage-presentation-domains">
                 {visibleDomainConfigs.map((cfg) => <article key={cfg.id}><h3>{cfg.field}</h3><p>{cfg.groupCount} 組場次 · {currentPool.filter(p => p.field === cfg.field).length} 件專題</p></article>)}
@@ -440,11 +445,11 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                   <div>
                     <p className="text-sm font-bold text-blue-800 sm:text-base">專題報告抽籤</p>
                     <h2 className="mt-1 text-2xl font-black leading-tight tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">
-                      {currentPool.length === 0 ? selectedFields?.length === 0 ? '請勾選抽籤領域' : '此範圍尚無專題' : undrawnPool.length ? '準備開始抽籤' : incompleteFields.length ? '抽籤資料不完整' : '此範圍已完成抽籤'}
+                      {currentPool.length === 0 ? stageFields.length === 0 ? '請勾選抽籤領域' : '此範圍尚無專題' : undrawnPool.length ? '準備開始抽籤' : incompleteFields.length ? '抽籤資料不完整' : '此範圍已完成抽籤'}
                     </h2>
                     <p className="mt-3 max-w-2xl text-sm font-medium leading-relaxed text-slate-600 sm:text-base">
                       {currentPool.length === 0
-                        ? selectedFields?.length === 0 ? '請從抽籤範圍選擇至少一個領域。' : '請先在管理後台匯入專題資料，完成後即可在此進行抽籤。'
+                        ? stageFields.length === 0 ? '請從抽籤範圍選擇至少一個領域。' : '請先在管理後台匯入專題資料，完成後即可在此進行抽籤。'
                         : incompleteFields.length && undrawnPool.length === 0
                         ? '請補齊資料，或先重設相關領域後重新抽籤。'
                         : undrawnPool.length === 0
@@ -507,7 +512,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                 : drawFields.length === 1 ? `開始「${drawFields[0]}」抽籤` : `開始抽籤（${drawFields.length} 個領域）`}
             </span>
           </button>}
-          {isFullscreen && drawnPool.length > 0 && !isAnimating && <button type="button" onClick={openCarousel} className="stage-presentation-play"><Play size={22} />輪播結果</button>}
+          {isFullscreen && visibleResults.length > 0 && !isAnimating && <button type="button" onClick={openCarousel} className="stage-presentation-play"><Play size={22} />輪播結果</button>}
           </div>
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-600 cursor-pointer">
             <input type="checkbox" checked={showDrawAnimation} disabled={isAnimating} onChange={(event) => setShowDrawAnimation(event.target.checked)} className="h-4 w-4 accent-blue-700" />
@@ -538,7 +543,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
             </div>
             <div className="flex shrink-0 items-center justify-end">
 
-            <button type="button" onClick={openCarousel} disabled={isAnimating || isResetting || drawnPool.length === 0}
+            <button type="button" onClick={openCarousel} disabled={isAnimating || isResetting || visibleResults.length === 0}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-bold text-blue-800 sm:px-4 hover:bg-blue-100 disabled:opacity-40 cursor-pointer">
               <Play className="h-4 w-4" />輪播結果
             </button>
@@ -606,7 +611,7 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
         </div>
 
         {/* Quick Domain Filter Tabs (when viewing ALL domains) */}
-        {domainConfigs.filter(cfg => includesField(cfg.field)).length > 1 && (
+        {domainConfigs.length > 0 && (
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-2 px-2">
             <button
               onClick={() => setBoardDomainFilter('ALL')}
@@ -617,10 +622,10 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
                   : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
               }`}
             >
-              全部領域 ({drawnPool.length} 件已完成)
+              全部領域 ({resultPool.length} 件已完成)
             </button>
-            {domainConfigs.filter(cfg => includesField(cfg.field)).map((cfg) => {
-              const count = drawnPool.filter((p) => p.field === cfg.field).length;
+            {domainConfigs.map((cfg) => {
+              const count = resultPool.filter((p) => p.field === cfg.field).length;
               const total = projects.filter((p) => p.field === cfg.field).length;
               return (
                 <button
@@ -646,15 +651,15 @@ export const StageLottery: React.FC<StageLotteryProps> = ({
         )}
 
         {/* Empty State */}
-        {drawnPool.length === 0 ? (
+        {visibleResults.length === 0 ? (
           <div className="text-center py-12 text-slate-400 text-xs">
-            {incompleteFields.length ? '目前沒有完整抽籤結果，請先補齊資料或重設相關領域。' : '尚無抽籤結果，請從上方主舞台開始抽籤。'}
+            {resultPool.length > 0 ? '此領域尚無完整抽籤結果，請切換領域查看。' : incompleteFields.length ? '目前沒有完整抽籤結果，請先補齊資料或重設相關領域。' : '尚無抽籤結果，請從上方主舞台開始抽籤。'}
           </div>
         ) : (
           /* Render Domains & Subgroups */
           <div className="space-y-8">
-            {domainConfigs.filter(c => includesField(c.field) && (boardDomainFilter === 'ALL' || c.field === boardDomainFilter)).map((cfg) => {
-              const domainDrawnProjects = drawnPool.filter((p) => p.field === cfg.field);
+            {domainConfigs.filter(c => boardDomainFilter === 'ALL' || c.field === boardDomainFilter).map((cfg) => {
+              const domainDrawnProjects = resultPool.filter((p) => p.field === cfg.field);
               if (domainDrawnProjects.length === 0) return null;
 
               const cleanQuery = boardSearchQuery.trim().toLowerCase();
