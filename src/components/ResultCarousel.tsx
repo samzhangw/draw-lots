@@ -1,6 +1,6 @@
 import { formatSessionLabel } from '../lib/sessionLabel';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Pause, Play, Settings, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Pause, Play, Settings, X } from 'lucide-react';
 import type { DomainConfig, ProjectItem } from '../types';
 import { buildResultSlides } from '../lib/resultPresentation';
 import { useModalFocus } from '../lib/useModalFocus';
@@ -136,8 +136,8 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
         <div className="result-carousel-settings" role="dialog" aria-modal="true" aria-label="輪播設定">
           <div className="result-carousel-settings-heading"><h3><Settings size={20} />輪播設定</h3><button type="button" className="result-control" aria-label="關閉輪播設定" onClick={() => setSettingsOpen(false)}><X size={18} /></button></div>
           <p>設定期間暫停換頁，關閉後依原播放狀態繼續。</p>
-          <fieldset className="result-carousel-domains">
-            <legend>展示領域（可複選）</legend>
+          <details className="result-carousel-domains">
+            <summary><span>展示領域（可複選）</span><small>已選 {checkedFields.length} 個</small><ChevronDown size={18} aria-hidden="true" /></summary>
             <div className="result-carousel-domain-actions">
               <button type="button" className="result-control" disabled={!availableFields.length} onClick={() => changeFields(null)}>全選</button>
               <button type="button" className="result-control" disabled={!checkedFields.length} onClick={() => changeFields([])}>清除</button>
@@ -153,7 +153,7 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
               })}
             </div>
             <p>僅展示已完成的抽籤結果；變更領域後從第一頁開始，不會修改抽籤資料。</p>
-          </fieldset>
+          </details>
           <div className="result-carousel-settings-fields">
           <label>跳至場次<select aria-label="跳至場次" disabled={!groups.length} value={slide ? JSON.stringify([slide.field, slide.group]) : ''} onChange={(event) => {
             const found = groups.find(({ page }) => JSON.stringify([page.field, page.group]) === event.target.value);
