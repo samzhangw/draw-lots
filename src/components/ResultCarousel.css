@@ -117,13 +117,11 @@
 .result-carousel-domains { min-width:0; margin-top:20px; border:1px solid #d9e3ed; border-radius:12px; padding:12px; }
 .result-carousel-domains summary { display:flex; align-items:center; gap:10px; min-height:44px; font-size:14px; font-weight:700; color:#28518a; cursor:pointer; list-style:none; }
 .result-carousel-domains summary::-webkit-details-marker { display:none; }
-.result-carousel-domains summary small { margin-left:auto; font-size:12px; color:#52657a; font-weight:600; }
-.result-carousel-domains summary svg { flex-shrink:0; transition:transform .15s; }
+.result-carousel-domains summary svg { margin-left:auto; flex-shrink:0; transition:transform .15s; }
 .result-carousel-domains[open] summary svg { transform:rotate(180deg); }
 .result-carousel-domains summary:focus-visible { outline:3px solid #93466e; outline-offset:2px; border-radius:6px; }
 .result-carousel-domains[open] .result-carousel-domain-actions { margin-top:10px; }
-.result-carousel-domain-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
-.result-carousel-domain-actions span { margin-left:auto; font-size:12px; color:#52657a; }
+.result-carousel-domain-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8px; }
 .result-carousel-domain-list { max-height:220px; overflow:auto; margin-top:8px; }
 .result-carousel-domain-list label { display:flex; align-items:center; gap:10px; min-height:44px; padding:8px 2px; font-size:13px; font-weight:600; cursor:pointer; }
 .result-carousel-domain-list input { width:18px; height:18px; flex-shrink:0; accent-color:#28518a; }

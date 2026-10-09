@@ -137,11 +137,10 @@ export function ResultCarousel({ projects, domains, scope, onClose }: Props) {
           <div className="result-carousel-settings-heading"><h3><Settings size={20} />輪播設定</h3><button type="button" className="result-control" aria-label="關閉輪播設定" onClick={() => setSettingsOpen(false)}><X size={18} /></button></div>
           <p>設定期間暫停換頁，關閉後依原播放狀態繼續。</p>
           <details className="result-carousel-domains">
-            <summary><span>展示領域（可複選）</span><small>已選 {checkedFields.length} 個</small><ChevronDown size={18} aria-hidden="true" /></summary>
+            <summary><span>展示領域（可複選）</span><ChevronDown size={18} aria-hidden="true" /></summary>
             <div className="result-carousel-domain-actions">
               <button type="button" className="result-control" disabled={!availableFields.length} onClick={() => changeFields(null)}>全選</button>
               <button type="button" className="result-control" disabled={!checkedFields.length} onClick={() => changeFields([])}>清除</button>
-              <span>已選 {checkedFields.length} 個領域</span>
             </div>
             <div className="result-carousel-domain-list">
               {fields.map(field => {
