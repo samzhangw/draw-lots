@@ -499,6 +499,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.equal(student.data.project.leader_id, undefined);
     assert.equal(JSON.stringify(student.data).includes(project.leader_id), false);
     assert.equal(student.data.project.leader_id_masked, '****5678');
+    assert.deepEqual(student.data.project, { leader_id_masked: '****5678', project_title: project.project_title, field: '', isDrawn: false, draw_code: null, assigned_group: null });
     for (const field of ['seq_no', 'class_name', 'advisor', 'education_system', 'department']) assert.equal(student.data.project[field], undefined);
     assert.match(student.cookie!, /HttpOnly/i); assert.match(student.cookie!, /Secure/i); assert.match(student.cookie!, /SameSite=Strict/i);
     const studentCookie = student.cookie!.split(';')[0];
@@ -686,6 +687,7 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     const ownedDraw = await request('/api/student/me', undefined, undefined, studentCookie);
     assert.ok(ownedDraw.data.project.isDrawn);
     assert.equal(ownedDraw.data.project.leader_id_masked, '****5678');
+    assert.deepEqual(ownedDraw.data.project, { leader_id_masked: '****5678', project_title: project.project_title, field: project.field, isDrawn: true, draw_code: state.projects[0].draw_code, assigned_group: state.projects[0].assigned_group });
     assert.equal((await request('/api/lottery/draw', { field: 'ALL', version: draw.data.version }, stage)).status, 409);
     // Invalid reviewer names must not overwrite existing settings or drawn results.
     const beforeInvalidReviewers = structuredClone(state);

@@ -10,7 +10,7 @@ import { performance } from 'node:perf_hooks';
 import { STUDENT_LOGIN_LIMITS } from '../server/loginAdmission';
 import { SESSION_WORK_LIMITS } from '../server/sessionSecurity';
 import { API_TIMEOUTS, requestTimeoutMs } from '../src/lib/api';
-import { hashPassword, fingerprint, publicStudentProjectDto, studentProjectDto, passwordHashLimits, type StoredProject } from '../server/credentials';
+import { hashPassword, fingerprint, studentProjectDto, passwordHashLimits, type StoredProject } from '../server/credentials';
 
 const mode = process.argv.includes('--workers') ? 'Workers' : 'Node';
 const delayArg = process.argv.find(arg => arg.startsWith('--db-delay-ms='));
@@ -185,7 +185,7 @@ try {
     const result = await request('/api/student/me', undefined, entry.response.cookie, agents.get(entry.project.leader_id));
     // The API intentionally masks leader IDs. Compare the full expected DTO,
     // including each synthetic student's unique title/code, to detect mixups.
-    const expected = sharedPassword ? publicStudentProjectDto(entry.project) : studentProjectDto(entry.project);
+    const expected = studentProjectDto(entry.project);
     const matches = JSON.stringify(result.data?.project) === JSON.stringify(expected);
     lookups.push({ status: result.status, elapsed: result.elapsed, matches, error: result.error });
   };

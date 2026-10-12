@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hashPassword, verifyPassword, prepareProjects, removeLegacyCredentials, studentProjectDto, publicStudentProjectDto } from '../server/credentials';
+import { hashPassword, verifyPassword, prepareProjects, removeLegacyCredentials, studentProjectDto } from '../server/credentials';
 import { executeAllDomainsIndependentLottery } from '../src/lib/lottery';
 
 const p = { id: 'p1', seq_no: '1', education_system: '四技', department: '資管', class_name: '甲', advisor: '王教授', field: '__proto__', original_code: 'P1', project_title: '測試', leader_id: '12345678' };
@@ -47,34 +47,31 @@ test('special domain names stay isolated and use their own subgroup/reviewer set
   }
 });
 
-test('student DTOs omit roster identifiers and secrets in both credential modes', () => {
+test('student queries expose only shared-mode result fields and hide incomplete results', () => {
   const stored = { ...p, password: 'private', password_hash: 'private-hash',
     assigned_group: 2, draw_code: 'A03', draw_time: '2026-10-04T00:00:00Z',
     evaluators: ['評審'], unexpected_private_field: 'private-extra' };
-  const individual = studentProjectDto(stored);
-  const shared = publicStudentProjectDto(stored);
-  assert.deepEqual(Object.keys(individual).sort(), ['leader_id_masked', 'project_title', 'field', 'isDrawn', 'draw_code', 'assigned_group', 'draw_time', 'evaluators'].sort());
-  assert.deepEqual(Object.keys(shared).sort(), ['leader_id_masked', 'project_title', 'field', 'isDrawn', 'draw_code', 'assigned_group'].sort());
-  for (const result of [individual, shared]) {
-    assert.equal(result.isDrawn, true);
-    assert.equal(result.draw_code, 'A03');
-    assert.equal(result.assigned_group, 2);
-    assert.equal(JSON.stringify(result).includes('private'), false);
+  const expected = {
+    leader_id_masked: '****5678', project_title: p.project_title, field: p.field,
+    isDrawn: true, draw_code: 'A03', assigned_group: 2,
+  };
+  for (const shared_password_mode of [false, true]) {
+    const modeProject = { ...stored, shared_password_mode };
+    assert.deepEqual(studentProjectDto(modeProject), expected);
+    for (const incomplete of [{ draw_code: null }, { assigned_group: null }, { assigned_group: null, draw_code: null }]) {
+      assert.deepEqual(studentProjectDto({ ...modeProject, ...incomplete }), {
+        leader_id_masked: '****5678', project_title: p.project_title, field: '',
+        isDrawn: false, draw_code: null, assigned_group: null,
+      });
+    }
   }
-  assert.deepEqual(publicStudentProjectDto({ ...stored, draw_code: null }), {
-    leader_id_masked: '****5678', project_title: p.project_title, field: '', isDrawn: false, draw_code: null, assigned_group: null,
-  });
-  assert.equal(studentProjectDto({ ...stored, draw_code: null }).isDrawn, false);
-  assert.equal(studentProjectDto({ ...stored, draw_code: null }).assigned_group, null);
 });
 
 test('student ID masking exposes only the final four characters and conceals short IDs', () => {
   for (const [id, expected] of [['1123456789', '******6789'], [' 12345678 ', '****5678'], ['12345', '*2345'], ['1234', '****'], ['123', '****'], ['', '****']]) {
-    for (const dto of [studentProjectDto, publicStudentProjectDto]) {
-      const result = dto({ ...p, leader_id: id });
-      assert.equal(result.leader_id_masked, expected);
-      assert.equal('leader_id' in result, false);
-    }
+    const result = studentProjectDto({ ...p, leader_id: id });
+    assert.equal(result.leader_id_masked, expected);
+    assert.equal('leader_id' in result, false);
   }
 });
 
