@@ -126,7 +126,7 @@ export function anonymousLimiter(scope: 'health' | 'results', ipLimit: number, g
   ], 60000, '查詢過於頻繁，請稍後再試。');
 }
 
-export function sessionLimiter(scope: SessionScope, tokenLimit = 600, ipLimit = scope === 'student' ? 6000 : 3000, globalLimit = 12000) {
+export function sessionLimiter(scope: SessionScope, tokenLimit = scope === 'student' ? 60 : 600, ipLimit = scope === 'student' ? 6000 : 3000, globalLimit = 12000) {
   return limited(req => {
     const token = readSessionToken(req, scope);
     if (!token) throw new ApiError(401, '請重新登入。');

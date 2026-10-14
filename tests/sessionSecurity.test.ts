@@ -85,7 +85,7 @@ test('session database work rejects overflow and never exceeds 16 concurrent ope
 });
 
 for (const mode of ['Node', 'Workers'] as const) {
-  test(`${mode}: default student IP permits 6000 requests while staff IP remains capped at 3000`, async () => {
+  test(`${mode}: default session limits are 60 for students and 600 for staff; IP limits remain 6000 and 3000`, async () => {
     const counts = new Map<string, number>();
     const shared = { idFromName(name: string) { return name; }, get() { return { async fetch(_url: string, init: { body: string }) {
       const { budgets } = JSON.parse(init.body);
@@ -97,13 +97,23 @@ for (const mode of ['Node', 'Workers'] as const) {
     for (const scope of ['student', 'staff'] as const) {
       const limiter = sessionLimiter(scope);
       const limit = scope === 'student' ? 6000 : 3000;
+      const tokenLimit = scope === 'student' ? 60 : 600;
+      const attemptToken = (value: string) => withRuntime(runtime, () => new Promise<number>((resolve, reject) => {
+        const raw = signSessionToken(value, scope);
+        let status = 200;
+        const res = { setHeader(_key: string, value: unknown) { assert.ok(Number(value) > 0); }, status(code: number) { status = code; return this; }, json() { resolve(status); } } as unknown as Response;
+        limiter(reqFor(scope, raw, '198.51.100.78'), res, ((error?: unknown) => error ? reject(error) : resolve(200)) as NextFunction);
+      }));
+      for (let n = 0; n < tokenLimit; n++) assert.equal(await attemptToken('7'.repeat(64)), 200);
+      assert.equal(await attemptToken('7'.repeat(64)), 429);
+      assert.equal(await attemptToken('8'.repeat(64)), 200, 'another session on the same IP has its own allowance');
       const attempt = (n: number) => withRuntime(runtime, () => new Promise<number>((resolve, reject) => {
-        const raw = signSessionToken(Math.floor(n / 500).toString(16).padStart(64, '0'), scope);
+        const raw = signSessionToken(Math.floor(n / 50).toString(16).padStart(64, '0'), scope);
         let status = 200;
         const res = { setHeader(_key: string, value: unknown) { assert.ok(Number(value) > 0); }, status(code: number) { status = code; return this; }, json() { resolve(status); } } as unknown as Response;
         limiter(reqFor(scope, raw, '198.51.100.77'), res, ((error?: unknown) => error ? reject(error) : resolve(200)) as NextFunction);
       }));
-      // Rotate cookies every 500 requests so only the IP budget reaches its bound.
+      // Rotate cookies every 50 requests so only the IP budget reaches its bound.
       for (let n = 0; n < limit; n++) assert.equal(await attempt(n), 200);
       assert.equal(await attempt(limit), 429);
     }
