@@ -129,7 +129,7 @@ npm run migrate:local -- /absolute/path/server-db.json
 npm run lint
 npm run test
 npm run build
-NODE_ENV=production npm start
+npm start
 ```
 
 `npm start` 與 `npm run dev` 透過 `scripts/start-server.mjs` 啟動 Node，在子行程啟動前設定 `UV_THREADPOOL_SIZE`（預設 8）。設定讀取順序為啟動環境、`.env.local`、`.env`，既有設定優先；兩個環境檔仍由伺服器正常讀取。可在環境檔設定 `PASSWORD_HASH_CONCURRENCY`（Node 1–8）及 `UV_THREADPOOL_SIZE` 以調整，修改後需重啟。若既有環境檔寫有 `PASSWORD_HASH_CONCURRENCY=4`，會繼續使用 4；請改為 8 或移除該項才會使用新預設。直接執行 `tsx server.ts` 不經此啟動器，必須自行在啟動前設定執行緒池。
@@ -180,7 +180,7 @@ npm run dev:cloudflare
 
 `test:cloudflare` 使用真正的 workerd 引擎與模擬 Supabase，驗證前端路由、API 權限、scrypt 雜湊、cookie、抽籤、資料庫版本衝突、登入限流及 Workers 重啟；不會寫入正式 Supabase。
 
-一般 Node.js 部署仍可用 `NODE_ENV=production npm start`。`vite preview` 僅供靜態預覽，不提供 API。
+一般 Node.js 部署使用 `npm run build` 後執行 `npm start`。`start` 強制使用正式模式，即使環境檔誤設 `NODE_ENV=development`，仍只提供 `dist`；`npm run dev` 才明確啟用開發模式。開發服務預設只監聽 `127.0.0.1`；需要其他裝置連線時才明確設定 `HOST`。直接執行 `tsx server.ts` 也預設使用正式模式，只有 `NODE_ENV=development` 會啟用 Vite。`vite preview` 僅供靜態預覽，不提供 API。
 
 學生共用密碼驗證：同一 process／isolate 內，相同共用密碼與目前儲存 hash 的請求合併驗證，成功結果快取 30 秒，最多保留 32 個項目。快取鍵為程序隨機 key 的 HMAC，不儲存明文密碼；錯誤密碼與服務錯誤不保留。個別密碼及不存在的帳號維持原驗證流程。共用密碼更換／停用後清除本地快取，其他 shards 透過每次讀取的最新 hash 隔離舊快取；建立 Session 時由登入 RPC 在同一交易內核對最新密碼版本（未套新 SQL 時仍另查核）。每位學生仍獨立查核學號、建立 Session，登入限流與排隊上限不變。此最佳化不代表已通過正式環境 300 人同時登入壓測。
 

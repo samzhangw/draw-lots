@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/start-server.mjs",
+    "dev": "node scripts/start-server.mjs --dev",
     "build": "vite build",
     "start": "node scripts/start-server.mjs",
     "preview": "vite preview",
