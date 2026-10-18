@@ -41,8 +41,6 @@ export function DomainScopePicker({ domains, projects, selected, disabled, onCha
         onChange(next);
       }} /><span>{domain.field}</span><small>{incomplete.includes(domain.field) ? '資料不完整 · ' : !available.includes(domain.field) ? '已抽籤 · ' : ''}{projects.filter(project => project.field === domain.field).length} 件</small></label>)}</div>
       {!domains.length && <p>尚無領域設定</p>}
-      <p className="domain-scope-help">已有抽籤結果的領域不可勾選；重設結果後即可再次選取。</p>
-      <p className="domain-scope-help">清除只取消抽籤選擇，已抽結果仍可從下方看板查看與輪播。</p>
       {incomplete.length > 0 && <p className="domain-scope-help">資料不完整的領域請先補齊匯入資料，或重設後重新抽籤。</p>}
     </div>}
   </div>;
