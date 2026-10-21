@@ -1641,7 +1641,7 @@ export const AdminManagement: React.FC<AdminManagementProps> = ({
                       ))}
                     </div>
                     <p className="text-xs text-slate-700" aria-live="polite">設定合計 {Array.from({ length: Math.min(50, Math.max(0, domainFormGroupCount)) }, (_, i) => Number(domainCapacityDrafts[i + 1]) || 0).reduce((sum, count) => sum + count, 0)} 件 · 目前名冊 {editingDomain ? statsMap[editingDomain.field] || 0 : statsMap[domainFormName.trim()] || 0} 件</p>
-                    <p className="text-[11px] leading-relaxed text-slate-500">可先儲存設定。抽籤時合計必須等於該領域專題數，並符合指導老師迴避；0 件表示該組不分配專題。已抽籤領域若要改變分配件數，請先重設。</p>
+                    <p className="text-[11px] leading-relaxed text-slate-500">可先儲存設定。抽籤時合計必須等於該領域專題數，並優先迴避指導老師；無法完全迴避時仍會完成抽籤。0 件表示該組不分配專題。已抽籤領域若要改變分配件數，請先重設。</p>
                   </>
                 ) : <p className="text-[11px] text-slate-500">未指定時沿用自動分組。需要固定各組件數時，請勾選並逐組填寫。</p>}
               </fieldset>

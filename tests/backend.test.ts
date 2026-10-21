@@ -1082,11 +1082,23 @@ test(`API persists through Supabase, enforces roles and detects concurrent write
     assert.match(wrongTotal.data.error, /共 4 件.*名冊有 3 件/);
     assert.deepEqual(state, beforeWrongTotal);
     assert.equal((await request('/api/domain-configs', { domainConfigs: manualConfigs({ 1: 1, 2: 2 }, { 1: ['王教授'], 2: ['李教授'] }), version: state.version }, adminAgain)).status, 200);
-    const beforeImpossible = structuredClone(state);
     const impossible = await request('/api/lottery/draw', { field: 'ALL', version: state.version }, stage);
-    assert.equal(impossible.status, 400);
-    assert.match(impossible.data.error, /件數.*迴避/);
-    assert.deepEqual(state, beforeImpossible);
+    assert.equal(impossible.status, 200);
+    assert.deepEqual([1, 2].map(group => state.projects.filter(p => p.assigned_group === group).length), [1, 2]);
+    assert.equal(state.projects.filter(p => p.assigned_group === 1 && p.advisor === '王教授').length, 1);
+    assert.equal(impossible.data.summary, '抽籤完成，3 件專題結果已儲存。');
+    assert.deepEqual(Object.keys(impossible.data).sort(), ['domainConfigs', 'lastUpdated', 'projects', 'sharedPasswordEnabled', 'success', 'summary', 'version']);
+    for (const item of impossible.data.projects) {
+      assert.deepEqual(Object.keys(item).sort(), ['assigned_group', 'draw_code', 'field', 'id', 'project_title']);
+    }
+    assert.ok(impossible.data.domainConfigs.every((config: any) => config.evaluatorsPerGroup === undefined));
+    const adminConflictReport = await request('/api/lottery/test', { field: shrinkField, version: state.version }, adminAgain);
+    assert.equal(adminConflictReport.status, 200);
+    assert.equal(adminConflictReport.data.errorCount, 0);
+    assert.equal(adminConflictReport.data.warningCount, 1);
+    assert.match(adminConflictReport.data.domains[0].issues[0].message, /無法迴避/);
+    assert.equal((await request('/api/lottery/test', { field: shrinkField, version: state.version }, stage)).status, 403);
+    assert.equal((await request('/api/lottery/reset', { field: shrinkField, version: state.version }, stage)).status, 200);
     const manualSaved = await request('/api/domain-configs', { domainConfigs: manualConfigs({ 1: 1, 2: 2 }, { 1: ['李教授'], 2: ['陳教授'] }), version: state.version }, adminAgain);
     assert.equal(manualSaved.status, 200);
     assert.deepEqual((await request('/api/state', undefined, adminAgain)).data.domainConfigs.find((c: any) => c.field === shrinkField).groupCapacities, { 1: 1, 2: 2 });
