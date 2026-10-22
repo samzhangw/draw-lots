@@ -1,0 +1,209 @@
+{
+  "advisories": {
+    "1241209": {
+      "findings": [
+        {
+          "version": "1.2.1",
+          "paths": [
+            ".>vite>postcss>source-map-js",
+            ".>@tailwindcss/vite>@tailwindcss/node>source-map-js",
+            ".>@tailwindcss/vite>vite>postcss>source-map-js",
+            ".>@vitejs/plugin-react>vite>postcss>source-map-js",
+            ".>autoprefixer>postcss>source-map-js"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1241209,
+      "title": "source-map-js allows event-loop denial of service through indexed source-map section offsets",
+      "module_name": "source-map-js",
+      "vulnerable_versions": ">=1.0.0 <1.2.2",
+      "patched_versions": ">=1.2.2",
+      "severity": "high",
+      "cwe": "CWE-1284",
+      "github_advisory_id": "GHSA-68fv-2mgg-jv7q",
+      "url": "https://github.com/advisories/GHSA-68fv-2mgg-jv7q"
+    },
+    "1241331": {
+      "findings": [
+        {
+          "version": "0.35.4",
+          "paths": [
+            ".>wrangler>miniflare>sharp"
+          ],
+          "dev": true,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1241331,
+      "title": "sharp : Vulnerability in librsvg dependency CVE-2026-96889",
+      "module_name": "sharp",
+      "vulnerable_versions": "<0.35.5",
+      "patched_versions": ">=0.35.5",
+      "severity": "high",
+      "cwe": "CWE-416, CWE-1395",
+      "github_advisory_id": "GHSA-wq5f-xc86-pv6w",
+      "url": "https://github.com/advisories/GHSA-wq5f-xc86-pv6w"
+    },
+    "1242626": {
+      "findings": [
+        {
+          "version": "8.3.1",
+          "paths": [
+            ".>vite",
+            ".>@tailwindcss/vite>vite",
+            ".>@vitejs/plugin-react>vite"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242626,
+      "title": "launch-editor: escapeCmdArgs() omits % escaping on Windows",
+      "module_name": "vite",
+      "vulnerable_versions": ">=8.3.0 <=8.3.2",
+      "patched_versions": ">=8.3.3",
+      "severity": "moderate",
+      "cwe": "CWE-78",
+      "github_advisory_id": "GHSA-698v-4r3x-3vcv",
+      "url": "https://github.com/advisories/GHSA-698v-4r3x-3vcv"
+    },
+    "1242655": {
+      "findings": [
+        {
+          "version": "8.3.1",
+          "paths": [
+            ".>vite",
+            ".>@tailwindcss/vite>vite",
+            ".>@vitejs/plugin-react>vite"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242655,
+      "title": "launch-editor: Editor CLI flag misinterpretation causing arbitrary command execution for some editors",
+      "module_name": "vite",
+      "vulnerable_versions": ">=8.3.0 <=8.3.2",
+      "patched_versions": ">=8.3.3",
+      "severity": "moderate",
+      "cwe": "CWE-88",
+      "github_advisory_id": "GHSA-r825-w8mm-5pxw",
+      "url": "https://github.com/advisories/GHSA-r825-w8mm-5pxw"
+    },
+    "1242662": {
+      "findings": [
+        {
+          "version": "8.3.1",
+          "paths": [
+            ".>vite",
+            ".>@tailwindcss/vite>vite",
+            ".>@vitejs/plugin-react>vite"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242662,
+      "title": "launch-editor: `fs.existsSync()` existence check can be bypassed on Windows",
+      "module_name": "vite",
+      "vulnerable_versions": ">=8.3.0 <=8.3.2",
+      "patched_versions": ">=8.3.3",
+      "severity": "high",
+      "cwe": "CWE-77",
+      "github_advisory_id": "GHSA-587h-7wmj-h5pm",
+      "url": "https://github.com/advisories/GHSA-587h-7wmj-h5pm"
+    },
+    "1242728": {
+      "findings": [
+        {
+          "version": "8.3.1",
+          "paths": [
+            ".>vite",
+            ".>@tailwindcss/vite>vite",
+            ".>@vitejs/plugin-react>vite"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242728,
+      "title": "Vite: Cross origin script execution through Vite custom middleware",
+      "module_name": "vite",
+      "vulnerable_versions": ">=8.3.0 <=8.3.2",
+      "patched_versions": ">=8.3.3",
+      "severity": "low",
+      "cwe": "CWE-80",
+      "github_advisory_id": "GHSA-9jrq-w75r-8gcw",
+      "url": "https://github.com/advisories/GHSA-9jrq-w75r-8gcw"
+    },
+    "1242734": {
+      "findings": [
+        {
+          "version": "8.3.1",
+          "paths": [
+            ".>vite",
+            ".>@tailwindcss/vite>vite",
+            ".>@vitejs/plugin-react>vite"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242734,
+      "title": "Vite: Files outside `server.fs.allow` could be served when project paths match system paths on non-Windows machine",
+      "module_name": "vite",
+      "vulnerable_versions": ">=8.3.0 <=8.3.2",
+      "patched_versions": ">=8.3.3",
+      "severity": "moderate",
+      "cwe": "CWE-22, CWE-284",
+      "github_advisory_id": "GHSA-rq7h-c2jc-7f22",
+      "url": "https://github.com/advisories/GHSA-rq7h-c2jc-7f22"
+    },
+    "1242737": {
+      "findings": [
+        {
+          "version": "8.3.1",
+          "paths": [
+            ".>vite",
+            ".>@tailwindcss/vite>vite",
+            ".>@vitejs/plugin-react>vite"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242737,
+      "title": "Vite: First 4 bytes of files outside of `server.fs` setting is exposed by `?vite-wasm-instance`",
+      "module_name": "vite",
+      "vulnerable_versions": ">=8.3.0 <=8.3.2",
+      "patched_versions": ">=8.3.3",
+      "severity": "moderate",
+      "cwe": "CWE-22, CWE-200, CWE-209",
+      "github_advisory_id": "GHSA-vfpm-58rq-9qcg",
+      "url": "https://github.com/advisories/GHSA-vfpm-58rq-9qcg"
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 1,
+      "moderate": 4,
+      "high": 3,
+      "critical": 0
+    },
+    "dependencies": 154,
+    "devDependencies": 186,
+    "optionalDependencies": 180,
+    "totalDependencies": 390
+  }
+}

@@ -1,3 +1,8 @@
+# Keep security overrides aligned with package.json for npm/Bun installs.
+overrides:
+  sharp: 0.35.5
+  source-map-js: 1.2.2
+
 allowBuilds:
   '@google/genai': true
   esbuild: true
